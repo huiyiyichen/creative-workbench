@@ -1,0 +1,74 @@
+from fastapi import APIRouter
+
+from app.api.v1.admin_content_events import router as admin_content_events_router
+from app.api.v1.admin_evidence import router as admin_evidence_router
+from app.api.v1.admin_prompts import router as admin_prompts_router
+from app.api.v1.admin_ranking_eval import router as admin_ranking_eval_router
+from app.api.v1.admin_scoring_dashboard import router as admin_scoring_dashboard_router
+from app.api.v1.analyses import router as analyses_router
+from app.api.v1.auth import router as auth_router
+from app.api.v1.categories import router as categories_router
+from app.api.v1.content_events import router as content_events_router
+from app.api.v1.contents import router as contents_router
+from app.api.v1.daily_reports import router as daily_reports_router
+from app.api.v1.favorites import router as favorites_router
+from app.api.v1.feedback import router as feedback_router
+from app.api.v1.llm_evaluations import router as llm_evaluations_router
+from app.api.v1.llm_models import router as llm_models_router
+from app.api.v1.metrics import router as metrics_router
+from app.api.v1.model_catalog import router as model_catalog_router
+from app.api.v1.monthly_digests import router as monthly_digests_router
+from app.api.v1.mother_topics import router as mother_topics_router
+from app.api.v1.notifications import router as notifications_router
+from app.api.v1.product_feedback import router as product_feedback_router
+from app.api.v1.read_records import router as read_records_router
+from app.api.v1.scheduler import router as scheduler_router
+from app.api.v1.scoring import router as scoring_router
+from app.api.v1.settings import router as settings_router
+from app.api.v1.skill import router as skill_router
+from app.api.v1.sources import router as sources_router
+from app.api.v1.sources_health import router as sources_health_router
+from app.api.v1.stats import router as stats_router
+from app.api.v1.stats_jobs import router as stats_jobs_router
+from app.api.v1.studio import router as studio_router
+from app.api.v1.topics import router as topics_router
+from app.api.v1.trending import router as trending_router
+from app.api.v1.trends import router as trends_router
+from app.api.v1.weekly_digests import router as weekly_digests_router
+
+router = APIRouter(prefix="/api/v1")
+router.include_router(auth_router)
+router.include_router(scoring_router)
+router.include_router(skill_router)
+router.include_router(sources_router)
+router.include_router(content_events_router)
+router.include_router(contents_router)
+router.include_router(topics_router)
+router.include_router(analyses_router)
+router.include_router(daily_reports_router)
+router.include_router(trends_router)
+router.include_router(settings_router)
+router.include_router(categories_router)
+router.include_router(stats_router)
+router.include_router(stats_jobs_router)
+router.include_router(studio_router)
+router.include_router(sources_health_router)
+router.include_router(metrics_router)
+router.include_router(feedback_router)
+router.include_router(product_feedback_router)
+router.include_router(weekly_digests_router)
+router.include_router(monthly_digests_router)
+router.include_router(trending_router)
+router.include_router(mother_topics_router)
+router.include_router(notifications_router)
+router.include_router(scheduler_router)
+router.include_router(llm_models_router)
+router.include_router(model_catalog_router)
+router.include_router(llm_evaluations_router)
+router.include_router(favorites_router)
+router.include_router(read_records_router)
+router.include_router(admin_prompts_router)
+router.include_router(admin_ranking_eval_router)
+router.include_router(admin_scoring_dashboard_router)
+router.include_router(admin_evidence_router)
+router.include_router(admin_content_events_router)

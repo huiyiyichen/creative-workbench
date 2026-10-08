@@ -1,0 +1,409 @@
+/**
+ * _analytics API objects extracted from lib/api.ts.
+ * Uses request from ./_core.
+ */
+
+import { request } from './_core';
+export type FeedbackType = 'like' | 'dislike' | 'skip' | 'not_relevant' | 'outdated' | 'great_pick';
+import type { IssueFeedbackItem, IssueFeedbackListResponse, IssueFeedbackSeverity, IssueFeedbackStatus, ProductUpdateEntry, ProductUpdateItem, ProductUpdateKind, ProductUpdateListResponse, ProductUpdateStatus } from '@/types/product-feedback';
+import type { JobStatsByJobKey, JobStatsResponse, RSSHubInstance, StatsCategoryItem, StatsDashboard, StatsOverview, StatsSourceItem, StatsTrendItem } from '@/types/stats';
+import type {
+  TrendEvidenceFilter,
+  TrendEvidenceResponse,
+  TrendKeywordItem,
+  TrendPoint,
+} from '@/types/trends';
+
+/** 单个 webhook 配置响应（URL 脱敏） */
+export interface WebhookItem {
+  name: string;
+  enabled: boolean;
+  webhook_url_configured: boolean;
+  webhook_url_preview: string;
+  event_types: string[];
+  note: string;
+}
+
+/** 通知推送 webhook 配置响应（webhooks 列表） */
+export interface NotificationWebhookConfig {
+  webhooks: WebhookItem[];
+}
+
+/** 单个 webhook 配置更新请求。webhook_url 为空时保留原值 */
+export interface WebhookItemUpdate {
+  name: string;
+  enabled: boolean;
+  webhook_url: string;
+  event_types: string[];
+  note: string;
+}
+
+/** 通知推送 webhook 配置更新请求（webhooks 列表，整体替换） */
+export interface NotificationWebhookConfigUpdate {
+  webhooks: WebhookItemUpdate[];
+}
+
+/** 通知推送事件类型选项 */
+export const NOTIFICATION_EVENT_TYPES: Array<{ value: string; label: string; desc: string }> = [
+  { value: 'source_failure', label: '信源失败告警', desc: '信源连续抓取失败时推送' },
+  { value: 'daily_report', label: '日报生成完成', desc: '每日午间/晚间/复盘日报生成后推送' },
+  { value: 'weekly_digest', label: '周报生成完成', desc: '每周一周报生成后推送' },
+  { value: 'today_picks', label: '今日精选推送', desc: '分析+聚类完成后推送今日 Top 精选内容' },
+  { value: 'test', label: '测试发送', desc: '点击「发送测试」按钮时推送' },
+];
+
+// ─── Settings API ───
+
+export const settingsApi = {
+  /** 获取 RSSHub 实例列表 */
+  getRSSHubInstances(): Promise<{ instances: RSSHubInstance[]; default_instances: string[] }> {
+    return request('/settings/rsshub/instances');
+  },
+
+  /** 更新 RSSHub 实例列表 */
+  updateRSSHubInstances(instances: RSSHubInstance[]): Promise<{ instances: RSSHubInstance[]; updated: boolean }> {
+    return request('/settings/rsshub/instances', {
+      method: 'PUT',
+      body: JSON.stringify({ instances }),
+    });
+  },
+
+  /** 获取功能模块开关（管理员） */
+  getFeatureFlags(): Promise<{ flags: Record<string, boolean>; defaults: Record<string, boolean> }> {
+    return request('/settings/feature-flags');
+  },
+
+  /** 更新功能模块开关（管理员，upsert 合并） */
+  updateFeatureFlags(flags: Record<string, boolean>): Promise<{ flags: Record<string, boolean> }> {
+    return request('/settings/feature-flags', {
+      method: 'PUT',
+      body: JSON.stringify({ flags }),
+    });
+  },
+
+  /** 获取通知推送 webhook 配置（webhook_url 脱敏） */
+  getNotificationWebhook(): Promise<NotificationWebhookConfig> {
+    return request('/settings/notification-webhook');
+  },
+
+  /** 更新通知推送 webhook 配置。webhook_url 为空时保留原值 */
+  updateNotificationWebhook(data: NotificationWebhookConfigUpdate): Promise<{ updated: boolean }> {
+    return request('/settings/notification-webhook', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  },
+
+  /** 发送测试消息到当前配置的 webhook，验证可达性 */
+  testNotificationWebhook(): Promise<{
+    sent: number;
+    failed: number;
+    details: Array<{ url_preview: string; ok: boolean; status: string }>;
+    error?: string;
+  }> {
+    return request('/settings/notification-webhook/test', { method: 'POST' });
+  },
+
+};
+
+// ─── Stats / Dashboard API ───
+
+export const statsApi = {
+  /** 内容总览 */
+  getOverview(days = 7): Promise<StatsOverview> {
+    return request(`/stats/overview?days=${days}`);
+  },
+
+  /** 信源分布 */
+  getSourceDistribution(days = 7): Promise<{ sources: StatsSourceItem[] }> {
+    return request(`/stats/source-distribution?days=${days}`);
+  },
+
+  /** 分类分布 */
+  getCategoryDistribution(days = 7): Promise<{ categories: StatsCategoryItem[] }> {
+    return request(`/stats/category-distribution?days=${days}`);
+  },
+
+  /** 时间趋势 */
+  getDailyTrend(days = 7): Promise<{ trend: StatsTrendItem[] }> {
+    return request(`/stats/daily-trend?days=${days}`);
+  },
+
+
+  /** Aggregated stats workspace payload, with legacy dashboard fields included */
+  getDashboard(days = 7): Promise<StatsDashboard> {
+    return request(`/stats/dashboard?days=${days}`);
+  },
+};
+
+// ─── Job execution stats (job_execution_logs 聚合) ───
+
+export const statsJobsApi = {
+  get(days = 7, jobKey?: string): Promise<JobStatsResponse> {
+    const params = new URLSearchParams();
+    params.set('days', String(days));
+    if (jobKey) params.set('job_key', jobKey);
+    return request(`/stats/jobs?${params.toString()}`);
+  },
+};
+
+// ─── Trends API ───
+
+export const trendsApi = {
+  /** Build current topic assignments and trend snapshots from analyzed content. */
+  refresh(days = 7): Promise<Record<string, unknown>> {
+    return request(`/trends/refresh?days=${days}`, { method: 'POST' });
+  },
+
+  /** Topic trend curves for the last N days */
+  topics(days = 7): Promise<{ days: number; trends: TrendPoint[] }> {
+    return request(`/trends/topics?days=${days}`);
+  },
+
+  /** Keyword frequency for trend workspace visualizations */
+  keywords(params?: { days?: number; limit?: number }): Promise<{ days: number; keywords: TrendKeywordItem[] }> {
+    const days = params?.days ?? 7;
+    const limit = params?.limit ?? 50;
+    return request(`/trends/keywords?days=${days}&limit=${limit}`);
+  },
+
+  /** Frozen member records for one topic snapshot day. */
+  topicEvidence(
+    topicId: number,
+    date: string,
+    params?: { filter?: TrendEvidenceFilter; page?: number; page_size?: number },
+  ): Promise<TrendEvidenceResponse> {
+    const query = new URLSearchParams({
+      date,
+      filter: params?.filter ?? 'all',
+      page: String(params?.page ?? 1),
+      page_size: String(params?.page_size ?? 20),
+    });
+    return request(`/trends/topics/${topicId}/evidence?${query.toString()}`);
+  },
+
+  /** Member records that contributed to a keyword aggregate in the selected window. */
+  keywordEvidence(
+    keyword: string,
+    params?: { days?: number; filter?: TrendEvidenceFilter; page?: number; page_size?: number },
+  ): Promise<TrendEvidenceResponse> {
+    const query = new URLSearchParams({
+      keyword,
+      days: String(params?.days ?? 7),
+      filter: params?.filter ?? 'all',
+      page: String(params?.page ?? 1),
+      page_size: String(params?.page_size ?? 20),
+    });
+    return request(`/trends/keywords/evidence?${query.toString()}`);
+  },
+};
+
+// ─── Feedback API ───
+
+export const feedbackApi = {
+  /** 提交反馈 */
+  submit(contentId: number, feedbackType: FeedbackType, comment?: string): Promise<Record<string, unknown>> {
+    return request('/feedback', {
+      method: 'POST',
+      body: JSON.stringify({ content_id: contentId, feedback_type: feedbackType, comment }),
+    });
+  },
+
+  /** 获取内容的反馈列表 */
+  list(contentId: number): Promise<Record<string, unknown>[]> {
+    return request(`/feedback/content/${contentId}`);
+  },
+
+  /** 获取反馈统计 */
+  stats(): Promise<{ total: number; by_type: Record<string, number>; avg_score_delta: number }> {
+    return request('/feedback/stats');
+  },
+};
+
+// ─── Product Feedback / Updates API ───
+
+export const productFeedbackApi = {
+  createIssue(data: {
+    title: string;
+    description: string;
+    area?: string;
+    severity?: IssueFeedbackSeverity;
+  }): Promise<IssueFeedbackItem> {
+    return request('/product-feedback/issues', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  listMine(params?: { status?: IssueFeedbackStatus | ''; limit?: number; offset?: number }): Promise<IssueFeedbackListResponse> {
+    const query = params
+      ? '?' + new URLSearchParams(
+          Object.entries(params)
+            .filter(([, v]) => v !== undefined && v !== '')
+            .map(([k, v]) => [k, String(v)])
+        ).toString()
+      : '';
+    return request(`/product-feedback/issues/mine${query}`);
+  },
+
+  listIssues(params?: {
+    status?: IssueFeedbackStatus | '';
+    severity?: IssueFeedbackSeverity | '';
+    area?: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<IssueFeedbackListResponse> {
+    const query = params
+      ? '?' + new URLSearchParams(
+          Object.entries(params)
+            .filter(([, v]) => v !== undefined && v !== '')
+            .map(([k, v]) => [k, String(v)])
+        ).toString()
+      : '';
+    return request(`/product-feedback/issues${query}`);
+  },
+
+  updateIssue(id: number, data: {
+    status?: IssueFeedbackStatus;
+    severity?: IssueFeedbackSeverity;
+    area?: string;
+    resolution_note?: string | null;
+  }): Promise<IssueFeedbackItem> {
+    return request(`/product-feedback/issues/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  listUpdates(params?: {
+    kind?: ProductUpdateKind | '';
+    status?: ProductUpdateStatus | '';
+    limit?: number;
+    offset?: number;
+  }): Promise<ProductUpdateListResponse> {
+    const query = params
+      ? '?' + new URLSearchParams(
+          Object.entries(params)
+            .filter(([, v]) => v !== undefined && v !== '')
+            .map(([k, v]) => [k, String(v)])
+        ).toString()
+      : '';
+    return request(`/product-feedback/updates${query}`);
+  },
+
+  createUpdate(data: {
+    version: string;
+    status: ProductUpdateStatus;
+    target_date?: string | null;
+    shipped_at?: string | null;
+    items: ProductUpdateEntry[];
+  }): Promise<ProductUpdateItem> {
+    return request('/product-feedback/updates', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  updateProductUpdate(id: number, data: Partial<{
+    version: string;
+    status: ProductUpdateStatus;
+    target_date: string | null;
+    shipped_at: string | null;
+    items: ProductUpdateEntry[];
+  }>): Promise<ProductUpdateItem> {
+    return request(`/product-feedback/updates/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  },
+
+  deleteProductUpdate(id: number): Promise<void> {
+    return request(`/product-feedback/updates/${id}`, { method: 'DELETE' });
+  },
+};
+
+// ─── Admin Prompts API (Sprint 3: read-only prompt catalog) ───
+
+export interface PromptRegistryItem {
+  id: number;
+  name: string;
+  scene: string;
+  description: string;
+  source_file: string;
+  content_preview: string;
+  version_hash: string;
+  updated_at: string | null;
+  stats_7d: {
+    call_count_7d: number;
+    total_cost_7d: number;
+    avg_duration_ms_7d: number;
+  };
+}
+
+export interface PromptRegistryListResponse {
+  items: PromptRegistryItem[];
+  total: number;
+}
+
+export interface PromptDetailResponse {
+  id: number;
+  name: string;
+  scene: string;
+  description: string;
+  source_file: string;
+  full_content: string;
+  version_hash: string;
+  updated_at: string | null;
+  stats_30d: {
+    call_count: number;
+    total_cost: number;
+    total_input_tokens: number;
+    total_output_tokens: number;
+    avg_duration_ms: number;
+  };
+  daily_trend: Array<{ date: string; calls: number; cost: number }>;
+}
+
+export const adminPromptsApi = {
+  list(scene?: string): Promise<PromptRegistryListResponse> {
+    const query = scene ? `?scene=${encodeURIComponent(scene)}` : '';
+    return request(`/admin/prompts${query}`);
+  },
+
+  detail(id: number): Promise<PromptDetailResponse> {
+    return request(`/admin/prompts/${id}`);
+  },
+};
+
+// ─── Admin Scoring Dashboard API (Sprint 3: feedback analytics) ───
+
+export interface ScoringDashboardSummary {
+  analyzed_count: number;
+  favorites_count: number;
+  ignores_count: number;
+  total_feedback: number;
+  favorite_rate: number;
+  ignore_rate: number;
+  feedback_rate: number;
+  users_with_vectors: number;
+}
+
+export interface ScoringDashboardResponse {
+  period_days: number;
+  summary: ScoringDashboardSummary;
+  feedback_distribution: Record<string, number>;
+  top_tags: Array<{
+    tag: string;
+    avg_weight: number;
+    total_weight: number;
+    user_count: number;
+  }>;
+  daily_feedback: Array<{ date: string; count: number }>;
+  daily_favorites: Array<{ date: string; count: number }>;
+}
+
+export const scoringDashboardApi = {
+  get(days = 7): Promise<ScoringDashboardResponse> {
+    return request(`/admin/scoring-dashboard?days=${days}`);
+  },
+};

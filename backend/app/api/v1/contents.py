@@ -1,0 +1,1008 @@
+"""Content API endpoints — delegates all DB work to repositories."""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import logging
+from datetime import UTC, datetime
+from time import perf_counter
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import Response
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.api.v1._db_write import write_with_503_low_latency
+from app.api.v1.auth import (
+    get_current_admin_user,
+    get_current_user,
+    get_optional_current_user,
+    is_admin,
+    require_admin_view,
+)
+from app.core.config import settings
+from app.core.database import async_session, get_db
+from app.models.favorite import FavoriteTargetType
+from app.models.user import User
+from app.repositories.analysis_repo import AnalysisRepository
+from app.repositories.content_repo import ContentRepo
+from app.repositories.favorite_repo import FavoriteRepo
+from app.schemas.analysis import AiAnalysisResponse
+from app.schemas.content import ArticleReaderResponse, ContentListResponse, ContentResponse
+from app.services.content_list_cache import (
+    ContentListCacheParams,
+    get_cached_content_list,
+    set_cached_content_list,
+)
+from app.services.content_read_cache import invalidate_content_read_caches
+from app.services.content_serialization import content_with_latest_analysis, latest_analysis_from_item
+from app.services.favorite_cache import invalidate_favorite_cache
+from app.services.json_cache import get_cached_json, invalidate_json_cache, set_cached_json
+from app.services.scoring_flow import (
+    DEFAULT_SCORING_FLOW_HOURS,
+    DEFAULT_SCORING_FLOW_LIMIT,
+    build_scoring_flow_payload,
+    get_cached_scoring_flow_json,
+)
+from app.services.today_picks_cache import (
+    TodayPicksCacheParams,
+    default_today_picks_cache_params,
+    get_cached_today_picks,
+    set_cached_today_picks,
+)
+
+router = APIRouter(prefix="/contents", tags=["contents"])
+
+# Large batch size for scoring — enough for diversity penalty to work well
+_SCORING_BATCH_SIZE = 500
+_TREND_SOURCE_TYPES = {"DouyinHot"}
+
+logger = logging.getLogger(__name__)
+
+
+def _empty_list_response(page: int, page_size: int) -> dict:
+    return {"items": [], "total": 0, "page": page, "page_size": page_size}
+
+
+async def _score_content_page(
+    db: AsyncSession,
+    *,
+    filters: dict,
+    ignored_ids: list[int],
+    time_cutoff: datetime | None,
+    exclude_source_types: set[str] | None,
+    page: int,
+    page_size: int,
+    score_fn,
+    sort_order: str = "desc",
+    visible_user_id: int | None = None,
+    public_only: bool = False,
+) -> dict:
+    from app.services.scoring_inputs import build_scoring_inputs
+
+    scored_items, total = await ContentRepo(db).list_for_scoring(
+        filters=filters,
+        exclude_ids=ignored_ids,
+        exclude_source_types=exclude_source_types,
+        time_cutoff=time_cutoff,
+        limit=_SCORING_BATCH_SIZE,
+        visible_user_id=visible_user_id,
+        public_only=public_only,
+    )
+    if not scored_items:
+        return _empty_list_response(page, page_size)
+
+    scoring_inputs, item_map, _ = await build_scoring_inputs(db, scored_items)
+    if not scoring_inputs:
+        return _empty_list_response(page, page_size)
+
+    scored = sorted(
+        score_fn(scoring_inputs),
+        key=lambda pair: pair[0].final_score,
+        reverse=(sort_order == "desc"),
+    )
+    page_offset = (page - 1) * page_size
+    page_items = scored[page_offset : page_offset + page_size]
+    result_items = [
+        _with_scoring_breakdown(item_map, breakdown, scoring_input) for breakdown, scoring_input in page_items
+    ]
+    result_items = [item for item in result_items if item]
+
+    return {
+        "items": result_items,
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
+
+
+def _with_scoring_breakdown(item_map: dict, breakdown, scoring_input) -> dict | None:
+    item = item_map.get(scoring_input.content_id)
+    if not item:
+        return None
+
+    data = content_with_latest_analysis(item)
+    if data.get("analysis"):
+        data["analysis"]["adjusted_curation_score"] = breakdown.final_score
+        data["analysis"]["score_breakdown"] = breakdown.to_dict()
+    return data
+
+
+@router.get("")
+async def list_contents(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=200),
+    source_type: str | None = None,
+    platform: str | None = None,
+    status: str | None = None,
+    category: str | None = None,
+    keyword: str | None = None,
+    source_id: int | None = None,
+    q: str | None = Query(None, description="全文搜索（跨 title + summary + raw_content 的 OR 匹配）"),
+    recommend_level: str | None = Query(
+        None,
+        pattern=r"^(强烈建议写|值得观察|适合深挖|适合蹭热点|不建议追|信号不足)$",
+        description="按推荐等级筛选（最新一条分析的持久化等级）",
+    ),
+    tag: str | None = Query(None, description="按标签筛选（规范化键，大小写不敏感；命中 content 或任一分析的标签）"),
+    include_trend_sources: bool = Query(False, description="Include榜单/趋势源 such as DouyinHot"),
+    hours: int | None = Query(None, description="Time range in hours, e.g. 24, 48, 168"),
+    sort_by: str = Query(
+        "created_at", pattern=r"^(created_at|published_at|crawled_at|curation_score)$"
+    ),
+    sort_order: str = Query("desc", pattern=r"^(asc|desc)$"),
+    admin_view: bool = Query(False, description="Return management fields; admin only"),
+    current_user: User | None = Depends(get_optional_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    from datetime import timedelta
+
+    from app.repositories.ignored_repo import IgnoredRepo
+
+    require_admin_view(admin_view, current_user)
+    include_raw_content = is_admin(current_user)
+
+    cache_params = ContentListCacheParams(
+        page=page,
+        page_size=page_size,
+        source_type=source_type,
+        platform=platform,
+        status=status,
+        category=category,
+        keyword=keyword,
+        q=q,
+        source_id=source_id,
+        include_trend_sources=include_trend_sources,
+        hours=hours,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        recommend_level=recommend_level,
+        tag=tag,
+        user_id=current_user.id if current_user is not None else None,
+    )
+    if cache_params.cacheable and not include_raw_content:
+        cached = get_cached_content_list(cache_params, ttl_seconds=settings.READ_CACHE_TTL_SECONDS)
+        if cached:
+            content, age_seconds = cached
+            return Response(
+                content=content,
+                media_type="application/json",
+                headers={"X-Content-List-Cache": f"HIT; age={age_seconds:.3f}s"},
+            )
+
+    filters = {
+        k: v
+        for k, v in {
+            "source_type": source_type,
+            "platform": platform,
+            "status": status,
+            "category": category,
+            "source_id": source_id,
+            "title": f"%{keyword}%" if keyword else None,
+        }.items()
+        if v is not None
+    }
+
+    time_cutoff = None
+    if hours:
+        time_cutoff = datetime.now(UTC) - timedelta(hours=hours)
+
+    ignored_ids = await IgnoredRepo(db).list_ignored_ids(user_id=current_user.id if current_user is not None else None)
+    exclude_source_types = None if include_trend_sources else _TREND_SOURCE_TYPES
+
+    # 评分排序在 Python 侧分页，等级/标签筛选语义不同，明确拒绝而不是静默忽略。
+    if (recommend_level or tag) and sort_by == "curation_score":
+        raise HTTPException(400, "recommend_level / tag 筛选暂不支持 curation_score 排序")
+
+    # ── Curation-score ranking path ────────────────────────────────────
+    if sort_by == "curation_score":
+        from app.services.scoring_engine import score_items
+
+        return await _score_content_page(
+            db,
+            filters=filters,
+            ignored_ids=ignored_ids,
+            time_cutoff=time_cutoff,
+            exclude_source_types=exclude_source_types,
+            page=page,
+            page_size=page_size,
+            score_fn=score_items,
+            sort_order=sort_order,
+            visible_user_id=current_user.id if current_user is not None else None,
+            public_only=current_user is None,
+        )
+
+    # ── Standard SQL sort path ─────────────────────────────────────────
+    repo = ContentRepo(db)
+    items, total = await repo.list_paginated_with_analyses(
+        page=page,
+        page_size=page_size,
+        filters=filters or None,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        exclude_ids=ignored_ids,
+        exclude_source_types=exclude_source_types,
+        time_cutoff=time_cutoff,
+        visible_user_id=current_user.id if current_user is not None else None,
+        public_only=current_user is None,
+        search_query=q,
+        recommend_level=recommend_level,
+        tag=tag,
+    )
+    payload = {
+        "items": [content_with_latest_analysis(i, include_raw_content=include_raw_content) for i in items],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
+    if cache_params.cacheable and not include_raw_content:
+        content = set_cached_content_list(cache_params, payload)
+        return Response(
+            content=content,
+            media_type="application/json",
+            headers={"X-Content-List-Cache": "MISS"},
+        )
+    return payload
+
+
+@router.get("/today-picks")
+async def today_picks(
+    category: str | None = Query(None, description="Filter by category"),
+    content_type: str | None = Query(None, description="Filter by content type (论文/技术/资讯/...)"),
+    time_range: str | None = Query(None, description="Time range: 24h, 48h, 7d"),
+    limit: int | None = Query(None, ge=1, le=200, description="Limit returned items while preserving total"),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """Top picks visible to the current user (public pool plus own private sources)."""
+    from app.services.today_picks import build_today_picks
+
+    params = TodayPicksCacheParams(
+        category=category,
+        content_type=content_type,
+        hours={"24h": 24, "7d": 168}.get(time_range or "", 48),
+        limit=limit,
+        user_id=current_user.id if current_user is not None else None,
+    )
+    cached = get_cached_today_picks(params, ttl_seconds=settings.READ_CACHE_TTL_SECONDS)
+    if cached:
+        content, age_seconds = cached
+        return Response(
+            content=content,
+            media_type="application/json",
+            headers={
+                "X-Analytics-Backend": "duckdb",
+                "X-Today-Picks-Cache": f"HIT; age={age_seconds:.3f}s",
+            },
+        )
+
+    try:
+        async with async_session() as db:
+            build_kwargs = {
+                "category": category,
+                "content_type": content_type,
+                "hours": params.hours,
+                "limit": params.limit,
+            }
+            if current_user is not None:
+                build_kwargs["owner_user_id"] = current_user.id
+            payload = await build_today_picks(db, **build_kwargs)
+            content = set_cached_today_picks(params, payload)
+            return Response(
+                content=content,
+                media_type="application/json",
+                headers={
+                    "X-Analytics-Backend": "duckdb",
+                    "X-Today-Picks-Cache": "MISS",
+                },
+            )
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="DuckDB analytical layer unavailable") from exc
+
+
+@router.get("/today-count")
+async def today_count(current_user: User | None = Depends(get_optional_current_user)):
+    """返回滚动 24 小时的内容总数 + 当日精选数。
+
+    用于侧边栏 badge 计数。口径与首页「今日选题」和「当日精选」页面一致:
+    - today_content: 滚动 24h 内 analyzed 且非重复的内容数 (同首页默认 24h)
+    - today_picks: 当日精选数 (同 /contents/today-picks 的 total)
+    """
+    from datetime import timedelta
+
+    from app.services.json_cache import get_cached_json, set_cached_json
+
+    cache_key = f"today_count:v3:user={current_user.id if current_user is not None else 'public'}"
+    cached = get_cached_json(cache_key, ttl_seconds=settings.READ_CACHE_TTL_SECONDS)
+    if cached:
+        return Response(
+            content=cached[0],
+            media_type="application/json",
+            headers={"X-Today-Count-Cache": f"HIT; age={cached[1]:.3f}s"},
+        )
+
+    result = {"today_content": 0, "today_picks": 0}
+    cutoff = datetime.now(UTC) - timedelta(hours=24)
+
+    # 滚动 24h 内容数:与 /contents?hours=24 同口径
+    try:
+        async with async_session() as db:
+            repo = ContentRepo(db)
+            result["today_content"] = await repo.count_today_analyzed_visible(
+                cutoff=cutoff,
+                visible_user_id=current_user.id if current_user is not None else None,
+                public_only=current_user is None,
+            )
+    except Exception:
+        logger.warning("today_count content query failed", exc_info=True)
+
+    # 当日精选数: 公共池优先复用首页精选缓存，避免侧栏徽章和当日精选页
+    # 同时各自完整重算一次。未命中时只物化一条卡片，评分仍覆盖全量候选，
+    # 因而 total 与 /today-picks 保持一致。
+    cached_pick_payload: dict | None = None
+    if current_user is None:
+        cached_picks = get_cached_today_picks(
+            default_today_picks_cache_params(),
+            ttl_seconds=settings.READ_CACHE_TTL_SECONDS,
+        )
+        if cached_picks:
+            try:
+                parsed = json.loads(cached_picks[0])
+                if isinstance(parsed, dict):
+                    cached_pick_payload = parsed
+            except (TypeError, ValueError):
+                logger.warning("today_count cached today-picks payload could not be decoded")
+
+    if cached_pick_payload is not None:
+        result["today_picks"] = cached_pick_payload.get("total", 0)
+    else:
+        try:
+            from app.services.today_picks import build_today_picks
+
+            async with async_session() as db:
+                build_kwargs = {"category": None, "hours": 24, "limit": 1}
+                if current_user is not None:
+                    build_kwargs["owner_user_id"] = current_user.id
+                payload = await build_today_picks(db, **build_kwargs)
+                result["today_picks"] = payload.get("total", 0)
+        except Exception:
+            logger.warning("today_count picks query failed", exc_info=True)
+
+    # set_cached_json 自行序列化；传入已 dumps 的字符串会让 HIT 路径
+    # 返回双编码的 JSON 字符串（而非对象），前端无法解析徽章数据。
+    content = set_cached_json(cache_key, result)
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"X-Today-Count-Cache": "MISS"},
+    )
+
+
+@router.get("/tag-facets")
+async def content_tag_facets(
+    hours: int | None = Query(None, description="Time range in hours, e.g. 24, 48, 168"),
+    source_type: str | None = None,
+    category: str | None = None,
+    q: str | None = Query(None, description="全文搜索（与列表口径一致）"),
+    limit: int = Query(30, ge=1, le=100),
+    current_user: User | None = Depends(get_optional_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """标签统计（与内容列表同口径的时间窗/来源/分类/搜索范围）。
+
+    供首页标签筛选 chips：统计覆盖口径内的全部内容（不再只统计已加载
+    的前 40 条），计数与 ?tag= 筛选的 total 一致。命中 content.tags 或
+    任一分析 tags 都计入（与服务端标签筛选语义相同）。
+    """
+    from collections import Counter
+    from datetime import timedelta
+
+    from app.repositories.ignored_repo import IgnoredRepo
+    from app.services.json_cache import get_cached_json, set_cached_json
+    from app.services.tag_normalization import normalize_tag_list
+
+    scope_q = (q or "").strip()
+    cache_key = (
+        f"contents:tag-facets:v1:user={current_user.id if current_user is not None else 'public'}"
+        f":hours={hours}:st={source_type}:cat={category}:q={scope_q}:limit={limit}"
+    )
+    cached = get_cached_json(cache_key, ttl_seconds=60)
+    if cached:
+        return Response(
+            content=cached[0],
+            media_type="application/json",
+            headers={"X-Tag-Facets-Cache": f"HIT; age={cached[1]:.3f}s"},
+        )
+
+    filters = {
+        k: v
+        for k, v in {
+            "source_type": source_type,
+            "category": category,
+        }.items()
+        if v is not None
+    }
+    time_cutoff = None
+    if hours:
+        time_cutoff = datetime.now(UTC) - timedelta(hours=hours)
+
+    ignored_ids = await IgnoredRepo(db).list_ignored_ids(user_id=current_user.id if current_user is not None else None)
+
+    content_rows, analysis_rows, total = await ContentRepo(db).list_tag_sources_for_facets(
+        filters=filters or None,
+        exclude_ids=ignored_ids,
+        exclude_source_types=_TREND_SOURCE_TYPES,
+        time_cutoff=time_cutoff,
+        visible_user_id=current_user.id if current_user is not None else None,
+        public_only=current_user is None,
+        search_query=scope_q or None,
+    )
+
+    # 按 (content, tag) 去重：content 与分析命中同一标签时只计一次
+    per_pair: set[tuple[int, str]] = set()
+    for content_id, raw_tags in content_rows:
+        if raw_tags:
+            for key in normalize_tag_list(raw_tags):
+                per_pair.add((content_id, key))
+    for content_id, raw_tags in analysis_rows:
+        if raw_tags:
+            for key in normalize_tag_list(raw_tags):
+                per_pair.add((content_id, key))
+    counter: Counter[str] = Counter()
+    for _content_id, key in per_pair:
+        counter[key] += 1
+
+    top = sorted(counter.items(), key=lambda kv: (-kv[1], kv[0]))[:limit]
+    payload = {
+        "tags": [{"tag": key, "count": count} for key, count in top],
+        "total_contents": total,
+        "truncated": total > len(content_rows),
+    }
+    content = set_cached_json(cache_key, payload)
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"X-Tag-Facets-Cache": "MISS"},
+    )
+
+
+@router.get("/scoring-flow")
+async def scoring_flow(
+    hours: int | None = Query(None, ge=1, le=720),
+    limit: int | None = Query(None, ge=20, le=500),
+    current_user: User = Depends(get_current_user),
+):
+    """Return a read-only explanation payload for the content scoring funnel."""
+    hours = hours or DEFAULT_SCORING_FLOW_HOURS
+    limit = limit or DEFAULT_SCORING_FLOW_LIMIT
+
+    cached = get_cached_scoring_flow_json(hours=hours, limit=limit, visible_user_id=current_user.id)
+    if cached:
+        content, age_seconds = cached
+        return Response(
+            content=content,
+            media_type="application/json",
+            headers={"X-Scoring-Flow-Cache": f"HIT; age={age_seconds:.3f}s"},
+        )
+
+    try:
+        async with async_session() as db:
+            payload = await build_scoring_flow_payload(
+                db,
+                hours=hours,
+                limit=limit,
+                visible_user_id=current_user.id,
+            )
+            return Response(
+                content=json.dumps(payload, ensure_ascii=False, separators=(",", ":"), default=str),
+                media_type="application/json",
+                headers={"X-Scoring-Flow-Cache": "MISS"},
+            )
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Scoring flow unavailable") from exc
+
+
+@router.get("/favorites/list", response_model=ContentListResponse)
+async def list_favorites(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(20, ge=1, le=200),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    cache_key = f"contents:favorites:list:{current_user.id}:{page}:{page_size}"
+    cached = get_cached_json(cache_key, ttl_seconds=settings.READ_CACHE_TTL_SECONDS)
+    if cached:
+        content, age_seconds = cached
+        return Response(
+            content=content,
+            media_type="application/json",
+            headers={"X-Content-Favorites-Cache": f"HIT; age={age_seconds:.3f}s"},
+        )
+
+    favorites, total = await FavoriteRepo(db, current_user.id).list_paginated(
+        page=page,
+        page_size=page_size,
+        target_type=FavoriteTargetType.CONTENT,
+    )
+    content_ids = [item.target_id for item in favorites if item.target_id is not None]
+    if content_ids:
+        items = await ContentRepo(db).list_by_ids_ordered(content_ids)
+    else:
+        items = []
+    payload = {
+        "items": [content_with_latest_analysis(i) for i in items],
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+    }
+    content = set_cached_json(cache_key, payload)
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={"X-Content-Favorites-Cache": "MISS"},
+    )
+
+
+@router.get("/{content_id}/enrich")
+async def get_enrichment(
+    content_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Get or trigger Round-2 enrichment for a content item."""
+    from app.services.enricher import enrich_content
+
+    repo = AnalysisRepository(db)
+    analysis = await repo.get_by_content_id(content_id)
+    if not analysis:
+        raise HTTPException(404, "No analysis found for this content")
+    if analysis.enrichment_status == "completed" and analysis.enrichment:
+        return {"content_id": content_id, "status": "completed", "enrichment": analysis.enrichment}
+    if analysis.enrichment_status == "processing":
+        return {"content_id": content_id, "status": "processing", "enrichment": None}
+
+    claimed_analysis = await repo.claim_enrichment_for_content(content_id)
+    await db.commit()
+    if not claimed_analysis:
+        return {"content_id": content_id, "status": "processing", "enrichment": None}
+
+    try:
+        data = await enrich_content(content_id, db)
+        claimed_analysis.enrichment, claimed_analysis.enrichment_status = data, "completed"
+        await db.flush()
+        invalidate_content_read_caches()
+        return {"content_id": content_id, "status": "completed", "enrichment": data}
+    except Exception as e:
+        claimed_analysis.enrichment_status = "error"
+        await db.commit()
+        invalidate_content_read_caches()
+        logger.error("Enrichment failed: content_id=%d, exc=%s", content_id, e)
+        raise HTTPException(500, f"Enrichment failed: {e}") from e
+
+
+@router.post("/enrich-batch")
+async def enrich_top_items(
+    min_score: float = Query(70.0, ge=0, le=100),
+    limit: int = Query(10, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_admin_user),
+):
+    """Batch-enrich top curated items (scheduler-friendly)."""
+    from app.services.enricher import enrich_batch
+
+    ids = await AnalysisRepository(db).claim_pending_enrichment_ids(min_score, limit)
+    await db.commit()
+    if not ids:
+        return {"message": "No items need enrichment", "processed": []}
+    return {"processed": await enrich_batch(ids, db)}
+
+
+@router.post("/{content_id}/reader", response_model=ArticleReaderResponse)
+async def read_content_in_app(
+    content_id: int,
+    refresh: bool = Query(False, description="Force a new reader snapshot when the source permits it"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """Return a safe reader-mode snapshot for a visible content item.
+
+    The URL comes only from an existing content record; the reader does not
+    accept arbitrary URLs.  It serves extracted text (never third-party HTML),
+    applies outbound URL/redirect/size limits, and falls back to the source
+    site when a page is protected or not readerable.
+    """
+    from app.services.article_reader import (
+        ArticleReaderError,
+        as_utc,
+        blocks_from_text,
+        read_or_create_snapshot,
+        record_reader_event,
+    )
+
+    content = await ContentRepo(db).get_detail(
+        content_id,
+        visible_user_id=current_user.id if current_user is not None else None,
+        public_only=current_user is None,
+    )
+    if not content:
+        raise HTTPException(404, "Content not found")
+    started_at = perf_counter()
+    try:
+        try:
+            async with asyncio.timeout(settings.ARTICLE_READER_TOTAL_TIMEOUT_SECONDS):
+                snapshot, cache_status = await read_or_create_snapshot(db, content, refresh=refresh)
+        except TimeoutError as exc:
+            raise ArticleReaderError(
+                "reader_timeout",
+                "原文读取超时，请打开来源网站查看。",
+                504,
+            ) from exc
+    except ArticleReaderError as exc:
+        # Errors are committed before raising because the normal request
+        # dependency rolls the transaction back for HTTP exceptions.
+        try:
+            await record_reader_event(
+                db,
+                content_id=content.id,
+                outcome="failed",
+                error_code=exc.code,
+                duration_ms=round((perf_counter() - started_at) * 1000),
+            )
+            await db.commit()
+        except Exception:
+            await db.rollback()
+            logger.warning("Unable to persist reader failure event for content %s", content.id, exc_info=True)
+        raise HTTPException(status_code=exc.status_code, detail={"code": exc.code, "message": exc.message}) from exc
+    await record_reader_event(
+        db,
+        content_id=content.id,
+        outcome="cache_hit" if cache_status == "hit" else "ready",
+        extraction_method=snapshot.extraction_method,
+        duration_ms=round((perf_counter() - started_at) * 1000),
+    )
+    return ArticleReaderResponse(
+        content_id=content.id,
+        canonical_url=snapshot.canonical_url,
+        title=snapshot.title or content.title,
+        byline=snapshot.byline,
+        published_at=snapshot.published_at,
+        excerpt=snapshot.excerpt,
+        text_content=snapshot.text_content,
+        content_blocks=snapshot.content_blocks or blocks_from_text(snapshot.text_content),
+        text_content_zh=snapshot.text_content_zh,
+        content_blocks_zh=snapshot.content_blocks_zh,
+        reading_minutes=snapshot.reading_minutes,
+        extraction_method=snapshot.extraction_method,
+        fetched_at=as_utc(snapshot.fetched_at),
+        expires_at=as_utc(snapshot.expires_at),
+        cache_status=cache_status,
+    )
+
+
+@router.post("/{content_id}/reader/translate", response_model=ArticleReaderResponse)
+async def translate_reader_content(
+    content_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """翻译站内阅读正文为中文。已有缓存直接返回，否则调 LLM 翻译并落库。"""
+    from app.services.article_reader import as_utc, blocks_from_text, translate_snapshot
+
+    content = await ContentRepo(db).get_detail(
+        content_id,
+        visible_user_id=current_user.id if current_user is not None else None,
+        public_only=current_user is None,
+    )
+    if not content:
+        raise HTTPException(404, "Content not found")
+
+    try:
+        snapshot = await translate_snapshot(db, content)
+    except Exception as exc:
+        logger.error("Translation failed: content_id=%d, exc=%s", content.id, exc)
+        raise HTTPException(status_code=502, detail="翻译失败，请稍后重试") from exc
+
+    return ArticleReaderResponse(
+        content_id=content.id,
+        canonical_url=snapshot.canonical_url,
+        title=snapshot.title or content.title,
+        byline=snapshot.byline,
+        published_at=snapshot.published_at,
+        excerpt=snapshot.excerpt,
+        text_content=snapshot.text_content,
+        content_blocks=snapshot.content_blocks or blocks_from_text(snapshot.text_content),
+        text_content_zh=snapshot.text_content_zh,
+        content_blocks_zh=snapshot.content_blocks_zh,
+        reading_minutes=snapshot.reading_minutes,
+        extraction_method=snapshot.extraction_method,
+        fetched_at=as_utc(snapshot.fetched_at),
+        expires_at=as_utc(snapshot.expires_at),
+        cache_status="translated",
+    )
+
+
+@router.get("/evidence-batch")
+async def get_evidence_batch(
+    ids: str = Query(..., description="Comma-separated content IDs"),
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """Batch get evidence marks for multiple content items (avoids N+1 in today-picks)."""
+    from app.repositories.evidence_repo import EvidenceRepository
+
+    try:
+        content_ids = [int(x.strip()) for x in ids.split(",") if x.strip()]
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid ids format") from None
+
+    if not content_ids or len(content_ids) > 200:
+        raise HTTPException(status_code=400, detail="ids must be 1-200 items")
+
+    owner_user_id = current_user.id if current_user else None
+    repo = EvidenceRepository(db)
+    marks = await repo.batch_get_marks(content_ids, owner_user_id)
+
+    return {
+        "marks": {
+            str(cid): {
+                "cross_source_level": m.cross_source_level,
+                "platform_count": m.platform_count,
+                "platforms": m.platforms or [],
+                "evidence_count": m.evidence_count,
+                "independent_publisher_count": m.independent_publisher_count,
+                "has_primary_source": bool(m.has_primary_source),
+                "has_official_source": bool(m.has_official_source),
+            }
+            for cid, m in marks.items()
+        }
+    }
+
+
+@router.get("/{content_id}")
+async def get_content(
+    content_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    content = await ContentRepo(db).get_detail(
+        content_id,
+        visible_user_id=current_user.id if current_user is not None else None,
+        public_only=current_user is None,
+    )
+    if not content:
+        raise HTTPException(404, "Content not found")
+    d = ContentResponse.model_validate(content).model_dump()
+    if not is_admin(current_user):
+        d["raw_content"] = None
+    a = latest_analysis_from_item(content)
+    if a:
+        a_dict = AiAnalysisResponse.model_validate(a).model_dump()
+        # Include curation detail fields
+        a_dict["info_density"] = a.info_density
+        a_dict["actionability"] = a.actionability
+        a_dict["source_weight"] = a.source_weight
+        a_dict["curation_score"] = a.curation_score
+        a_dict["recommendation"] = a.recommendation
+        # Include enrichment if available
+        if a.enrichment_status == "completed" and a.enrichment:
+            a_dict["enrichment"] = a.enrichment
+            a_dict["enrichment_status"] = a.enrichment_status
+        d["analysis"] = a_dict
+    if content.metrics:
+        from app.schemas.content import ContentMetricsResponse
+
+        d["metrics"] = [ContentMetricsResponse.model_validate(m).model_dump() for m in content.metrics]
+    return d
+
+
+@router.get("/{content_id}/relations")
+async def get_content_relations(
+    content_id: int,
+    limit: int = Query(20, ge=1, le=50),
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """获取内容的关联内容列表（规则引擎发现的关系）。"""
+    from app.repositories.relation_repo import RelationRepository
+
+    repo = RelationRepository(db)
+    relations = await repo.list_relations_for_content(content_id, limit=limit)
+    return {"content_id": content_id, "relations": relations, "count": len(relations)}
+
+
+@router.post("/{content_id}/favorite")
+async def toggle_favorite(
+    content_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Toggle favorite status for a content item."""
+    content_repo = ContentRepo(db)
+    if await content_repo.get_by_id(content_id) is None:
+        raise HTTPException(404, "Content not found")
+
+    favorite_repo = FavoriteRepo(db, current_user.id)
+    target_key = favorite_repo.make_target_key(FavoriteTargetType.CONTENT, target_id=content_id)
+    current = await favorite_repo.get_by_target(FavoriteTargetType.CONTENT, target_key)
+    next_value = current is None
+
+    async def _write() -> int | None:
+        if next_value:
+            favorite = await favorite_repo.create_from_content(content_id)
+            favorite_id = favorite.id
+        else:
+            await favorite_repo.remove_by_content(content_id)
+            favorite_id = None
+        invalidate_favorite_cache()
+        invalidate_content_read_caches()
+        invalidate_json_cache("contents:favorites:")
+        await db.flush()
+        return favorite_id
+
+    favorite_id = await write_with_503_low_latency(db, _write)
+    from app.services.interest_vector_service import trigger_vector_rebuild
+
+    trigger_vector_rebuild(current_user.id)
+    return {"is_favorited": next_value, "favorite_id": favorite_id}
+
+
+@router.post("/{content_id}/ignore")
+async def ignore_content(
+    content_id: int,
+    reason: str = Query("not_interested", description="Ignore reason: not_interested, seen, irrelevant"),
+    scope: str = Query(
+        "personal", pattern=r"^(personal|global)$", description="personal=个人不感兴趣；global=管理员全局屏蔽"
+    ),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Mark a content item as ignored (won't appear in feeds).
+
+    - ``scope=personal``（默认）：只影响当前用户自己的信息流；
+    - ``scope=global``：管理员全局屏蔽，对所有用户生效，非管理员返回 403。
+    """
+    from app.repositories.ignored_repo import IgnoredRepo
+
+    if scope == "global" and not is_admin(current_user):
+        raise HTTPException(403, "Global ignore requires admin role")
+
+    content = await ContentRepo(db).get_by_id(content_id)
+    if not content:
+        raise HTTPException(404, "Content not found")
+
+    async def _write():
+        ignored_item = await IgnoredRepo(db).ignore(
+            content_id,
+            reason=reason,
+            user_id=None if scope == "global" else current_user.id,
+        )
+        await db.flush()
+        return ignored_item
+
+    ignored = await write_with_503_low_latency(db, _write)
+    invalidate_content_read_caches()
+    from app.services.interest_vector_service import trigger_vector_rebuild
+
+    trigger_vector_rebuild(current_user.id)
+    return {
+        "content_id": content_id,
+        "ignored": True,
+        "reason": ignored.reason,
+        "scope": scope,
+    }
+
+
+@router.delete("/{content_id}/ignore")
+async def unignore_content(
+    content_id: int,
+    scope: str = Query(
+        "personal", pattern=r"^(personal|global)$", description="personal=撤销个人不感兴趣；global=撤销管理员全局屏蔽"
+    ),
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Remove ignore flag from a content item.
+
+    - ``scope=personal``（默认）：只撤销当前用户自己的忽略记录；
+    - ``scope=global``：撤销全局屏蔽行，仅管理员可用。
+    """
+    from app.repositories.ignored_repo import IgnoredRepo
+
+    if scope == "global" and not is_admin(current_user):
+        raise HTTPException(403, "Global unignore requires admin role")
+
+    async def _write():
+        return await IgnoredRepo(db).unignore(
+            content_id,
+            user_id=None if scope == "global" else current_user.id,
+        )
+
+    removed = await write_with_503_low_latency(db, _write)
+    invalidate_content_read_caches()
+    return {"content_id": content_id, "ignored": False, "removed": removed}
+
+
+@router.get("/{content_id}/evidence")
+async def get_content_evidence(
+    content_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """Get cross-source evidence mark and links for a content item."""
+    from app.repositories.evidence_repo import EvidenceRepository
+
+    owner_user_id = current_user.id if current_user else None
+    repo = EvidenceRepository(db)
+    mark, links = await repo.get_mark_with_links(content_id, owner_user_id)
+
+    if not mark:
+        return {"content_id": content_id, "evidence_mark": None, "evidence_links": []}
+
+    return {
+        "content_id": content_id,
+        "evidence_mark": {
+            "cross_source_level": mark.cross_source_level,
+            "platform_count": mark.platform_count,
+            "platforms": mark.platforms or [],
+            "evidence_count": mark.evidence_count,
+            "independent_publisher_count": mark.independent_publisher_count,
+            "has_primary_source": bool(mark.has_primary_source),
+            "has_official_source": bool(mark.has_official_source),
+        },
+        "evidence_links": [
+            {
+                "evidence_content_id": link.evidence_content_id,
+                "evidence_url": link.evidence_url,
+                "evidence_type": link.evidence_type,
+                "publisher_family": link.publisher_family,
+                "similarity_score": link.similarity_score,
+                "time_delta_minutes": link.time_delta_minutes,
+                "match_basis": link.match_basis,
+            }
+            for link in links
+        ],
+    }
+
+
+@router.post("/{content_id}/evidence-interaction")
+async def record_evidence_interaction(
+    content_id: int,
+    interaction_type: str = Query(
+        ..., description="click|favorite|unfavorite|adopt|feedback_positive|feedback_negative"
+    ),
+    db: AsyncSession = Depends(get_db),
+    current_user: User | None = Depends(get_optional_current_user),
+):
+    """Record a user interaction on evidence-labeled content."""
+    from app.repositories.evidence_repo import EvidenceRepository
+
+    user_id = current_user.id if current_user else None
+    repo = EvidenceRepository(db)
+    mark, _ = await repo.get_mark_with_links(content_id, user_id)
+    await repo.record_interaction(
+        content_id=content_id,
+        user_id=user_id,
+        interaction_type=interaction_type,
+        cross_source_level=mark.cross_source_level if mark else None,
+    )
+    await db.commit()
+    return {"content_id": content_id, "recorded": True}

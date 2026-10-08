@@ -1,0 +1,30 @@
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import DateTime, ForeignKey, Integer, String, UniqueConstraint
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.models.content import ContentItem
+
+
+class IgnoredItem(Base):
+    __tablename__ = "ignored_items"
+    __table_args__ = (UniqueConstraint("user_id", "content_id", name="uq_ignored_user_content"),)
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    # NULL = 管理员全局屏蔽（对所有用户生效）；非 NULL = 用户个人「不感兴趣」
+    user_id: Mapped[int | None] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    content_id: Mapped[int] = mapped_column(Integer, ForeignKey("content_items.id", ondelete="CASCADE"), nullable=False)
+    reason: Mapped[str | None] = mapped_column(
+        String(50), nullable=True, default="not_interested"
+    )  # not_interested | seen | irrelevant
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+    content: Mapped[ContentItem | None] = relationship("ContentItem")

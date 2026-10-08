@@ -1,0 +1,512 @@
+"""
+外部告警 webhook。
+
+在关键事件（source 连续失败、scheduler 异常等）时发送通知到外部通道
+（飞书/钉钉/Slack 通用 incoming webhook）。
+
+webhook URL 来源（两条独立通道，任一启用即发）：
+1. DB 配置 `notification_webhook_config`（运营通道，可在管理后台配置，支持 enable 开关）
+2. 环境变量 `ALERT_WEBHOOK_URL`（运维通道，向后兼容）
+
+消息格式兼容飞书/钉钉/Slack 的简单 text 消息。
+高级推送能力（卡片消息、日报、精选内容）为后续阶段。
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+from datetime import UTC, datetime
+
+import httpx
+
+from app.core.config import settings
+
+logger = logging.getLogger(__name__)
+
+# 防止告警风暴：同一 alert_key 在 _DEDUP_WINDOW 内只发一次
+_LAST_SENT: dict[str, float] = {}
+_DEDUP_WINDOW_SECONDS = 3600  # 1 小时内同 key 不重复发
+
+# webhook 单次投递失败后做有界重试：瞬时故障（网络异常 / 429 / 5xx）最多 3 次，
+# 4xx 等确定性失败立即放弃。告警在调度任务内运行，退避保持秒级。
+_WEBHOOK_MAX_ATTEMPTS = 3
+_WEBHOOK_RETRY_BACKOFF_SECONDS = 1.0
+
+
+def _mask_webhook_url(url: str) -> str:
+    """URL 预览只保留 scheme + host，路径与 token 一律遮蔽。
+
+    飞书/钉钉等 webhook 的 token 就在路径里，截前 80 字符等于把凭证
+    完整写进日志与 webhook_delivery_logs 表。
+    """
+    parts = url.split("/")
+    return "/".join(parts[:3]) + "/****" if len(parts) > 3 else "****"
+
+
+def _is_transient_webhook_failure(status_code: int | None) -> bool:
+    """网络异常（None）与 429/5xx 值得重试；其余 4xx 是确定性失败。"""
+    if status_code is None:
+        return True
+    return status_code == 429 or status_code >= 500
+
+
+# ── 事件类型枚举 ──
+# source_failure: 信源连续抓取失败告警（默认场景）
+# daily_report: 日报生成完成推送
+# weekly_digest: 周报生成完成推送
+# today_picks: 今日精选内容推送（分析+聚类完成后触发）
+# test: 测试发送（POST /settings/notification-webhook/test）
+EVENT_TYPES = {"source_failure", "daily_report", "weekly_digest", "today_picks", "test"}
+# 默认事件类型（配置未指定 event_types 时回退）
+DEFAULT_EVENT_TYPES = ["source_failure"]
+
+
+def _event_types_match(cfg_event_types: list[str] | None, event_type: str) -> bool:
+    """判断 DB 配置的 event_types 是否包含当前事件。
+
+    配置未指定或为空时回退到 DEFAULT_EVENT_TYPES。
+    env 通道不参与事件过滤（向后兼容，env 永远收所有告警）。
+    """
+    if not cfg_event_types:
+        cfg_event_types = DEFAULT_EVENT_TYPES
+    return event_type in cfg_event_types
+
+
+def _normalize_webhook_configs(cfg: dict) -> list[dict]:
+    """将 DB 中的 notification_webhook_config 规范化为 webhooks 列表。
+
+    支持两种格式：
+    1. 新格式：{"webhooks": [{name, webhook_url, enabled, event_types, note}, ...]}
+    2. 旧格式：{enabled, webhook_url, event_types, note}（单条，自动包装为列表）
+
+    返回 webhooks 列表（每个元素含 enabled / webhook_url / event_types / note）。
+    """
+    if not cfg:
+        return []
+    # 新格式
+    if "webhooks" in cfg:
+        return cfg["webhooks"] if isinstance(cfg["webhooks"], list) else []
+    # 旧格式：单条 config，自动包装
+    if cfg.get("webhook_url") or cfg.get("enabled"):
+        return [cfg]
+    return []
+
+
+async def _resolve_webhook_urls(event_type: str = "source_failure") -> list[str]:
+    """收集所有应发送的 webhook URL（按事件类型过滤）。
+
+    优先级：DB 配置（enabled=True 且 event_types 包含当前事件）+ 环境变量（向后兼容，不过滤）。
+    DB 读取失败时静默 fallback 到 env only（告警链路不能因 DB 异常而中断）。
+    """
+    urls: list[str] = []
+
+    # 1. DB 配置（运营通道，按事件类型过滤）
+    try:
+        import json
+
+        from app.core.database import async_session
+        from app.repositories.app_setting_repo import AppSettingRepository
+        from app.services.secret_store import decrypt_secret
+
+        async with async_session() as db:
+            row = await AppSettingRepository(db).get_by_key("notification_webhook_config")
+            if row and row.value:
+                try:
+                    cfg = json.loads(row.value)
+                except json.JSONDecodeError:
+                    cfg = {}
+                for wh in _normalize_webhook_configs(cfg):
+                    if wh.get("enabled") and _event_types_match(wh.get("event_types"), event_type):
+                        plain = decrypt_secret(wh.get("webhook_url", "")) or ""
+                        if plain:
+                            urls.append(plain)
+    except Exception as exc:
+        # DB 异常不能阻塞告警
+        logger.warning("读取 notification_webhook_config 失败（non-fatal）: %s", exc)
+
+    # 2. 环境变量（运维通道，向后兼容，不参与事件过滤）
+    env_url = getattr(settings, "ALERT_WEBHOOK_URL", None) or ""
+    if env_url:
+        urls.append(env_url)
+
+    # 去重（DB 与 env 可能配同一个 URL）
+    seen: set[str] = set()
+    unique: list[str] = []
+    for u in urls:
+        if u not in seen:
+            seen.add(u)
+            unique.append(u)
+    return unique
+
+
+def _build_payload(webhook_url: str, text: str) -> dict:
+    """根据 webhook URL 域名构造对应平台的 payload。"""
+    # 飞书/Slack 通用 {"text": "..."} 格式
+    payload = {"text": text}
+    # 飞书额外需要 msg_type
+    if "feishu" in webhook_url or "larksuite" in webhook_url:
+        payload = {"msg_type": "text", "content": {"text": text}}
+    # 钉钉
+    elif "oapi.dingtalk" in webhook_url:
+        payload = {"msgtype": "text", "text": {"content": text}}
+    return payload
+
+
+def _detect_platform(webhook_url: str) -> str:
+    """检测 webhook URL 对应的推送平台。返回 feishu / dingtalk / slack / generic。"""
+    url_lower = webhook_url.lower()
+    if "feishu" in url_lower or "larksuite" in url_lower:
+        return "feishu"
+    if "oapi.dingtalk" in url_lower:
+        return "dingtalk"
+    if "hooks.slack" in url_lower:
+        return "slack"
+    return "generic"
+
+
+# severity → 平台颜色映射
+_SEVERITY_COLOR = {
+    "info": "blue",
+    "warning": "orange",
+    "error": "red",
+}
+
+# severity → 飞书 template 颜色
+_FEISHU_TEMPLATE = {
+    "info": "blue",
+    "warning": "orange",
+    "error": "red",
+}
+
+
+def _build_card_payload(
+    webhook_url: str,
+    *,
+    title: str,
+    content: str,
+    link: str = "",
+    severity: str = "warning",
+    card_elements: list[dict] | None = None,
+    button_text: str = "查看详情",
+) -> dict:
+    """构造卡片消息 payload（飞书 interactive / 钉钉 actionCard / Slack blocks）。
+
+    不支持卡片的平台降级为 text 消息。
+
+    Parameters
+    ----------
+    title : 卡片标题
+    content : 卡片正文（markdown 文本，各平台会各自处理）
+    link : 可选的「查看详情」按钮链接（必须是绝对 URL）
+    severity : info / warning / error，决定卡片颜色
+    card_elements : 可选的飞书卡片 elements 列表。提供时直接用于飞书卡片，
+        替换默认的单 div 元素，支持多段内容 + 分割线 + 多按钮等富卡片布局。
+    button_text : 按钮文案，默认「查看详情」。
+    """
+    platform = _detect_platform(webhook_url)
+
+    if platform == "feishu":
+        # 飞书 interactive card
+        if card_elements:
+            elements = list(card_elements)
+        else:
+            elements = [{"tag": "div", "text": {"tag": "lark_md", "content": content}}]
+        if link:
+            elements.append(
+                {
+                    "tag": "action",
+                    "actions": [
+                        {
+                            "tag": "button",
+                            "text": {"tag": "plain_text", "content": button_text},
+                            "url": link,
+                            "type": "primary",
+                        }
+                    ],
+                }
+            )
+        return {
+            "msg_type": "interactive",
+            "card": {
+                "header": {
+                    "title": {"tag": "plain_text", "content": title},
+                    "template": _FEISHU_TEMPLATE.get(severity, "orange"),
+                },
+                "elements": elements,
+            },
+        }
+
+    if platform == "dingtalk":
+        # 钉钉 actionCard
+        text = content
+        if link:
+            text += f"\n\n[查看详情]({link})"
+        return {
+            "msgtype": "actionCard",
+            "actionCard": {
+                "title": title,
+                "text": f"### {title}\n\n{text}",
+                "btnOrientation": "0",
+            },
+        }
+
+    if platform == "slack":
+        # Slack Block Kit
+        blocks: list[dict] = [
+            {
+                "type": "header",
+                "text": {"type": "plain_text", "text": title},
+            },
+            {"type": "section", "text": {"type": "mrkdwn", "text": content}},
+        ]
+        if link:
+            blocks.append(
+                {
+                    "type": "actions",
+                    "elements": [
+                        {
+                            "type": "button",
+                            "text": {"type": "plain_text", "text": "查看详情"},
+                            "url": link,
+                            "style": "primary",
+                        }
+                    ],
+                }
+            )
+        return {"text": title, "blocks": blocks}
+
+    # generic：降级为 text
+    return _build_payload(webhook_url, f"{title}\n{content}")
+
+
+async def send_alert(
+    *,
+    title: str,
+    message: str,
+    alert_key: str,
+    severity: str = "warning",
+    event_type: str = "source_failure",
+    card: dict | None = None,
+    force: bool = False,
+) -> bool:
+    """发送告警到外部 webhook。
+
+    Parameters
+    ----------
+    title : 告警标题
+    message : 告警详情（text 消息正文）
+    alert_key : 去重 key（同 key 在 _DEDUP_WINDOW 内只发一次）
+    severity : info / warning / error
+    event_type : 事件类型，用于按用户配置过滤推送通道
+        - source_failure（默认）: 信源连续抓取失败
+        - daily_report: 日报生成完成
+        - weekly_digest: 周报生成完成
+        - test: 测试发送
+        env 通道（ALERT_WEBHOOK_URL）不参与过滤，永远收所有告警。
+    card : 可选卡片消息。传 dict 时发卡片（各平台适配），否则发 text。
+        格式: {"content": "...", "link": "..."}，title/severity 复用外层参数。
+        不支持卡片的平台自动降级为 text。
+    force : 跳过去重检查（手动触发场景使用）。
+
+    Returns: True 如果发送成功或跳过（去重/未配置），False 如果所有 webhook 发送失败。
+    """
+    webhook_urls = await _resolve_webhook_urls(event_type=event_type)
+    if not webhook_urls:
+        return False  # 未配置 webhook，静默跳过
+
+    # 去重检查（force=True 时跳过）
+    now = time.monotonic()
+    if not force:
+        last = _LAST_SENT.get(alert_key)
+        if last is not None and (now - last) < _DEDUP_WINDOW_SECONDS:
+            return True  # 去重跳过
+
+    ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+    emoji = {"info": "ℹ️", "warning": "⚠️", "error": "🚨"}.get(severity, "⚠️")
+    text = f"{emoji} [{severity.upper()}] {title}\n{message}\n\n_{ts}_"
+
+    # 发到所有已配置的 webhook（任一失败不影响其他）
+    any_sent = False
+    delivery_records: list[dict] = []
+    async with httpx.AsyncClient(timeout=10) as client:
+        for webhook_url in webhook_urls:
+            if card is not None:
+                payload = _build_card_payload(
+                    webhook_url,
+                    title=title,
+                    content=card.get("content", message),
+                    link=card.get("link", ""),
+                    severity=severity,
+                    card_elements=card.get("elements"),
+                    button_text=card.get("button_text", "查看详情"),
+                )
+            else:
+                payload = _build_payload(webhook_url, text)
+            url_preview = _mask_webhook_url(webhook_url)
+            send_start = time.monotonic()
+            ok = False
+            resp: httpx.Response | None = None
+            last_error: str | None = None
+            attempts_made = 0
+            for attempt in range(1, _WEBHOOK_MAX_ATTEMPTS + 1):
+                attempts_made = attempt
+                try:
+                    resp = await client.post(webhook_url, json=payload)
+                    ok = resp.status_code < 300
+                    if ok:
+                        any_sent = True
+                        logger.info("Alert sent: %s (key=%s)", title, alert_key)
+                        break
+                    last_error = f"HTTP {resp.status_code}"
+                    if not _is_transient_webhook_failure(resp.status_code):
+                        logger.warning(
+                            "Alert webhook returned %d (no retry, deterministic): %s",
+                            resp.status_code,
+                            resp.text[:200],
+                        )
+                        break
+                    logger.warning(
+                        "Alert webhook returned %d (attempt %d/%d)",
+                        resp.status_code,
+                        attempt,
+                        _WEBHOOK_MAX_ATTEMPTS,
+                    )
+                except Exception as exc:
+                    resp = None
+                    ok = False
+                    last_error = str(exc)[:500]
+                    logger.warning(
+                        "Alert webhook failed (attempt %d/%d, non-fatal): %s",
+                        attempt,
+                        _WEBHOOK_MAX_ATTEMPTS,
+                        exc,
+                    )
+                if attempt < _WEBHOOK_MAX_ATTEMPTS:
+                    await asyncio.sleep(_WEBHOOK_RETRY_BACKOFF_SECONDS * attempt)
+            duration_ms = int((time.monotonic() - send_start) * 1000)
+            delivery_records.append(
+                {
+                    "webhook_url_preview": url_preview,
+                    "status_code": resp.status_code if resp is not None else None,
+                    "success": ok,
+                    "error_message": (
+                        None
+                        if ok
+                        else f"{last_error} (attempt {attempts_made}/{_WEBHOOK_MAX_ATTEMPTS})"
+                        if last_error
+                        else "unknown"
+                    ),
+                    "response_preview": (resp.text[:500] if resp is not None and resp.text else None),
+                    "duration_ms": duration_ms,
+                }
+            )
+
+    # 持久化推送日志（fire-and-forget，失败不影响主流程）
+    if delivery_records:
+        await _persist_delivery_logs(
+            alert_key=alert_key,
+            event_type=event_type,
+            title=title,
+            severity=severity,
+            records=delivery_records,
+        )
+
+    # 仅在至少一个 webhook 发送成功时才记录去重 key，
+    # 避免首次发送失败后 1 小时内重试被静默跳过。
+    if any_sent:
+        _LAST_SENT[alert_key] = now
+
+    return any_sent
+
+
+async def send_test_message() -> dict:
+    """发送测试消息到所有已配置的 webhook，用于配置验证。
+
+    Returns:
+        {"sent": int, "failed": int, "details": [{"url_preview": str, "ok": bool, "status": str}]}
+    """
+    webhook_urls = await _resolve_webhook_urls(event_type="test")
+    if not webhook_urls:
+        return {"sent": 0, "failed": 0, "details": [], "error": "未配置 webhook"}
+
+    ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+    text = f"✅ [TEST] 创意工作台通知推送测试\n这是一条测试消息，确认 webhook 配置生效。\n\n_{ts}_"
+
+    details: list[dict] = []
+    sent = 0
+    failed = 0
+    async with httpx.AsyncClient(timeout=10) as client:
+        for webhook_url in webhook_urls:
+            preview = _mask_webhook_url(webhook_url)
+            payload = _build_payload(webhook_url, text)
+            try:
+                resp = await client.post(webhook_url, json=payload)
+                ok = resp.status_code < 300
+                if ok:
+                    sent += 1
+                    status = f"HTTP {resp.status_code}"
+                else:
+                    failed += 1
+                    status = f"HTTP {resp.status_code}: {resp.text[:120]}"
+                details.append({"url_preview": preview, "ok": ok, "status": status})
+            except Exception as exc:
+                failed += 1
+                details.append({"url_preview": preview, "ok": False, "status": f"异常: {exc}"})
+    return {"sent": sent, "failed": failed, "details": details}
+
+
+async def alert_source_failures(failed_sources: list[dict]) -> None:
+    """source 连续失败告警。
+
+    failed_sources: [{"name": ..., "source_type": ..., "error": ..., "fail_count": N}]
+    """
+    if not failed_sources:
+        return
+
+    lines = [f"  • {s['name']} ({s.get('source_type', '?')}): {s.get('error', '?')[:100]}" for s in failed_sources[:10]]
+    message = f"{len(failed_sources)} 个信源抓取连续失败:\n" + "\n".join(lines)
+    if len(failed_sources) > 10:
+        message += f"\n  ... 共 {len(failed_sources)} 个"
+
+    await send_alert(
+        title="信源抓取失败告警",
+        message=message,
+        alert_key=f"source_failures:{datetime.now(UTC).strftime('%Y-%m-%d-%H')}",
+        severity="warning",
+    )
+
+
+async def _persist_delivery_logs(
+    *,
+    alert_key: str,
+    event_type: str,
+    title: str,
+    severity: str,
+    records: list[dict],
+) -> None:
+    """Persist webhook delivery logs to DB (fire-and-forget, non-fatal on error)."""
+    try:
+        from app.core.database import async_session
+        from app.models.webhook_delivery_log import WebhookDeliveryLog
+
+        async with async_session() as db:
+            for rec in records:
+                db.add(
+                    WebhookDeliveryLog(
+                        alert_key=alert_key,
+                        event_type=event_type,
+                        title=title[:500],
+                        severity=severity,
+                        webhook_url_preview=rec["webhook_url_preview"],
+                        status_code=rec["status_code"],
+                        success=1 if rec["success"] else 0,
+                        error_message=rec["error_message"],
+                        response_preview=rec["response_preview"],
+                        duration_ms=rec["duration_ms"],
+                    )
+                )
+            await db.commit()
+    except Exception:
+        logger.warning("Failed to persist webhook delivery logs (non-fatal)", exc_info=True)

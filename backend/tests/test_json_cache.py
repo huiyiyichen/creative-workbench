@@ -1,0 +1,291 @@
+import time
+from datetime import datetime
+
+import app.services.json_cache as json_cache
+from app.services.content_list_cache import (
+    HOME_CONTENT_LIST_INITIAL_PAGE_SIZE,
+    ContentListCacheParams,
+    home_content_list_cache_params,
+    invalidate_content_list_cache,
+)
+from app.services.content_read_cache import invalidate_content_read_caches
+from app.services.json_cache import cache_stats, get_cached_json, invalidate_json_cache, set_cached_json
+from app.services.llm.model_list_cache import MODEL_LIST_CACHE_KEY, invalidate_model_list_cache
+from app.services.scoring_flow import (
+    _cache_and_return,
+    build_empty_payload,
+    get_cached_scoring_flow_json,
+    invalidate_scoring_flow_cache,
+)
+from app.services.source_cache import SourceListCacheParams, invalidate_source_list_cache
+from app.services.source_read_cache import invalidate_source_read_caches
+from app.services.stats_cache import (
+    STATS_CACHE_PREFIX,
+    invalidate_stats_cache,
+)
+from app.services.today_picks_cache import (
+    TODAY_PICKS_INITIAL_LIMIT,
+    TodayPicksCacheParams,
+    default_today_picks_cache_params,
+    invalidate_today_picks_cache,
+)
+from app.services.trending_cache import (
+    TRENDING_CROSS_PLATFORM_CACHE_PREFIX,
+    TRENDING_LIST_CACHE_PREFIX,
+    TRENDING_PERSISTENT_CACHE_PREFIX,
+    TRENDING_SOURCES_CACHE_KEY,
+    invalidate_trending_cache,
+)
+
+
+def test_json_cache_hit_expire_and_prefix_invalidate():
+    invalidate_json_cache()
+
+    content = set_cached_json("perf:a", {"created_at": datetime(2026, 1, 2, 3, 4, 5), "value": "中文"})
+    assert b"2026-01-02T03:04:05" in content
+    assert "中文".encode() in content
+
+    cached = get_cached_json("perf:a", ttl_seconds=10)
+    assert cached is not None
+    cached_content, age_seconds = cached
+    assert cached_content == content
+    assert age_seconds >= 0
+
+    assert get_cached_json("perf:a", ttl_seconds=0) is None
+
+    set_cached_json("perf:a", {"value": 1})
+    set_cached_json("other:a", {"value": 2})
+    invalidate_json_cache("perf:")
+    assert get_cached_json("perf:a", ttl_seconds=10) is None
+    assert get_cached_json("other:a", ttl_seconds=10) is not None
+
+    invalidate_json_cache()
+    assert get_cached_json("other:a", ttl_seconds=10) is None
+
+
+def test_json_cache_respects_short_ttl():
+    invalidate_json_cache()
+    set_cached_json("ttl:test", {"value": 1})
+    time.sleep(0.002)
+    assert get_cached_json("ttl:test", ttl_seconds=0.001) is None
+
+
+def test_json_cache_entry_budget_evicts_oldest_first(monkeypatch):
+    """条目数超预算时按插入序淘汰最老条目（回归：曾是无限增长的裸 dict）。"""
+    invalidate_json_cache()
+    monkeypatch.setattr(json_cache, "_MAX_ENTRIES", 5)
+
+    for i in range(5):
+        set_cached_json(f"budget:{i}", {"i": i})
+    set_cached_json("budget:new", {"i": "new"})  # 触发淘汰
+
+    assert get_cached_json("budget:0", ttl_seconds=10) is None, "最老的条目应被淘汰"
+    assert get_cached_json("budget:1", ttl_seconds=10) is not None
+    assert get_cached_json("budget:2", ttl_seconds=10) is not None
+    assert get_cached_json("budget:new", ttl_seconds=10) is not None
+    invalidate_json_cache()
+
+
+def test_json_cache_byte_budget_evicts_until_fits(monkeypatch):
+    """字节总量超预算时按插入序淘汰，且统计口径保持一致。"""
+    invalidate_json_cache()
+    monkeypatch.setattr(json_cache, "_MAX_ENTRIES", 1000)
+    monkeypatch.setattr(json_cache, "_MAX_TOTAL_BYTES", 500)
+
+    set_cached_json("bytes:a", {"blob": "x" * 200})
+    set_cached_json("bytes:b", {"blob": "y" * 200})
+    stats = cache_stats()
+    assert 0 < stats["total_bytes"] <= json_cache._MAX_TOTAL_BYTES
+
+    set_cached_json("bytes:c", {"blob": "z" * 200})  # 触发字节预算淘汰
+    assert get_cached_json("bytes:a", ttl_seconds=10) is None, "最老的大条目应被淘汰"
+    assert get_cached_json("bytes:b", ttl_seconds=10) is not None
+
+    stats = cache_stats()
+    assert stats["total_bytes"] <= json_cache._MAX_TOTAL_BYTES
+    # 字节账本随失效/淘汰保持一致
+    invalidate_json_cache("bytes:")
+    assert cache_stats()["total_bytes"] == 0
+
+
+def test_json_cache_overwrite_does_not_double_count():
+    invalidate_json_cache()
+    set_cached_json("dup:key", {"v": "x" * 50})
+    before = cache_stats()["total_bytes"]
+    set_cached_json("dup:key", {"v": "x" * 50})  # 覆盖同键
+    after = cache_stats()["total_bytes"]
+    assert before == after, "覆盖同键不应重复计入字节"
+    assert cache_stats()["entries"] == 1
+    invalidate_json_cache()
+
+
+def test_content_list_cache_key_and_invalidation():
+    invalidate_json_cache()
+    params = ContentListCacheParams(
+        page=1,
+        page_size=50,
+        hours=48,
+    )
+    key = params.key
+    assert key == (
+        "contents:list:page=1&page_size=50&include_trend_sources=0&sort_by=created_at&sort_order=desc&user_id=&hours=48"
+    )
+
+    set_cached_json(key, {"items": [], "total": 0})
+    set_cached_json("contents:favorites:list:1:20", {"items": []})
+    invalidate_content_list_cache()
+
+    assert get_cached_json(key, ttl_seconds=10) is None
+    assert get_cached_json("contents:favorites:list:1:20", ttl_seconds=10) is not None
+    invalidate_json_cache()
+
+
+def test_home_content_list_startup_cache_matches_default_screen_request():
+    params = home_content_list_cache_params()
+
+    assert params.page == 1
+    assert params.page_size == HOME_CONTENT_LIST_INITIAL_PAGE_SIZE == 40
+    assert params.hours == 24
+    assert params.key == (
+        "contents:list:page=1&page_size=40&include_trend_sources=0&sort_by=created_at&sort_order=desc&user_id=&hours=24"
+    )
+
+
+def test_today_picks_cache_key_and_invalidation():
+    invalidate_json_cache()
+    params = TodayPicksCacheParams(hours=48, category="AI", limit=80)
+    key = params.key
+    assert key == "contents:today-picks:v3:hours=48&category=AI&limit=80&user_id="
+    assert TodayPicksCacheParams(hours=48, category="AI", limit=80, user_id=42).key == (
+        "contents:today-picks:v3:hours=48&category=AI&limit=80&user_id=42"
+    )
+
+    set_cached_json(key, {"items": [], "total": 0})
+    set_cached_json("contents:list:example", {"items": []})
+    invalidate_today_picks_cache()
+
+    assert get_cached_json(key, ttl_seconds=10) is None
+    assert get_cached_json("contents:list:example", ttl_seconds=10) is not None
+    invalidate_json_cache()
+
+
+def test_today_picks_startup_cache_matches_default_screen_request():
+    params = default_today_picks_cache_params()
+
+    assert params.hours == 24
+    assert params.limit == TODAY_PICKS_INITIAL_LIMIT == 40
+    assert params.key == "contents:today-picks:v3:hours=24&limit=40&user_id="
+
+
+def test_source_list_cache_key_and_invalidation():
+    invalidate_json_cache()
+    params = SourceListCacheParams(page=1, page_size=20, enabled=True, keyword="AI")
+    key = params.key
+    assert key == "sources:list:page=1&page_size=20&enabled=1&keyword=AI"
+
+    set_cached_json(key, {"items": [], "total": 0})
+    set_cached_json("contents:list:example", {"items": []})
+    invalidate_source_list_cache()
+
+    assert get_cached_json(key, ttl_seconds=10) is None
+    assert get_cached_json("contents:list:example", ttl_seconds=10) is not None
+    invalidate_json_cache()
+
+
+def test_source_read_cache_invalidation_covers_source_derived_stats():
+    invalidate_json_cache()
+    params = SourceListCacheParams(page=1, page_size=20)
+    set_cached_json(params.key, {"items": [], "total": 0})
+    set_cached_json("stats:source-distribution:7", {"sources": []})
+    set_cached_json("stats:dashboard:7", {"kpi": {}})
+    set_cached_json("contents:list:example", {"items": []})
+
+    invalidate_source_read_caches()
+
+    assert get_cached_json(params.key, ttl_seconds=10) is None
+    assert get_cached_json("stats:source-distribution:7", ttl_seconds=10) is not None
+    assert get_cached_json("stats:dashboard:7", ttl_seconds=10) is not None
+    assert get_cached_json("contents:list:example", ttl_seconds=10) is not None
+    invalidate_json_cache()
+
+
+def test_content_read_cache_invalidation_covers_content_derived_views():
+    invalidate_json_cache()
+    invalidate_scoring_flow_cache()
+    set_cached_json("contents:list:example", {"items": []})
+    set_cached_json("contents:today-picks:hours=48", {"items": []})
+    set_cached_json("contents:favorites:list:1:20", {"items": []})
+    set_cached_json("stats:overview:7", {"total": 1})
+    set_cached_json("stats:dashboard:7", {"kpi": {}})
+    _cache_and_return(
+        48,
+        160,
+        80,
+        None,
+        build_empty_payload(
+            hours=48,
+            analyzed_total=0,
+            window_total=0,
+            ignored_count=0,
+            limit=160,
+            sample_limit=80,
+        ),
+    )
+
+    invalidate_content_read_caches()
+
+    assert get_cached_json("contents:list:example", ttl_seconds=10) is None
+    assert get_cached_json("contents:today-picks:hours=48", ttl_seconds=10) is None
+    assert get_cached_json("stats:overview:7", ttl_seconds=10) is not None
+    assert get_cached_json("stats:dashboard:7", ttl_seconds=10) is not None
+    assert get_cached_scoring_flow_json(hours=48, limit=160) is None
+    assert get_cached_json("contents:favorites:list:1:20", ttl_seconds=10) is not None
+    invalidate_json_cache()
+    invalidate_scoring_flow_cache()
+
+
+def test_stats_cache_invalidation_is_scoped():
+    invalidate_json_cache()
+    set_cached_json(f"{STATS_CACHE_PREFIX}overview:7", {"total": 1})
+    set_cached_json(f"{STATS_CACHE_PREFIX}dashboard:7", {"kpi": {}})
+    set_cached_json("contents:list:example", {"items": []})
+
+    invalidate_stats_cache()
+
+    assert get_cached_json("stats:overview:7", ttl_seconds=10) is None
+    assert get_cached_json("stats:dashboard:7", ttl_seconds=10) is None
+    assert get_cached_json("contents:list:example", ttl_seconds=10) is not None
+    invalidate_json_cache()
+
+
+def test_model_list_cache_invalidation_is_scoped():
+    invalidate_json_cache()
+    set_cached_json(MODEL_LIST_CACHE_KEY, {"models": [], "total": 0})
+    set_cached_json("models:usage:summary", {"total": {"calls": 1}})
+
+    invalidate_model_list_cache()
+
+    assert get_cached_json(MODEL_LIST_CACHE_KEY, ttl_seconds=10) is None
+    assert get_cached_json("models:usage:summary", ttl_seconds=10) is not None
+    invalidate_json_cache()
+
+
+def test_trending_cache_invalidation_is_scoped():
+    invalidate_json_cache()
+    set_cached_json(f"{TRENDING_LIST_CACHE_PREFIX}limit=50", [{"title": "hot"}])
+    set_cached_json(TRENDING_SOURCES_CACHE_KEY, [{"source": "weibo"}])
+    set_cached_json(f"{TRENDING_CROSS_PLATFORM_CACHE_PREFIX}min_resonance=2&limit=50", {"clusters": []})
+    set_cached_json(f"{TRENDING_PERSISTENT_CACHE_PREFIX}min_days=2&min_sources=1&days_back=7", {"topics": []})
+    set_cached_json("contents:list:example", {"items": []})
+
+    invalidate_trending_cache()
+
+    assert get_cached_json(f"{TRENDING_LIST_CACHE_PREFIX}limit=50", ttl_seconds=10) is None
+    assert get_cached_json(TRENDING_SOURCES_CACHE_KEY, ttl_seconds=10) is None
+    assert get_cached_json(f"{TRENDING_CROSS_PLATFORM_CACHE_PREFIX}min_resonance=2&limit=50", ttl_seconds=10) is None
+    assert (
+        get_cached_json(f"{TRENDING_PERSISTENT_CACHE_PREFIX}min_days=2&min_sources=1&days_back=7", ttl_seconds=10)
+        is None
+    )
+    assert get_cached_json("contents:list:example", ttl_seconds=10) is not None
+    invalidate_json_cache()

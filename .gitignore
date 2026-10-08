@@ -1,0 +1,97 @@
+# Backend
+backend/__pycache__/
+backend/**/__pycache__/
+backend/*.pyc
+backend/**/*.pyc
+backend/*.db
+backend/*.db-shm
+backend/*.db-wal
+backend/.env
+.env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
+backend/venv/
+backend/.venv/
+
+# DuckDB files
+*.duckdb
+*.duckdb.wal
+*.db-shm
+*.db-wal
+backend/data/
+data/duckdb_extensions/
+data/backups/
+
+# Local DB backups (never commit)
+*.db.*
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/.env.local
+frontend/.runtime-*.log
+**/node_modules/
+**/.venv/
+**/.next*/
+**/__pycache__/
+*.log
+*.tsbuildinfo
+*.pyc
+*.zip
+*.mp4
+*.mkv
+*.mov
+*.wav
+*.mp3
+output/
+
+# Docker
+docker-data/
+
+# Deploy (runtime-generated Nginx config)
+deploy/nginx/conf.d/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Data
+*.db
+*.sqlite
+
+# Docs (PRD, prototypes, internal plans) — tracked exceptions: screenshots / images (README 用) 与 quality（回归矩阵需入库）
+docs/*
+!docs/screenshots/
+!docs/images/
+!docs/quality/
+!docs/assets/
+
+# Test cache
+.pytest_cache/
+htmlcov/
+.coverage
+
+.mavis/
+.skill-metrics/
+.skill-harness/
+.lazyweb/
+.playwright-cli/
+.playwright-mcp/
+backend/media_runtime/node_modules/
+output/playwright/
+
+.zcode/
+.workbuddy/
+.qoder/
+.brooks-lint-history.json
+.vidt/
+.node-version
