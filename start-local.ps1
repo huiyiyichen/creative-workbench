@@ -312,7 +312,7 @@ try {
   $FrontendPort = Find-ServicePort $FrontendPort 'frontend'
   $env:PYTHONUTF8 = '1'
   $env:BACKEND_API_URL = "http://127.0.0.1:$BackendPort"
-  $env:TOPICEYE_LOCAL_BUILD = if ($Production) { '1' } else { '0' }
+  $env:WORKBENCH_LOCAL_BUILD = if ($Production) { '1' } else { '0' }
   Write-Output "[2/3] Backend :$BackendPort"
   if (@(Get-Listener $BackendPort).Count -eq 0) {
     $backendArguments = @('-m', 'uvicorn', 'app.main:app', '--host', '127.0.0.1', '--port', "$BackendPort")

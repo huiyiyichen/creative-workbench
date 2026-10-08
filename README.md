@@ -24,7 +24,7 @@
 
 ## Windows 快速启动
 
-预装 **Node.js 20+** 和 **uv**，并确认二者可在终端调用，然后双击 `start.cmd`。
+预装 **Node.js 20+** 和 **uv**，并确认二者可在终端调用。提交包解压后进入 `creative-workbench` 项目目录，双击 `start.cmd`。
 
 首次启动会安装 Python 3.12、前后端及 Remotion 依赖，从 EnterpriseDB 下载 PostgreSQL 16.15 Windows 程序，在 `backend/data/` 初始化独立工作库，生成本机 `backend/.env`，构建前端并打开工作台。
 

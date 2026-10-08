@@ -1,4 +1,4 @@
-"""Alembic migration environment for TopicEye.
+"""Alembic migration environment for Creative Workbench.
 
 The migration URL is derived from settings.DATABASE_URL (sync form), so the
 same env.py works for both SQLite and PostgreSQL. Autogenerate relies on the

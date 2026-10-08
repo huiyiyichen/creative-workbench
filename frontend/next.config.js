@@ -5,11 +5,11 @@ const backendApiUrl = process.env.BACKEND_API_URL || 'http://127.0.0.1:8102';
 
 const nextConfig = {
   // Keep the one-click runtime separate from the developer's build/cache.
-  distDir: process.env.TOPICEYE_LOCAL_BUILD === '1' ? '.next-local' : '.next',
+  distDir: (process.env.WORKBENCH_LOCAL_BUILD || process.env.TOPICEYE_LOCAL_BUILD) === '1' ? '.next-local' : '.next',
   reactStrictMode: true,
   compress: true,
   poweredByHeader: false,
-  allowedDevOrigins: ['localhost', '127.0.0.1', 'frontend.topiceye.orb.local'],
+  allowedDevOrigins: ['localhost', '127.0.0.1', 'frontend.creative-workbench.orb.local'],
   turbopack: {
     root: path.resolve(__dirname),
   },
