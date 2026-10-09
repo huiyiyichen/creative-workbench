@@ -19,14 +19,13 @@ import { adminPromptsApi } from '@/lib/api';
 import type { PromptRegistryItem, PromptDetailResponse } from '@/lib/api';
 import { formatDateTime } from '@/lib/datetime';
 
-const SCENE_FILTERS = ['', 'analysis', 'classification', 'creation_explore', 'creation_focus', 'creation_converge'];
+const SCENE_FILTERS = ['', 'analysis', 'classification', 'enrichment', 'daily_report'];
 
 const SCENE_LABELS: Record<string, string> = {
   analysis: '内容分析',
   classification: '内容分类',
-  creation_explore: '创作探索',
-  creation_focus: '创作聚焦',
-  creation_converge: '创作收敛',
+  enrichment: '内容补全',
+  daily_report: '日报',
 };
 
 export default function PromptsAdminPage() {

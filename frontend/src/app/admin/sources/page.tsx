@@ -27,13 +27,13 @@ import {
 import { SourceMapCard, SourceMapView } from './_components';
 import { AddSourceModal, BatchImportModal, EditSourceModal } from './_modals';
 import { EvidenceProfileModal } from '@/components/EvidenceProfileModal';
-import { RSSHubManager, SourceListPanel, FeatureFlagsPanel } from './_panels';
+import { RSSHubManager, SourceListPanel } from './_panels';
 import { describeBatchResult, recomputeSelectionAfterBatch, runBatchToggle } from './_batch-utils';
 
 // ─── Page Component ───
 
 export default function SourcesPage() {
-  const { currentUser, updateEnabledFeatures, favoriteTargets, favoriteTargetPendingKeys, toggleFavoriteTarget, refreshCounts } = useAppContext();
+  const { currentUser, favoriteTargets, favoriteTargetPendingKeys, toggleFavoriteTarget, refreshCounts } = useAppContext();
   const [sources, setSources] = useState<BackendSource[]>([]);
   const [mapSources, setMapSources] = useState<BackendSource[]>([]);
   const [sourceFavoriteKeys, setSourceFavoriteKeys] = useState<Set<string>>(new Set());
@@ -879,8 +879,8 @@ export default function SourcesPage() {
             className={cx(
               'flex items-center gap-1.5 rounded-sm border px-3 py-1 text-[12px] transition',
               statusFilter === tab.value
-                ? 'border-orange bg-orange text-white'
-                : 'border-gray-200 bg-white text-gray-700 hover:border-orange/50',
+                ? 'border-primary bg-primary text-white'
+                : 'border-gray-200 bg-white text-gray-700 hover:border-primary/50',
             )}
           >
             {tab.label}
@@ -932,7 +932,6 @@ export default function SourcesPage() {
             onDelete={deleteInstance}
             onAdd={addInstance}
           />
-          {currentUser?.role === 'admin' && <FeatureFlagsPanel onUpdate={updateEnabledFeatures} />}
           <SourceListPanel
             loading={loading}
             sources={sources}

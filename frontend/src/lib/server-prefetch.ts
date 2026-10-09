@@ -11,15 +11,11 @@
  * - cache: 'no-store' 确保用户敏感数据不被 CDN/边缘缓存。
  */
 
-import { cookies } from 'next/headers';
 import type { AuthUser } from '@/types';
 
 // 后端 API 绝对地址（Server Component 中不能走 Next.js rewrite 代理，需要直接访问后端）
 const BACKEND_URL = process.env.BACKEND_API_URL || 'http://127.0.0.1:8102';
 const API_BASE = `${BACKEND_URL}/api/v1`;
-
-// Cookie 名称（与后端 config.py AUTH_COOKIE_NAME 保持一致）
-const AUTH_COOKIE_NAME = 'topiceye_auth';
 
 // 超时：3 秒，后端不可达时不阻塞 SSR
 const FETCH_TIMEOUT_MS = 3000;
@@ -87,21 +83,9 @@ async function fetchJsonSafe<T>(
  * 所有错误均静默降级为 null，客户端 Provider 会 fallback 到 useEffect 拉取。
  */
 export async function prefetchInitialData(): Promise<PrefetchData> {
-  const cookieStore = await cookies();
-  const authToken = cookieStore.get(AUTH_COOKIE_NAME)?.value;
+  const cookieHeader = '';
 
-  // 未登录：返回空数据，客户端 Provider 会走原有的 "无 token" 快速路径
-  if (!authToken) {
-    return {
-      user: null,
-      featureFlags: {},
-      counts: null,
-    };
-  }
-
-  const cookieHeader = `${AUTH_COOKIE_NAME}=${authToken}`;
-
-  // 第一批：auth/me + feature-flags 并行（不依赖用户信息）
+  // Single-user workspace: auth/me resolves the local workspace identity.
   const [user, featureFlagsResult] = await Promise.all([
     fetchJsonSafe<AuthUser>('/auth/me', cookieHeader),
     fetchJsonSafe<{ flags: Record<string, boolean> }>('/settings/feature-flags', cookieHeader),

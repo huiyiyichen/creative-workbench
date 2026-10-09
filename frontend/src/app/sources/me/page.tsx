@@ -9,10 +9,13 @@ import {
   RadioTower,
   Search,
   X,
+  Play,
+  FileText,
+  ExternalLink,
 } from 'lucide-react';
-import { sourcesApi } from '@/lib/api';
+import { contentsApi, sourcesApi } from '@/lib/api';
 import type { CreateSourceRequest, UpdateSourceRequest } from '@/lib/api';
-import type { SyncResult } from '@/types';
+import type { ContentItem, SyncResult } from '@/types';
 import { Badge, Button, Panel, cx } from '@/components/ui';
 import SourceForm, { FormState, emptyForm } from '@/components/SourceForm';
 import type { BackendSource } from '@/components/SourceRow';
@@ -73,6 +76,9 @@ export default function MySourcesPage() {
 
   const [lastSync, setLastSync] = useState<SyncResult | null>(null);
   const [syncingId, setSyncingId] = useState<number | null>(null);
+  const [viewingSource, setViewingSource] = useState<BackendSource | null>(null);
+  const [sourceContent, setSourceContent] = useState<ContentItem[]>([]);
+  const [contentLoading, setContentLoading] = useState(false);
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
@@ -140,8 +146,8 @@ export default function MySourcesPage() {
       await refetch();
     } catch (err: unknown) {
       const e = err as { status?: number; message?: string; detail?: string };
-      if (e?.status === 403 || e?.message?.includes('套餐') || e?.message?.includes('Pro')) {
-        setPlanError(e?.detail || e?.message || '当前套餐不支持创建私有信源，请升级到 Pro 及以上');
+      if (e?.status === 403) {
+        setPlanError(e?.detail || e?.message || '当前工作区不支持创建该信源');
       } else {
         setActionError(e instanceof Error ? e.message : (editing ? '更新失败' : '创建失败'));
       }
@@ -176,6 +182,20 @@ export default function MySourcesPage() {
       setActionError(err instanceof Error ? err.message : '同步失败');
     } finally {
       setSyncingId(null);
+    }
+  };
+
+  const handleViewContent = async (source: BackendSource) => {
+    setViewingSource(source);
+    setContentLoading(true);
+    try {
+      const result = await contentsApi.list({ source_id: source.id, page: 1, page_size: 24, hours: 720, include_trend_sources: true });
+      setSourceContent(result.items ?? []);
+    } catch (err) {
+      setActionError(err instanceof Error ? err.message : '内容加载失败');
+      setSourceContent([]);
+    } finally {
+      setContentLoading(false);
     }
   };
 
@@ -233,7 +253,7 @@ export default function MySourcesPage() {
         {/* Plan upgrade banner (403 on create) */}
         {planError && (
           <NoticeBanner tone="amber" onClose={() => setPlanError(null)}>
-            <strong className="font-black">当前套餐不支持创建私有信源</strong>
+            <strong className="font-black">当前工作区不支持创建私有信源</strong>
             <p className="mt-1 text-xs">{planError}</p>
           </NoticeBanner>
         )}
@@ -291,9 +311,34 @@ export default function MySourcesPage() {
                 onEdit={() => handleEdit(source)}
                 onDelete={() => handleDelete(source)}
                 onSync={() => handleSync(source)}
+                onViewContent={() => void handleViewContent(source)}
               />
             ))}
           </div>
+        )}
+        {tab === 'private' && viewingSource && (
+          <section className="mt-6 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-5 py-4">
+              <div>
+                <div className="flex items-center gap-2"><h2 className="m-0 text-lg font-black text-gray-900">{viewingSource.name} 的内容</h2><Badge tone="teal">已联动今日选题</Badge></div>
+                <p className="m-0 mt-1 text-xs text-gray-400">同步后，这个信源的文章与视频会进入今日选题和创作工作台。</p>
+              </div>
+              <Button variant="secondary" onClick={() => { setViewingSource(null); setSourceContent([]); }}>关闭</Button>
+            </div>
+            {contentLoading ? <LoadingState label="读取信源内容…" minHeight="180px" /> : sourceContent.length === 0 ? <EmptyState icon={FileText} title="还没有抓到内容" desc="先同步这个信源，再回来查看文章和视频。" minHeight="180px" /> : (
+              <div className="grid gap-3 p-4 md:grid-cols-2">
+                {sourceContent.map((item) => <article key={item.id} className="group overflow-hidden rounded-lg border border-gray-100 bg-[#fbfcfd] transition hover:border-primary-border hover:bg-white">
+                  <div className="flex gap-3 p-3">
+                    <div className="flex h-16 w-24 shrink-0 items-center justify-center overflow-hidden rounded-md bg-[#e9eef2]">
+                      {item.cover_url ? <img src={item.cover_url} alt="" className="h-full w-full object-cover" /> : item.content_type === '视频' || item.source_type === 'RSSHub' ? <Play size={20} className="text-gray-400" /> : <FileText size={20} className="text-gray-400" />}
+                    </div>
+                    <div className="min-w-0"><h3 className="line-clamp-2 m-0 text-sm font-bold leading-5 text-gray-900">{item.title}</h3><div className="mt-2 text-[11px] text-gray-400">{item.published_at ? new Date(item.published_at).toLocaleString('zh-CN') : '时间未知'} · {item.content_type || '文章'}</div></div>
+                  </div>
+                  <div className="flex items-center justify-between border-t border-gray-100 px-3 py-2"><span className="text-[11px] text-gray-400">{item.author || viewingSource.name}</span>{item.url && <a href={item.url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-xs font-bold text-teal no-underline">查看原文 <ExternalLink size={12} /></a>}</div>
+                </article>)}
+              </div>
+            )}
+          </section>
         )}
       </main>
 
@@ -423,12 +468,14 @@ function PrivateSourceCard({
   onEdit,
   onDelete,
   onSync,
+  onViewContent,
 }: {
   source: BackendSource;
   syncing: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onSync: () => void;
+  onViewContent: () => void;
 }) {
   const typeClass = TYPE_COLORS[source.source_type] || 'border-gray-200 bg-gray-100 text-gray-600';
   const isActive = source.status === 'active' && source.enabled;
@@ -510,6 +557,9 @@ function PrivateSourceCard({
         >
           {sourceSyncing ? <Loader2 size={13} className="animate-spin" /> : null}
           {sourceSyncing ? '同步中' : '同步'}
+        </Button>
+        <Button type="button" onClick={onViewContent} variant="secondary" className="min-h-0 px-3 py-1.5 text-[12px]">
+          <FileText size={13} /> 内容流
         </Button>
         <Button
           type="button"

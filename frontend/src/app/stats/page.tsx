@@ -19,17 +19,16 @@ import {
   type StatsSourceItem,
   type StatsCategoryItem,
   type StatsTrendItem,
-  type StatsNovelPlatform,
 } from '@/lib/api';
 import { timeAgoShort } from '@/lib/datetime';
 
 // ── Color helpers ──────────────────────────────────────────────
-const BAR_COLORS = ['#FF6B35', '#00C9A7', '#D97706', '#2563EB', '#E11D48', '#059669', '#D97706', '#64748B'];
+const BAR_COLORS = ['var(--color-primary)', '#00C9A7', '#D97706', '#2563EB', '#E11D48', '#059669', '#D97706', '#64748B'];
 const SOURCE_TYPE_COLOR: Record<string, string> = {
   rss: '#00C9A7',
   rsshub: '#059669',
   hackernews: '#8B5CF6',
-  api: '#FF6B35',
+  api: 'var(--color-primary)',
   reddit: '#D97706',
   zhihu: '#2563EB',
   unknown: '#9CA3AF',
@@ -297,9 +296,9 @@ function getHeatColor(value: number, max: number) {
   if (value <= 0) return '#F3F4F6';
   const ratio = value / Math.max(max, 1);
   if (ratio >= 0.82) return '#00C9A7';
-  if (ratio >= 0.56) return '#FF6B35';
-  if (ratio >= 0.28) return '#FFD0B5';
-  return '#FFF4EE';
+  if (ratio >= 0.56) return 'var(--color-primary)';
+  if (ratio >= 0.28) return 'var(--color-primary-border)';
+  return 'var(--color-primary-light)';
 }
 
 function ContributionHeatmap({ data, days }: { data: StatsTrendItem[]; days: number }) {
@@ -429,51 +428,6 @@ function formatSyncLabel(lastSync: string | null) {
   return timeAgoShort(lastSync);
 }
 
-function NovelPlatformStats({ platforms }: { platforms: StatsNovelPlatform[] }) {
-  if (platforms.length === 0) {
-    return <div className="text-[13px] text-gray-400">暂无数据</div>;
-  }
-
-  // 统一到主色系 *-light / *-border / *-text 三层，与全局设计 token 对齐，
-  // 不再引入主色板之外的独立蓝色。
-  const platformColors = [
-    { bg: 'bg-primary-light', color: 'text-primary', border: 'border-primary-border' },
-    { bg: 'bg-teal-light', color: 'text-teal', border: 'border-teal-border' },
-    { bg: 'bg-purple-light', color: 'text-purple', border: 'border-purple-border' },
-    { bg: 'bg-amber-light', color: 'text-amber', border: 'border-amber-border' },
-  ];
-
-  return (
-    <div className="grid grid-cols-[repeat(auto-fit,minmax(170px,1fr))] gap-3">
-      {platforms.map((platform, i) => {
-        const pc = platformColors[i % platformColors.length];
-        return (
-          <div
-            key={platform.table}
-            className={cx('flex min-w-0 flex-col rounded-sm border px-4 py-3.5', pc.bg, pc.border)}
-          >
-            <div className={cx('mb-2 text-[13px] font-black', pc.color)}>
-              {platform.name}
-            </div>
-            <div className={cx('font-mono text-3xl font-black leading-none', pc.color)}>
-              {platform.count}
-              <span className="ml-1 text-xs font-medium text-gray-400">条</span>
-            </div>
-            <div className="mt-2.5 flex min-w-0 items-center gap-1.5 text-[11px] text-gray-500">
-              <span
-                className={cx('inline-block h-1.5 w-1.5 shrink-0 rounded-full', platform.last_sync ? 'bg-teal' : 'bg-gray-300')}
-              />
-              <span className="truncate">
-                最近同步: {formatSyncLabel(platform.last_sync)}
-              </span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
 function KpiCard({
   icon: Icon,
   label,
@@ -527,7 +481,6 @@ export default function StatsPage() {
   const sources = dashboard?.sources ?? [];
   const categories = dashboard?.categories ?? [];
   const trend = dashboard?.trend ?? [];
-  const novelPlatforms = dashboard?.platforms ?? [];
 
   const curatedRate = overview ? formatRatePercent(overview.curated, overview.total) : 0;
 
@@ -608,7 +561,7 @@ export default function StatsPage() {
         {!loading && (
           <>
             {/* ═══════════════════════════════════════════════════
-                A. 入库趋势 + 网文雷达
+                A. 入库趋势
                 ═══════════════════════════════════════════════════ */}
             <div
               className="mb-3.5 grid grid-cols-[repeat(auto-fit,minmax(min(100%,360px),1fr))] items-start gap-3.5"
@@ -617,9 +570,6 @@ export default function StatsPage() {
                 <ContributionHeatmap data={trend} days={days} />
               </Surface>
 
-              <Surface title="网文雷达统计">
-                <NovelPlatformStats platforms={novelPlatforms} />
-              </Surface>
             </div>
 
             {/* ═══════════════════════════════════════════════════

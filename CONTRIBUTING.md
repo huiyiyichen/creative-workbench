@@ -1,12 +1,12 @@
-# Contributing to TopicEye
+# Contributing to Creative Workbench
 
-Thanks for your interest in contributing! TopicEye is built for content creators, and the fastest way to help is to **add a source connector** — each one lets the radar cover more ground.
+Thanks for your interest in contributing! Creative Workbench is built for content creators, and the fastest way to help is to **add a source connector** — each one lets the radar cover more ground.
 
 ## Quick start (5 minutes)
 
 ```bash
-git clone https://github.com/fxbin/TopicEye.git
-cd TopicEye/backend
+git clone https://github.com/fxbin/TopicEye.git creative-workbench
+cd creative-workbench/backend
 uv sync                              # deps managed by uv (pyproject.toml + uv.lock)
 cp .env.example .env
 
@@ -17,7 +17,7 @@ uv run python -m uvicorn app.main:app --host 127.0.0.1 --port 8102 --reload
 In another terminal:
 
 ```bash
-cd TopicEye/frontend
+cd creative-workbench/frontend
 npm install
 npm run dev
 ```

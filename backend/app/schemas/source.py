@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 from urllib.parse import urlsplit, urlunsplit
 
@@ -16,6 +17,11 @@ def normalize_source_url_value(value: str) -> str:
     url = value.strip()
     parts = urlsplit(url)
     scheme = parts.scheme.lower()
+    # RSSHub sources store a route (for example ``bilibili/user/325864133``)
+    # rather than an origin URL. The route is later joined to a configured,
+    # public RSSHub instance by the scraper.
+    if not scheme and re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9_./-]|%[0-9A-Fa-f]{2}){1,1023}", url):
+        return url.strip("/")
     if scheme in {"http", "https"} and parts.netloc:
         # SSRF 防护：拒绝指向内网/环回/链路本地/保留地址的信源，
         # 覆盖所有创建/导入路径（字面量检查，无 IO；DNS 层校验在抓取时做）。
@@ -145,6 +151,8 @@ class SourceCreate(BaseModel):
 
     @model_validator(mode="after")
     def validate_rsshub_instances(self) -> SourceCreate:
+        if self.source_type != SourceType.RSSHub and not urlsplit(self.url).scheme:
+            raise ValueError("非 RSSHub 信源 URL 必须以 http:// 或 https:// 开头")
         if self.source_type == SourceType.RSSHub and self.keyword:
             self.keyword = normalize_rsshub_config_value(self.keyword)
         return self

@@ -16,7 +16,7 @@ export async function startContentWorkflow({
   isFavorited,
   toggleFavorite,
   router,
-  status = 'researching',
+  status = 'saved',
 }: StartContentWorkflowOptions): Promise<void> {
   let favorited = isFavorited;
   if (!favorited) {

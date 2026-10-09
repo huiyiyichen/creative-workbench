@@ -6,7 +6,6 @@
  * - SOURCE_BRAND / SOURCE_LABELS  数据源品牌颜色 + 显示名
  * - sourceBrand()  查找数据源品牌（fallback 默认灰色）
  * - CATEGORY_COLORS  分类颜色映射
- * - isWebnovelSource()  网文来源判定
  * - TREND_ICONS / RESONANCE_COLORS  趋势/共鸣度视觉映射（在子组件 _components.tsx 用）
  *
  * 子组件 _components.tsx 依赖本模块，page.tsx 通过 re-export 保持外部 import 路径不变。
@@ -20,7 +19,6 @@ export const CATEGORIES = [
   { value: 'hot', label: '热点' },
   { value: 'tech', label: '科技' },
   { value: 'finance', label: '财经' },
-  { value: 'webnovel', label: '网文' },
   { value: 'podcast', label: '播客' },
   { value: 'community', label: '社区' },
   { value: 'entertainment', label: '娱乐' },
@@ -47,8 +45,6 @@ export const SOURCE_BRAND: Record<string, { label: string; color: string; bg: st
   sohu:        { label: '搜狐',     color: '#D8503C', bg: '#FDF0EF' },
   hupu:        { label: '虎扑',     color: '#D43030', bg: '#FDF0F0' },
   kr36:        { label: '36氪',     color: '#0080FF', bg: '#ECF3FF' },
-  heiyan:      { label: '黑岩',     color: '#A855F7', bg: '#F5F0FF' },
-  ishugui:     { label: '点众',     color: '#0EA5E9', bg: '#EBF8FF' },
   xyzrank:     { label: '播客榜',   color: '#9333EA', bg: '#F5F0FF' },
 };
 
@@ -64,16 +60,10 @@ export const CATEGORY_COLORS: Record<string, { bgClass: string; textClass: strin
   hot: { bgClass: 'bg-primary-light', textClass: 'text-primary', borderClass: 'border-primary-border' },
   tech: { bgClass: 'bg-teal-light', textClass: 'text-teal', borderClass: 'border-teal-border' },
   finance: { bgClass: 'bg-amber-light', textClass: 'text-amber', borderClass: 'border-amber-border' },
-  webnovel: { bgClass: 'bg-purple-light', textClass: 'text-purple', borderClass: 'border-purple-border' },
   podcast: { bgClass: 'bg-purple-light', textClass: 'text-purple', borderClass: 'border-purple-border' },
   community: { bgClass: 'bg-teal-light', textClass: 'text-teal', borderClass: 'border-teal-border' },
   entertainment: { bgClass: 'bg-amber-light', textClass: 'text-amber', borderClass: 'border-amber-border' },
 };
-
-/** 是否为网文类目（走 bookId/cover/author/tags 字段而非纯 hot_value） */
-export function isWebnovelSource(source: string): boolean {
-  return source === 'heiyan' || source === 'ishugui';
-}
 
 /** 趋势方向图标（up / down / new / stable） */
 export const TREND_ICONS: Record<string, LucideIcon> = {

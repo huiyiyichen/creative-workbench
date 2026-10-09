@@ -6,7 +6,7 @@ from litellm.exceptions import BadRequestError
 
 from app.services.llm import _call_engine, _rate_limit, provider
 from app.services.llm.circuit_breaker import CircuitState, get_llm_circuit_breaker, reset_llm_circuit_breakers
-from app.services.llm.response_cache import LLMCache
+from app.services.llm.response_cache import LLMCache, get_llm_cache
 
 
 @pytest.fixture(autouse=True)
@@ -14,6 +14,7 @@ def _reset_route_health():
     """Keep per-test model cooldowns and route breakers isolated."""
     provider._failover.reset()
     reset_llm_circuit_breakers()
+    get_llm_cache().clear()
 
 
 def _model(model_id: int, name: str, priority: int) -> SimpleNamespace:

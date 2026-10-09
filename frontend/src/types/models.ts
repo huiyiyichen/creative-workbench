@@ -13,6 +13,8 @@ export interface LlmModelItem {
   model_id: string;
   resolved_model: string;
   api_base: string | null;
+  api_format: 'openai' | 'gemini';
+  capabilities: string[];
   api_key_set: boolean;
   enabled: boolean;
   routing_group: string;
@@ -44,6 +46,8 @@ export interface LlmModelPresetItem {
   model_id_placeholder?: string | null;
   api_base?: string | null;
   api_base_placeholder?: string | null;
+  api_format?: 'openai' | 'gemini';
+  capabilities?: string[];
   model_family?: string | null;
   channel_name?: string | null;
   description: string;

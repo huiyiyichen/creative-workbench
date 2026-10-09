@@ -75,7 +75,7 @@ class FavoriteRepo:
             await self._sync_content_flag(existing, True)
             return existing
 
-        payload["position"] = await self.next_position_for_status(payload.get("status") or FavoriteStatus.INBOX)
+        payload["position"] = await self.next_position_for_status(payload.get("status") or FavoriteStatus.SAVED)
         item = FavoriteItem(**payload)
         self.db.add(item)
         await self.db.flush()

@@ -1,7 +1,7 @@
 import { explainRecommendation } from '@/lib/recommendation';
 
 /**
- * TopicEye TypeScript Type Definitions
+ * Creative Workbench TypeScript type definitions
  * Aligned with backend API models (snake_case)
  */
 
@@ -373,6 +373,7 @@ export interface ScoreBreakdown {
   content_id: number;
   base_score: number;
   source_bonus: number;
+  personalization_bonus?: number;
   quality_factor?: number;
   risk_factor?: number;
   time_decay: number;
@@ -508,8 +509,12 @@ export interface PaginatedResponse<T> {
 
 // ─── Favorites (通用收藏) ───
 
-export type FavoriteTargetType = 'content' | 'book' | 'source' | 'trend' | 'author' | 'topic_group';
-export type FavoriteStatus = 'inbox' | 'researching' | 'drafting' | 'archived';
+export type FavoriteTargetType =
+  | 'content' | 'book' | 'source' | 'trend' | 'author' | 'topic_group'
+  | 'video' | 'audio' | 'image' | 'template' | 'style' | 'creator' | 'project' | 'work' | 'feed';
+// Legacy workflow values remain type-compatible for old components/data; the
+// collection UI exposes only saved and archived.
+export type FavoriteStatus = 'saved' | 'archived' | 'inbox' | 'researching' | 'drafting';
 
 export interface FavoriteItem {
   id: number;
@@ -527,6 +532,7 @@ export interface FavoriteItem {
   status: FavoriteStatus;
   position: number;
   snapshot?: Record<string, unknown> | null;
+  media_url?: string | null;
   created_at: string;
   updated_at: string;
 }

@@ -1,5 +1,5 @@
 # =============================================================================
-# TopicEye backend — 依赖由 uv 管理 + 工具配置
+# 创意工作台后端 — 依赖由 uv 管理 + 工具配置
 #
 # 依赖事实源：本文件 [project].dependencies + uv.lock（锁定完整解析图，
 # 含全部传递依赖与哈希；uv.lock 必须随代码提交）。
@@ -15,9 +15,9 @@
 # =============================================================================
 
 [project]
-name = "topiceye-backend"
+name = "creative-workbench-backend"
 version = "0.1.0"
-description = "TopicEye backend (FastAPI + SQLAlchemy + litellm)"
+description = "Creative Workbench backend (FastAPI + SQLAlchemy + litellm)"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi==0.141.1",
@@ -30,7 +30,6 @@ dependencies = [
     "pydantic-settings==2.15.0",
     "apscheduler==3.10.4",
     "httpx==0.28.1",
-    "aiosmtplib==5.1.2",
     "feedparser==6.0.11",
     "beautifulsoup4==4.12.3",
     "python-dotenv==1.2.2",
@@ -40,16 +39,12 @@ dependencies = [
     "jieba==0.42.1",
     "cryptography==50.0.1",
     "alembic==1.14.0",
-    # OAuth (Google/GitHub 登录); itsdangerous 是 authlib starlette 集成的依赖
-    "authlib==1.6.12",
-    "itsdangerous==2.2.0",
-    # 七猫 scraper: 执行 window.__NUXT__ IIFE 拿 listData (替代 Playwright, 镜像 -500MB)
-    # 注: 包名 mini-racer (新版), import 仍走 py_mini_racer.MiniRacer
-    "mini-racer==0.14.1",
     "trafilatura>=2.1.0",
     "curl_cffi>=0.15.0",
     # reader: 抽取 PDF 原文为可阅读文本（文字型 PDF；扫描件优雅回退到外链）
     "pypdf>=6.0,<7.0",
+    "pillow>=11,<13",
+    "playwright>=1.58,<2",
 ]
 
 [dependency-groups]

@@ -147,6 +147,32 @@ def test_recognize_empty_url():
     assert config is None
 
 
+def test_recognize_bilibili_creator_search_and_hot():
+    st, normalized, config = recognize_source_type("https://space.bilibili.com/325864133")
+    assert st is SourceType.RSSHub
+    assert normalized == "bilibili/user/video-all/325864133"
+    assert config and config["platform"] == "bilibili"
+
+    st, normalized, config = recognize_source_type(
+        "https://search.bilibili.com/all?keyword=%E9%A3%9E%E5%A4%A9%E9%97%AA%E5%AE%A2"
+    )
+    assert st is SourceType.RSSHub
+    assert normalized == "bilibili/vsearch/%E9%A3%9E%E5%A4%A9%E9%97%AA%E5%AE%A2"
+    assert config == {"platform": "bilibili", "query": "飞天闪客"}
+
+    st, normalized, config = recognize_source_type("https://www.bilibili.com/v/popular/rank/all")
+    assert st is SourceType.RSSHub
+    assert normalized == "bilibili/ranking/all"
+    assert config == {"platform": "bilibili", "query": "热门视频"}
+
+
+def test_recognize_douyin_hot():
+    st, normalized, config = recognize_source_type("https://www.douyin.com/hot")
+    assert st is SourceType.DOUYIN_HOT
+    assert normalized == "https://www.douyin.com/hot"
+    assert config == {"platform": "douyin", "query": "抖音热榜"}
+
+
 def test_recognizer_importable():
     """Sanity: the module loads cleanly and is registered in scrapers."""
     from app.services.scrapers import recognizer  # noqa: F401

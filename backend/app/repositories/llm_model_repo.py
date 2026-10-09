@@ -26,6 +26,10 @@ class LlmModelRepository(BaseRepository[LlmModel]):
 
     model = LlmModel
 
+    async def has_enabled_model(self) -> bool:
+        result = await self.db.execute(select(LlmModel.id).where(LlmModel.enabled.is_(True)).limit(1))
+        return result.scalar_one_or_none() is not None
+
     async def list_ordered_for_api(self) -> Sequence[LlmModel]:
         """返回全部 LlmModel 配置，按 routing_group / routing_priority / id 排序。
 

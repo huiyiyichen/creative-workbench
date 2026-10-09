@@ -18,9 +18,21 @@ class FavoriteTargetType(enum.StrEnum):
     TREND = "trend"
     AUTHOR = "author"
     TOPIC_GROUP = "topic_group"
+    VIDEO = "video"
+    AUDIO = "audio"
+    IMAGE = "image"
+    TEMPLATE = "template"
+    STYLE = "style"
+    CREATOR = "creator"
+    PROJECT = "project"
+    WORK = "work"
+    FEED = "feed"
 
 
 class FavoriteStatus(enum.StrEnum):
+    SAVED = "saved"
+    # Legacy values remain readable for existing rows and migrations. They are
+    # not shown by the single-user collection UI.
     INBOX = "inbox"
     RESEARCHING = "researching"
     DRAFTING = "drafting"
@@ -44,7 +56,7 @@ class FavoriteItem(Base):
     collection_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
     tags: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
-    status: Mapped[str] = mapped_column(value_enum(FavoriteStatus), nullable=False, default=FavoriteStatus.INBOX)
+    status: Mapped[str] = mapped_column(value_enum(FavoriteStatus), nullable=False, default=FavoriteStatus.SAVED)
     position: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
     snapshot: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

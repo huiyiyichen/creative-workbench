@@ -108,8 +108,20 @@ async def ingest_from_source(source: Source, db: AsyncSession) -> dict[str, int]
     # 且覆盖 scheduler 自动同步等全部触发路径。注意守卫解析与实际
     # 连接是两次独立解析，严格 TOCTOU rebinding 依赖 scraper client
     # 的 request 事件钩子逐跳校验共同缓解，不在此单独解决。
+    from app.services.scrapers.recognizer import normalize_creator_source
+
+    normalized = normalize_creator_source({}, source)
+    for key, value in normalized.items():
+        setattr(source, key, value)
+    # Older RSSHub rows stored the route without the platform metadata.
+    if source.source_type == SourceType.RSSHub and source.url.startswith(("douyin/user/", "bilibili/")):
+        source.platform = source.url.split("/", 1)[0]
     try:
-        await ensure_public_hostname(source.url)
+        # RSSHub stores a relative route and resolves it against its configured
+        # public instances inside the scraper; validating the route as a host
+        # would reject every creator feed before the scraper gets a chance.
+        if source.source_type != SourceType.RSSHub:
+            await ensure_public_hostname(source.url)
     except UnsafeUrlError as exc:
         message = redact_source_sync_error(str(exc))
         logger.warning("Source %s (%d) blocked by SSRF guard: %s", source.name, source.id, message)

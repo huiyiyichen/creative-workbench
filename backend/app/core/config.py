@@ -37,10 +37,6 @@ class Settings(BaseSettings):
     # ── Startup behavior ──
     AUTO_CREATE_TABLES_ON_STARTUP: bool = True
     STARTUP_SEED_ENABLED: bool = True
-    ADMIN_SEED_ENABLED: bool = False
-    ADMIN_EMAIL: str | None = None
-    ADMIN_PASSWORD: str | None = None
-    ADMIN_DISPLAY_NAME: str | None = None
     APP_SECRET_KEY: str = DEFAULT_LOCAL_SECRET_KEY
     INTEGRATION_SECRET_KEY: str | None = None
 
@@ -71,9 +67,9 @@ class Settings(BaseSettings):
     # 留空则回退到环境变量(向后兼容现有部署)。
     HTTP_PROXY_URL: str | None = None
     # 抓取层品牌 UA,用于 content scraper (RSS / Atom / Podcast 等公开协议)。
-    # 走礼貌爬虫语义,标识 TopicEye 身份,便于站点统计与联系。
+    # 走礼貌爬虫语义,标识创意工作台身份,便于站点统计与联系。
     # 项目暂无对外域名,UA 暂不带 URL;后续有真实域名时再加回 (+https://...)。
-    HTTP_SCRAPER_USER_AGENT: str = "TopicEye/1.0 Python-httpx"
+    HTTP_SCRAPER_USER_AGENT: str = "CreativeWorkbench/1.0 Python-httpx"
     # 抓取层浏览器 UA,用于 trending scraper (国内榜单 API 大多拒绝
     # default Python-httpx UA,返回 403/406)。集中维护避免 16+ 处硬编码漂移。
     HTTP_BROWSER_USER_AGENT: str = (
@@ -112,7 +108,6 @@ class Settings(BaseSettings):
     POST_SYNC_ANALYSIS_TIME_BUDGET_SECONDS: int = 280
     POST_SYNC_MIN_REMAINING_SECONDS: int = 30
     CREATION_PLAN_TIMEOUT_SECONDS: int = 45
-    WEREAD_SKILL_API_URL: str | None = None
 
     # ── Agent config ──
     AGENT_MAX_STEPS: int = 10
@@ -120,50 +115,11 @@ class Settings(BaseSettings):
     AGENT_MAX_RETRIES: int = 3
 
     # ── Rate limiting ──
-    AUTH_LOGIN_ATTEMPTS_PER_MINUTE: int = 20
-    AUTH_REGISTER_ATTEMPTS_PER_MINUTE: int = 10
-    AUTH_SEND_CODE_ATTEMPTS_PER_MINUTE: int = 5
-    AUTH_REFRESH_ATTEMPTS_PER_MINUTE: int = 20
-
-    # ── Session management ──
-    # Session 有效期（天）。默认 30 天。
-    SESSION_DAYS: int = 30
-    # 滑动续期阈值（天）。当 session 剩余有效期低于此值时，
-    # get_user_for_token 会自动延长 expires_at 到 SESSION_DAYS。
-    # 设为 0 可禁用滑动续期。
-    SESSION_REFRESH_THRESHOLD_DAYS: int = 7
-
-    # ── Auth cookie ──
-    # 认证 token 通过 HttpOnly cookie 下发，前端 JS 无法读取，
-    # 降低 XSS 窃取 token 的风险。Bearer header 仍然支持（API 客户端）。
-    AUTH_COOKIE_NAME: str = "topiceye_auth"
-    # 非生产环境（HTTP）必须设为 False；HTTPS 部署设为 True。
-    AUTH_COOKIE_SECURE: bool = False
-    # lax 允许顶层导航携带 cookie（OAuth 回调 302 需要此行为）。
-    # 生产环境如需更严格可设为 "strict"（注意 OAuth 跳转可能丢失 cookie）。
-    AUTH_COOKIE_SAMESITE: str = "lax"
-    # 留空则绑定当前域名；跨子域可设为 ".example.com"。
-    AUTH_COOKIE_DOMAIN: str = ""
-    # 非 HttpOnly 的存在标记 cookie 名，前端据此判断是否登录。
-    AUTH_PRESENCE_COOKIE_NAME: str = "topiceye_auth_present"
-    # 非 HttpOnly 的过期时间 cookie 名，前端用于 refresh 逻辑。
-    AUTH_EXPIRES_COOKIE_NAME: str = "topiceye_auth_expires_at"
-
     # ── Request handling ──
     # 是否信任反向代理透传的 X-Forwarded-For 首段作为客户端真实 IP。
     # 部署在 Nginx / Caddy / CDN 后应保持 True；直接暴露公网时设为 False
     # 防止客户端伪造该头部绕过限流或污染审计日志。
     TRUST_FORWARDED_IP: bool = True
-
-    # ── OAuth (Google / GitHub 登录) ──
-    # 留空则该 provider 不启用。申请方式见 .env.example。
-    OAUTH_GOOGLE_CLIENT_ID: str = ""
-    OAUTH_GOOGLE_CLIENT_SECRET: str = ""
-    OAUTH_GITHUB_CLIENT_ID: str = ""
-    OAUTH_GITHUB_CLIENT_SECRET: str = ""
-    # OAuth 登录成功后重定向到的前端回调页（token 走 URL fragment 传回）。
-    # 留空则 OAuth 回调会返回 400；部署时必须通过 .env 设置。
-    OAUTH_FRONTEND_REDIRECT_URL: str = ""
 
     # 本地代理 fake-ip 段放行（如 198.18.0.0/15，Clash/Surge fake-ip 模式）。
     # 仅放行"域名解析结果落在该段"的 SSRF 拦截：这类地址实际指向本机代理，
@@ -232,15 +188,6 @@ class Settings(BaseSettings):
             raise ValueError("DATABASE_URL 未设置。请在 .env 中配置 PostgreSQL 连接字符串，" "参考 .env.example。")
         return v
 
-    @field_validator("OAUTH_FRONTEND_REDIRECT_URL")
-    @classmethod
-    def _validate_oauth_redirect_url(cls, v: str) -> str:
-        # 允许空字符串（OAuth 未启用时不强制要求）；
-        # 但如果填了值，必须是合法的 http(s) URL。
-        if v and not v.startswith(("http://", "https://")):
-            raise ValueError(f"OAUTH_FRONTEND_REDIRECT_URL 必须是 http:// 或 https:// 开头的 URL，" f"当前值: {v!r}")
-        return v
-
     @property
     def is_production(self) -> bool:
         return self.APP_ENV.strip().lower() in {"prod", "production"}
@@ -249,16 +196,5 @@ class Settings(BaseSettings):
     def cors_origins(self) -> list[str]:
         """Parse CORS_ORIGINS into a clean list of origin strings."""
         return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
-
-    @property
-    def oauth_enabled_providers(self) -> list[str]:
-        """已配置 client_id 的 OAuth provider 列表（前端据此渲染按钮）。"""
-        providers: list[str] = []
-        if self.OAUTH_GOOGLE_CLIENT_ID and self.OAUTH_GOOGLE_CLIENT_SECRET:
-            providers.append("google")
-        if self.OAUTH_GITHUB_CLIENT_ID and self.OAUTH_GITHUB_CLIENT_SECRET:
-            providers.append("github")
-        return providers
-
 
 settings = Settings()

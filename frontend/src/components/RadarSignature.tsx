@@ -3,7 +3,7 @@
 import React from 'react';
 
 /**
- * RadarSignature — TopicEye 品牌签名元素。
+ * RadarSignature — 创意工作台品牌签名元素。
  *
  * 用极简同心圆 + 旋转扫描线表达「雷达 / 信号扫描」意象，
  * 呼应产品名「选题雷达」。纯 SVG + CSS 动画，无 JS 依赖，零布局抖动。
@@ -45,30 +45,30 @@ export function RadarSignature({
         <defs>
           {/* 扫描线锥形渐变：从主色到透明，形成「扫过的余晖」 */}
           <linearGradient id={sweepId} x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stopColor="#FF6B35" stopOpacity="0" />
-            <stop offset="100%" stopColor="#FF6B35" stopOpacity="0.55" />
+            <stop offset="0%" stopColor="var(--color-primary)" stopOpacity="0" />
+            <stop offset="100%" stopColor="var(--color-primary)" stopOpacity="0.55" />
           </linearGradient>
         </defs>
 
         {/* 同心圆（雷达网格），由外到内渐淡 */}
-        <circle cx="24" cy="24" r="21" stroke="#FFD0B5" strokeWidth="1.5" />
-        <circle cx="24" cy="24" r="14" stroke="#FFD0B5" strokeWidth="1.2" opacity="0.7" />
-        <circle cx="24" cy="24" r="7" stroke="#FFD0B5" strokeWidth="1" opacity="0.5" />
+        <circle cx="24" cy="24" r="21" stroke="var(--color-primary-border)" strokeWidth="1.5" />
+        <circle cx="24" cy="24" r="14" stroke="var(--color-primary-border)" strokeWidth="1.2" opacity="0.7" />
+        <circle cx="24" cy="24" r="7" stroke="var(--color-primary-border)" strokeWidth="1" opacity="0.5" />
 
         {/* 旋转扫描扇面 + 扫描线 */}
         <g className="radar-signature-sweep" style={{ transformOrigin: '24px 24px' }}>
           <path d="M24 24 L24 3 A21 21 0 0 1 42.6 14.5 Z" fill={`url(#${sweepId})`} />
-          <line x1="24" y1="24" x2="24" y2="3" stroke="#FF6B35" strokeWidth="1.8" strokeLinecap="round" />
+          <line x1="24" y1="24" x2="24" y2="3" stroke="var(--color-primary)" strokeWidth="1.8" strokeLinecap="round" />
         </g>
 
         {/* 中心信号点 + 脉冲扩散（复用全局 radar-ping） */}
-        <circle cx="24" cy="24" r="3" fill="#FF6B35" />
+        <circle cx="24" cy="24" r="3" fill="var(--color-primary)" />
         <circle
           cx="24"
           cy="24"
           r="3"
           fill="none"
-          stroke="#FF6B35"
+          stroke="var(--color-primary)"
           strokeWidth="1.5"
           className="radar-signature-ping"
           style={{ transformOrigin: '24px 24px' }}

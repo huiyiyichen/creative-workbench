@@ -26,7 +26,7 @@ class FavoriteCreate(BaseModel):
     collection_id: int | None = None
     tags: Any | None = None
     note: str | None = None
-    status: FavoriteStatus = FavoriteStatus.INBOX
+    status: FavoriteStatus = FavoriteStatus.SAVED
     snapshot: Any | None = None
 
     @model_validator(mode="after")
@@ -42,13 +42,15 @@ class FavoriteCreate(BaseModel):
 
 
 class FavoriteUpdate(BaseModel):
+    title: str | None = Field(default=None, max_length=500)
+    cover_url: str | None = Field(default=None, max_length=1024)
     collection_id: int | None = None
     tags: Any | None = None
     note: str | None = None
     status: FavoriteStatus | None = None
     snapshot: dict[str, Any] | None = None
 
-    @field_validator("note", mode="before")
+    @field_validator("title", "cover_url", "note", mode="before")
     @classmethod
     def normalize_text_fields(cls, value):
         return normalize_optional_text(value)
@@ -132,6 +134,7 @@ class FavoriteResponse(BaseModel):
     status: str
     position: int
     snapshot: Any | None = None
+    media_url: str | None = None
     created_at: datetime
     updated_at: datetime
 

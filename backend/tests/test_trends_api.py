@@ -5,6 +5,17 @@ from app.api.v1 import trends as trends_api
 from app.services import duckdb_service
 
 
+class _RefreshSession:
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, exc_type, exc, tb):
+        return None
+
+    async def commit(self):
+        return None
+
+
 class FailingAsyncSession:
     def __call__(self):
         raise AssertionError("SQLite fallback should not run after successful DuckDB query")
@@ -62,3 +73,22 @@ async def test_keyword_cloud_duckdb_error_returns_503_without_fallback(monkeypat
 
     assert exc_info.value.status_code == 503
     assert exc_info.value.detail == "DuckDB analytical layer unavailable"
+
+
+@pytest.mark.asyncio
+async def test_refresh_trends_builds_snapshots(monkeypatch):
+    async def fake_refresh(db, *, days):
+        assert days == 7
+        return {"days": 7, "dates": ["2026-10-05"], "snapshots": [{"topics": 1, "keywords": 2}]}
+
+    monkeypatch.setattr(trends_api, "refresh_trend_snapshots", fake_refresh)
+    monkeypatch.setattr(trends_api, "async_session", lambda: _RefreshSession())
+
+    payload = await trends_api.refresh_trends(days=7)
+
+    assert payload == {
+        "status": "ok",
+        "days": 7,
+        "dates": ["2026-10-05"],
+        "snapshots": [{"topics": 1, "keywords": 2}],
+    }

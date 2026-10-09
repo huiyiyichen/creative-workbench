@@ -410,63 +410,6 @@ async def _cleanup_old_read_records() -> None:
         logger.exception("Scheduler: cleanup_old_read_records failed")
 
 
-@track_job("sync_fanqie", name="番茄小说榜单抓取", timeout=300, description="每日凌晨1点抓取番茄小说34个分类榜单")
-async def _sync_fanqie() -> None:
-    """番茄小说榜单每日抓取（凌晨1点）。任务永远注册，运行时由 flag 决定是否执行。"""
-    async with async_session() as db:
-        from app.repositories.app_setting_repo import AppSettingRepository
-
-        if not await AppSettingRepository(db).get_feature_flag("webnovel_module"):
-            return  # 网文模块未启用，跳过抓取
-    logger.info("Scheduler: fanqie sync started")
-    try:
-        from app.services.fanqie_service import full_sync
-
-        result = await full_sync()
-        logger.info("Scheduler: fanqie sync done — %s", result)
-        return str(result)
-    except Exception:
-        logger.exception("Scheduler: fanqie sync failed")
-
-
-@track_job("sync_qimao", name="七猫小说榜单抓取", timeout=300, description="每日凌晨2点抓取七猫小说10个榜单")
-async def _sync_qimao() -> None:
-    """七猫小说榜单每日抓取（凌晨2点）。任务永远注册，运行时由 flag 决定是否执行。"""
-    async with async_session() as db:
-        from app.repositories.app_setting_repo import AppSettingRepository
-
-        if not await AppSettingRepository(db).get_feature_flag("webnovel_module"):
-            return
-    logger.info("Scheduler: qimao sync started")
-    try:
-        from app.services.qimao_service import sync_qimao_ranks
-
-        result = await sync_qimao_ranks()
-        logger.info("Scheduler: qimao sync done — %s", result)
-        return str(result)
-    except Exception:
-        logger.exception("Scheduler: qimao sync failed")
-
-
-@track_job("sync_zhihu", name="知乎故事榜单抓取", timeout=300, description="每日凌晨4点抓取知乎故事分类榜单")
-async def _sync_zhihu() -> None:
-    """知乎故事榜单每日抓取（凌晨4点）。任务永远注册，运行时由 flag 决定是否执行。"""
-    async with async_session() as db:
-        from app.repositories.app_setting_repo import AppSettingRepository
-
-        if not await AppSettingRepository(db).get_feature_flag("webnovel_module"):
-            return
-    logger.info("Scheduler: zhihu sync started")
-    try:
-        from app.services.zhihu_service import sync_zhihu_ranks
-
-        result = await sync_zhihu_ranks()
-        logger.info("Scheduler: zhihu sync done — %s", result)
-        return str(result)
-    except Exception:
-        logger.exception("Scheduler: zhihu sync failed")
-
-
 @track_job(
     "snapshot_trends",
     name="趋势快照(话题+关键词)",
@@ -628,109 +571,6 @@ async def _generate_daily_report_final() -> None:
 
 
 @track_job("weekly_digest", name="AI周刊生成", timeout=300, description="每周一早9点生成AI周刊，基于本周已分析内容")
-# ── User-owned daily reports (T2) ────────────────────────────────────────
-# Generates a per-user daily report for Pro+ users that have enabled
-# private sources. Uses the same edition as the global daily report but
-# scoped to owner_user_id. Runs 10 minutes after the global report to
-# avoid stampede on the LLM gateway.
-
-
-async def _list_pro_users_with_private_sources() -> list[int]:
-    """Return user ids that (a) are Pro/Studio/Enterprise and (b) have at
-    least one enabled private source."""
-    from sqlalchemy import and_, exists, select
-
-    from app.core.database import async_session
-    from app.models.source import Source
-    from app.models.user import User
-
-    async with async_session() as db:
-        stmt = (
-            select(User.id)
-            .where(User.is_active.is_(True))
-            .where(User.plan.in_(["pro", "studio", "enterprise"]))
-            .where(
-                exists().where(
-                    and_(
-                        Source.owner_user_id == User.id,
-                        Source.enabled.is_(True),
-                    )
-                )
-            )
-        )
-        result = await db.execute(stmt)
-        return [row[0] for row in result.all()]
-
-
-@track_job("daily_report_user", name="用户日报生成", timeout=1800)
-async def _generate_user_daily_reports() -> None:
-    """Generate user-owned daily reports for all Pro+ users with private sources.
-
-    Concurrency strategy: ``asyncio.gather`` of per-user tasks in chunks
-    of 5, with a 2-second sleep between chunks to avoid stampeding the
-    LLM gateway. Each user is isolated in its own try/except so one
-    failure does not block the rest.
-    """
-    from datetime import date as _date_cls
-
-    from app.core.database import async_session
-    from app.services.daily_report import (
-        _day_window,
-        _edition_for_now,
-        generate_daily_report,
-    )
-
-    user_ids = await _list_pro_users_with_private_sources()
-    if not user_ids:
-        logger.info("daily_report_user: no eligible users, skipping")
-        return
-
-    edition = _edition_for_now()
-    today = _date_cls.today()
-    # Use same window as the global daily report
-    window_start, window_end = _day_window(today, None, edition)
-
-    succeeded = 0
-    failed = 0
-    chunk_size = 5
-    for i in range(0, len(user_ids), chunk_size):
-        chunk = user_ids[i : i + chunk_size]
-
-        async def _gen_for_one(uid: int) -> None:
-            async with async_session() as session:
-                try:
-                    await generate_daily_report(
-                        session,
-                        target_date=today,
-                        edition=edition,
-                        owner_user_id=uid,
-                    )
-                except Exception as exc:  # noqa: BLE001
-                    logger.warning("daily_report_user: user=%s failed: %s", uid, exc)
-                    raise
-
-        results = await asyncio.gather(
-            *[_gen_for_one(uid) for uid in chunk],
-            return_exceptions=True,
-        )
-        for r in results:
-            if isinstance(r, Exception):
-                failed += 1
-            else:
-                succeeded += 1
-        if i + chunk_size < len(user_ids):
-            await asyncio.sleep(2)
-
-    logger.info(
-        "daily_report_user: succeeded=%s failed=%s (edition=%s window=%s..%s)",
-        succeeded,
-        failed,
-        edition,
-        window_start,
-        window_end,
-    )
-
-
 async def _generate_weekly_digest() -> None:
     """Generate AI weekly digest at 09:00 every Monday."""
     logger.info("Scheduler: weekly digest generation started")
@@ -763,55 +603,6 @@ async def _generate_monthly_digest() -> None:
         return f"month={digest.month_key}, status={digest.status}"
     except Exception:
         logger.exception("Scheduler: monthly digest generation failed")
-
-
-@track_job(
-    "cleanup_email_verification_codes",
-    name="过期邮箱验证码清理",
-    timeout=60,
-    description="每日03:50清理过期邮箱验证码（此前无任何调用方，表无限增长）",
-)
-async def _cleanup_email_verification_codes() -> None:
-    """Remove expired email verification codes (daily)."""
-    logger.info("Scheduler: cleanup_email_verification_codes started")
-    try:
-        from app.services.email_verification_service import cleanup_expired_codes
-
-        async with async_session() as db:
-            removed = await cleanup_expired_codes(db)
-            await db.commit()
-        logger.info("Scheduler: cleanup_email_verification_codes removed %d records", removed)
-        return f"removed={removed}"
-    except Exception:
-        logger.exception("Scheduler: cleanup_email_verification_codes failed")
-
-
-@track_job(
-    "refresh_weread_stats_cache",
-    name="微信读书统计缓存刷新",
-    timeout=600,
-    description="每日05:00刷新所有用户的微信读书阅读统计和书架对比数据缓存",
-)
-async def _refresh_weread_stats_cache() -> None:
-    """每日凌晨 05:00 刷新所有用户的 WeRead 统计缓存。
-
-    拉取每个配置了 WeRead integration 的用户的阅读统计（all/week/month/year）
-    和书架对比数据，写入 weread_stats_cache 表。API 层优先读缓存以加速响应。
-    """
-    logger.info("Scheduler: WeRead stats cache refresh started")
-    try:
-        from app.services.weread_materials import refresh_all_weread_stats_cache
-
-        summary = await refresh_all_weread_stats_cache()
-        logger.info(
-            "Scheduler: WeRead stats cache refresh done — " "users=%d, success=%d, failed=%d",
-            summary.get("total_users", 0),
-            summary.get("success", 0),
-            summary.get("failed", 0),
-        )
-        return str(summary)
-    except Exception:
-        logger.exception("Scheduler: WeRead stats cache refresh failed")
 
 
 @track_job(
@@ -932,15 +723,6 @@ def start_scheduler() -> None:
         replace_existing=True,
     )
 
-    # Expired email verification codes cleanup at 03:50
-    scheduler.add_job(
-        _cleanup_email_verification_codes,
-        trigger=CronTrigger(hour=3, minute=50),
-        id="cleanup_email_verification_codes",
-        name="Cleanup expired email verification codes",
-        replace_existing=True,
-    )
-
     # Trending radar: sync all trending sources every 30 minutes
     scheduler.add_job(
         _sync_all_trending,
@@ -1021,15 +803,6 @@ def start_scheduler() -> None:
         replace_existing=True,
     )
 
-    # 番茄小说榜单：每日凌晨1点抓取（任务永远注册，运行时由 _sync_fanqie 内 flag 检查决定是否执行）
-    scheduler.add_job(
-        _sync_fanqie,
-        trigger=CronTrigger(hour=1, minute=0),
-        id="sync_fanqie",
-        name="番茄小说榜单每日抓取",
-        replace_existing=True,
-    )
-
     # AI日报：午间、晚间生成当日快照
     scheduler.add_job(
         _generate_daily_report,
@@ -1043,21 +816,6 @@ def start_scheduler() -> None:
         trigger=CronTrigger(hour=20, minute=0),
         id="daily_report_evening",
         name="AI日报晚间快照",
-        replace_existing=True,
-    )
-    # 用户专属日报：错开全局 10 分钟，避免 LLM gateway 拥堵
-    scheduler.add_job(
-        _generate_user_daily_reports,
-        trigger=CronTrigger(hour=12, minute=10),
-        id="daily_report_user_noon",
-        name="用户日报午间",
-        replace_existing=True,
-    )
-    scheduler.add_job(
-        _generate_user_daily_reports,
-        trigger=CronTrigger(hour=20, minute=10),
-        id="daily_report_user_evening",
-        name="用户日报晚间",
         replace_existing=True,
     )
     scheduler.add_job(
@@ -1083,24 +841,6 @@ def start_scheduler() -> None:
         trigger=CronTrigger(day=1, hour=4, minute=45),
         id="monthly_digest",
         name="AI月刊生成",
-        replace_existing=True,
-    )
-
-    # 七猫小说榜单：每日凌晨2点抓取（任务永远注册，运行时由 _sync_qimao 内 flag 检查决定是否执行）
-    scheduler.add_job(
-        _sync_qimao,
-        trigger=CronTrigger(hour=2, minute=0),
-        id="sync_qimao",
-        name="七猫小说榜单每日抓取",
-        replace_existing=True,
-    )
-
-    # 知乎故事榜单：每日凌晨4点抓取
-    scheduler.add_job(
-        _sync_zhihu,
-        trigger=CronTrigger(hour=4, minute=0),
-        id="sync_zhihu",
-        name="知乎故事榜单每日抓取",
         replace_existing=True,
     )
 
@@ -1174,15 +914,6 @@ def start_scheduler() -> None:
         replace_existing=True,
     )
 
-    # WeRead 统计缓存刷新：每日 05:00（错开 04:30 趋势快照）
-    scheduler.add_job(
-        _refresh_weread_stats_cache,
-        trigger=CronTrigger(hour=5, minute=0),
-        id="refresh_weread_stats_cache",
-        name="微信读书统计缓存每日刷新",
-        replace_existing=True,
-    )
-
     # 模型目录刷新：每日 05:30（错开 05:00 WeRead 缓存；失败保留旧数据）
     scheduler.add_job(
         _refresh_model_catalog,
@@ -1212,7 +943,7 @@ def start_scheduler() -> None:
         "Scheduler started: per-source sync + 10min rescan + "
         "5min analysis + 15min clustering + 15min evidence + 30min trends + "
         "cleanup + daily_report(12:00/20:00 + final 00:30) + "
-        "weekly_digest(Mon 03:00) + monthly_digest(day 1 04:45) + weread_stats_cache(05:00)"
+        "weekly_digest(Mon 03:00) + monthly_digest(day 1 04:45)"
     )
 
 

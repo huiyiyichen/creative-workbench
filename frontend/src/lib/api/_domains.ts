@@ -15,12 +15,20 @@ export type { SourceBatchImportItem } from './_sources';
 
 export { contentsApi, contentCategoriesApi } from './_contents';
 
-export { dailyReportApi, creationApi } from './_daily-reports';
+export { dailyReportApi, studioApi } from './_daily-reports';
 export type { WebhookDeliveryLogItem } from './_daily-reports';
-
-export { favoritesApi, topicsApi, analysesApi, apiTokensApi, evidenceApi, contentEventsAdminApi } from './_admin-api';
 export type {
-  ApiTokenItem,
+  StudioCatalog,
+  StudioBrief,
+  StudioDraft,
+  StudioProject,
+  StudioShot,
+  StudioCue,
+  StudioArtifact,
+} from './_daily-reports';
+
+export { favoritesApi, topicsApi, analysesApi, evidenceApi, contentEventsAdminApi } from './_admin-api';
+export type {
   EvidenceStats,
   EvidenceEffectStats,
   ContentEventRelation,

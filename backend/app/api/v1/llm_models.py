@@ -247,6 +247,8 @@ class ModelCreateRequest(BaseModel):
     cost_per_1m_input_cache_hit: float | None = None
     cost_per_1m_output: float | None = None
     extra_params: dict | None = None
+    api_format: str = Field("openai", pattern="^(openai|gemini)$")
+    capabilities: list[str] = Field(default_factory=lambda: ["text"])
 
     @field_validator("preset_key", "api_key", "api_base", "model_family", "channel_name", mode="before")
     @classmethod
@@ -282,6 +284,8 @@ class ModelUpdateRequest(BaseModel):
     cost_per_1m_input_cache_hit: float | None = None
     cost_per_1m_output: float | None = None
     extra_params: dict | None = None
+    api_format: str | None = Field(None, pattern="^(openai|gemini)$")
+    capabilities: list[str] | None = None
 
     @field_validator("api_key", "api_base", "model_family", "channel_name", mode="before")
     @classmethod
@@ -323,6 +327,30 @@ def _pricing_extra_params(extra_params: dict | None, cache_hit_price: float | No
     return params or None
 
 
+def _channel_extra_params(
+    extra_params: dict | None,
+    *,
+    api_format: str | None = None,
+    capabilities: list[str] | None = None,
+) -> dict | None:
+    """Persist canvas-compatible channel metadata without adding secret columns."""
+    params = dict(extra_params or {})
+    if api_format:
+        params["api_format"] = api_format
+    if capabilities is not None:
+        params["capabilities"] = sorted({str(item).strip() for item in capabilities if str(item).strip()})
+    return params or None
+
+
+def _channel_metadata(model: LlmModel) -> tuple[str, list[str]]:
+    params = model.extra_params if isinstance(model.extra_params, dict) else {}
+    api_format = str(params.get("api_format") or "openai")
+    capabilities = params.get("capabilities")
+    if not isinstance(capabilities, list):
+        capabilities = ["text"]
+    return api_format, [str(item) for item in capabilities]
+
+
 def _model_cost_input(req: ModelCreateRequest | ModelUpdateRequest) -> float | None:
     if req.cost_per_1m_input is not None:
         return _per_1m_to_1k(req.cost_per_1m_input)
@@ -337,6 +365,7 @@ def _model_cost_output(req: ModelCreateRequest | ModelUpdateRequest) -> float | 
 
 def _model_payload(m: LlmModel) -> dict:
     pricing = normalized_model_pricing(m)
+    api_format, capabilities = _channel_metadata(m)
     return {
         "id": m.id,
         "name": m.name,
@@ -362,6 +391,8 @@ def _model_payload(m: LlmModel) -> dict:
         "cost_per_1m_input_cache_hit": pricing["cost_per_1m_input_cache_hit"],
         "cost_per_1m_output": pricing["cost_per_1m_output"],
         "extra_params": m.extra_params,
+        "api_format": api_format,
+        "capabilities": capabilities,
         "created_at": m.created_at.isoformat() if m.created_at else None,
         "updated_at": m.updated_at.isoformat() if m.updated_at else None,
     }
@@ -382,7 +413,14 @@ def _materialize_create_request(req: ModelCreateRequest) -> ModelCreateRequest:
 
 def _apply_model_request(model: LlmModel, req: ModelCreateRequest | ModelUpdateRequest) -> None:
     update_data = req.model_dump(exclude_unset=True)
-    for api_only_key in ("preset_key", "cost_per_1m_input", "cost_per_1m_input_cache_hit", "cost_per_1m_output"):
+    for api_only_key in (
+        "preset_key",
+        "cost_per_1m_input",
+        "cost_per_1m_input_cache_hit",
+        "cost_per_1m_output",
+        "api_format",
+        "capabilities",
+    ):
         update_data.pop(api_only_key, None)
     if "cost_per_1m_input" in req.model_fields_set:
         update_data["cost_per_1k_input"] = _per_1m_to_1k(req.cost_per_1m_input)
@@ -392,6 +430,12 @@ def _apply_model_request(model: LlmModel, req: ModelCreateRequest | ModelUpdateR
         update_data["extra_params"] = _pricing_extra_params(
             update_data.get("extra_params", model.extra_params),
             req.cost_per_1m_input_cache_hit,
+        )
+    if "api_format" in req.model_fields_set or "capabilities" in req.model_fields_set:
+        update_data["extra_params"] = _channel_extra_params(
+            update_data.get("extra_params", model.extra_params),
+            api_format=getattr(req, "api_format", None),
+            capabilities=getattr(req, "capabilities", None),
         )
     for key, value in update_data.items():
         # api_key 在落库前加密：客户端传入的是明文（GET 只返回 api_key_set 布尔值，
@@ -434,7 +478,11 @@ def _new_model_from_request(req: ModelCreateRequest) -> LlmModel:
         description=req.description,
         cost_per_1k_input=cost_per_1k_input,
         cost_per_1k_output=cost_per_1k_output,
-        extra_params=_pricing_extra_params(req.extra_params, cache_hit_price),
+        extra_params=_channel_extra_params(
+            _pricing_extra_params(req.extra_params, cache_hit_price),
+            api_format=req.api_format,
+            capabilities=req.capabilities,
+        ),
     )
 
 

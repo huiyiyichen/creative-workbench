@@ -43,7 +43,7 @@ def test_build_scraper_client_kwargs_skips_explicit_proxy_for_loopback(monkeypat
     assert remote_kwargs["proxy"] == "http://127.0.0.1:7890"
     # New helper also injects a UA / Accept headers so scrapers can use 304
     # out of the box and avoid some public services' UA blocks.
-    assert local_kwargs["headers"]["User-Agent"].startswith("TopicEye/")
+    assert local_kwargs["headers"]["User-Agent"].startswith("CreativeWorkbench/")
     assert "application/rss+xml" in local_kwargs["headers"]["Accept"]
 
 

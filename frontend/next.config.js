@@ -4,16 +4,19 @@ const path = require('path');
 const backendApiUrl = process.env.BACKEND_API_URL || 'http://127.0.0.1:8102';
 
 const nextConfig = {
+  // Keep the one-click runtime separate from the developer's build/cache.
+  distDir: (process.env.WORKBENCH_LOCAL_BUILD || process.env.TOPICEYE_LOCAL_BUILD) === '1' ? '.next-local' : '.next',
   reactStrictMode: true,
   compress: true,
   poweredByHeader: false,
-  allowedDevOrigins: ['localhost', '127.0.0.1', 'frontend.topiceye.orb.local'],
+  allowedDevOrigins: ['localhost', '127.0.0.1', 'frontend.creative-workbench.orb.local'],
   turbopack: {
     root: path.resolve(__dirname),
   },
   // LLM 翻译等长请求需要超过 Next.js rewrite proxy 默认 30s 超时
   experimental: {
     proxyTimeout: 120000,
+    optimizePackageImports: ['antd', '@ant-design/icons', 'lucide-react'],
   },
   // macOS Docker bind mount 下 inotify 不穿透，强制 webpack 轮询以启用 HMR
   webpack: (config) => {

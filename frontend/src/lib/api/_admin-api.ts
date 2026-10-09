@@ -4,7 +4,7 @@
  * 从 _domains.ts 拆出。
  */
 
-import { request } from './_core';
+import { request, type RequestOptions } from './_core';
 import type { ContentAnalysis, PaginatedResponse, TopicInfo, TopicFilterParams, FavoriteItem, FavoriteStatus, FavoriteTargetType } from '@/types';
 import type { FavoriteCreatePayload, FavoriteTargetState } from '@/lib/favorites';
 import { assertUniqueIds, chunkArray, FAVORITE_STATE_BATCH_SIZE } from './_core';
@@ -19,7 +19,7 @@ export const favoritesApi = {
     target_type?: FavoriteTargetType | '';
     status?: FavoriteStatus | '';
     keyword?: string;
-  }): Promise<PaginatedResponse<FavoriteItem>> {
+  }, options?: RequestOptions): Promise<PaginatedResponse<FavoriteItem>> {
     const query = params
       ? '?' + new URLSearchParams(
           Object.entries(params)
@@ -27,7 +27,7 @@ export const favoritesApi = {
             .map(([k, v]) => [k, String(v)])
         ).toString()
       : '';
-    return request(`/favorites${query}`);
+    return request(`/favorites${query}`, options);
   },
 
   /** Lightweight index — only id/target_type/target_key/target_id, no pagination. */
@@ -40,6 +40,28 @@ export const favoritesApi = {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  },
+
+  uploadFile(
+    file: File,
+    data: {
+      target_type: Extract<FavoriteTargetType, 'video' | 'audio' | 'image' | 'style' | 'template'>;
+      title: string;
+      source_name?: string;
+      note?: string;
+      snapshot?: Record<string, unknown>;
+      favorite_id?: number;
+    },
+  ): Promise<FavoriteItem> {
+    const form = new FormData();
+    form.append('file', file);
+    form.append('target_type', data.target_type);
+    form.append('title', data.title);
+    if (data.source_name) form.append('source_name', data.source_name);
+    if (data.note) form.append('note', data.note);
+    if (data.snapshot) form.append('preset_snapshot', JSON.stringify(data.snapshot));
+    if (data.favorite_id) form.append('favorite_id', String(data.favorite_id));
+    return request('/favorites/upload', { method: 'POST', body: form });
   },
 
   async state(params: {
@@ -68,7 +90,7 @@ export const favoritesApi = {
     return request(`/favorites/state?${qs.toString()}`);
   },
 
-  update(id: number, data: { status?: FavoriteStatus; note?: string | null; tags?: unknown; snapshot?: Record<string, unknown> | null }): Promise<FavoriteItem> {
+  update(id: number, data: { title?: string; cover_url?: string | null; status?: FavoriteStatus; note?: string | null; tags?: unknown; snapshot?: Record<string, unknown> | null }): Promise<FavoriteItem> {
     return request(`/favorites/${id}`, {
       method: 'PATCH',
       body: JSON.stringify(data),
@@ -228,43 +250,6 @@ export const analysesApi = {
         ).toString()
       : '';
     return request(`/analyses${query}`);
-  },
-};
-
-// ─── API Tokens (个人 API token，供外部 agent / 脚本调用) ───
-
-export interface ApiTokenItem {
-  id: number;
-  name: string;
-  token_prefix: string;
-  expires_at: string | null;
-  revoked_at: string | null;
-  last_used_at: string | null;
-  created_at: string | null;
-}
-
-export const apiTokensApi = {
-  /** 列出当前用户的所有 API token */
-  list(): Promise<{ count: number; tokens: ApiTokenItem[] }> {
-    return request('/me/api-tokens');
-  },
-
-  /** 创建 API token（明文 token 仅在响应中返回一次） */
-  create(data: { name: string; expires_at?: string }): Promise<{ token: string; record: ApiTokenItem }> {
-    return request('/me/api-tokens', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-
-  /** 撤销 API token */
-  revoke(id: number): Promise<{ success: boolean }> {
-    return request(`/me/api-tokens/${id}/revoke`, { method: 'POST' });
-  },
-
-  /** 删除 API token */
-  remove(id: number): Promise<void> {
-    return request(`/me/api-tokens/${id}`, { method: 'DELETE' });
   },
 };
 

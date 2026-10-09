@@ -1,5 +1,5 @@
 """
-DuckDB analytics layer for TopicEye.
+DuckDB analytics layer for Creative Workbench.
 
 Architecture:
     DuckDB connects in-memory and ATTACHes the configured OLTP database
@@ -85,7 +85,7 @@ class DuckDBAnalytics(PicksMixin, TopicsMixin, StatsMixin, ReportsMixin):
     - PicksMixin: query_today_picks
     - TopicsMixin: query_topics, query_trend_topics, query_keyword_cloud
     - StatsMixin: query_stats_*, query_daily_stats, query_dashboard_stats
-    - ReportsMixin: query_content_for_report, query_content_for_weekly, query_webnovel_weekly
+    - ReportsMixin: query_content_for_report, query_content_for_weekly
     """
 
     def __init__(self) -> None:
@@ -270,7 +270,7 @@ _lock = threading.Lock()
 # DuckDB 是同步库且连接为 thread-local。固定单线程执行器保证：
 # 1) 本执行器上只创建/复用一份 in-memory 连接（命中 thread-local 缓存）；
 # 2) 查询保持串行——与旧的事件循环内直接调用语义一致，但不再阻塞事件循环。
-_DUCKDB_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="topiceye-duckdb")
+_DUCKDB_EXECUTOR = ThreadPoolExecutor(max_workers=1, thread_name_prefix="creative-workbench-duckdb")
 
 _T = TypeVar("_T")
 
@@ -341,10 +341,6 @@ def query_stats_daily_trend(days: int = 7) -> dict[str, Any]:
     return get_analytics().query_stats_daily_trend(days=days)
 
 
-def query_stats_novel_platforms() -> dict[str, Any]:
-    return get_analytics().query_stats_novel_platforms()
-
-
 def query_daily_stats() -> dict[str, Any]:
     return get_analytics().query_daily_stats()
 
@@ -360,8 +356,3 @@ def query_content_for_report(hours: int = 48) -> list[dict[str, Any]]:
 def query_content_for_weekly(start_date: str, end_date: str) -> list[dict[str, Any]]:
     """Fetch analyzed content for a given week date range (YYYY-MM-DD strings)."""
     return get_analytics().query_content_for_weekly(start_date=start_date, end_date=end_date)
-
-
-def query_webnovel_weekly(days: int = 7) -> dict[str, Any]:
-    """Build webnovel weekly report data via DuckDB."""
-    return get_analytics().query_webnovel_weekly(days=days)

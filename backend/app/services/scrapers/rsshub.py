@@ -81,6 +81,10 @@ class RSSHubScraper(BaseScraper):
 
         Instance list comes from (1) per-source override, (2) DB, or (3) defaults.
         """
+        if self.route.startswith(("douyin/user/", "bilibili/user/video")):
+            from .creator_browser import fetch_creator_posts
+
+            return await fetch_creator_posts(self.route)
         # Resolve instance list
         if self._override_instances:
             instance_list: list[dict] = [{"url": u} for u in self._override_instances]

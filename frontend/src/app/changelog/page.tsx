@@ -212,7 +212,7 @@ function FeedbackPanel({ onClose, onSubmitted }: { onClose: () => void; onSubmit
         <div className="flex flex-shrink-0 items-center justify-between border-b border-gray-200 px-5 py-3.5">
           <div>
             <h2 id="feedback-panel-title" className="flex items-center gap-2 text-base font-semibold text-gray-900">
-              <Flag size={16} className="text-orange" />
+              <Flag size={16} className="text-primary" />
               提交反馈
             </h2>
             <p className="mt-0.5 text-[12px] text-gray-500">
@@ -249,7 +249,7 @@ function FeedbackPanel({ onClose, onSubmitted }: { onClose: () => void; onSubmit
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
                 placeholder="一句话描述问题或建议"
                 maxLength={100}
-                className="w-full rounded-sm border border-gray-200 bg-white px-3 py-1.5 text-[13px] focus:border-orange focus:outline-none"
+                className="w-full rounded-sm border border-gray-200 bg-white px-3 py-1.5 text-[13px] focus:border-primary focus:outline-none"
               />
             </div>
             <div>
@@ -260,7 +260,7 @@ function FeedbackPanel({ onClose, onSubmitted }: { onClose: () => void; onSubmit
                 placeholder="复现步骤、期望行为、实际行为等"
                 rows={4}
                 maxLength={2000}
-                className="w-full rounded-sm border border-gray-200 bg-white px-3 py-1.5 text-[13px] focus:border-orange focus:outline-none"
+                className="w-full rounded-sm border border-gray-200 bg-white px-3 py-1.5 text-[13px] focus:border-primary focus:outline-none"
               />
             </div>
             <div>
@@ -274,8 +274,8 @@ function FeedbackPanel({ onClose, onSubmitted }: { onClose: () => void; onSubmit
                     className={cx(
                       'rounded-sm border px-3 py-1 text-[12px] transition',
                       form.severity === sev
-                        ? 'border-orange bg-orange text-white'
-                        : 'border-gray-200 bg-white text-gray-700 hover:border-orange/50',
+                        ? 'border-primary bg-primary text-white'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-primary/50',
                     )}
                   >
                     {SEVERITY_LABELS[sev]}
@@ -290,7 +290,7 @@ function FeedbackPanel({ onClose, onSubmitted }: { onClose: () => void; onSubmit
               </Button>
             </div>
             {!currentUser && (
-              <p className="text-[12px] text-amber">请先登录后提交反馈</p>
+              <p className="text-[12px] text-amber">当前无法提交反馈，请稍后重试</p>
             )}
           </div>
 
@@ -302,7 +302,7 @@ function FeedbackPanel({ onClose, onSubmitted }: { onClose: () => void; onSubmit
             </h3>
             {myIssues.length === 0 ? (
               <p className="rounded-sm bg-gray-50 px-3 py-4 text-center text-[12px] text-gray-500">
-                {currentUser ? '暂无反馈记录' : '登录后查看历史'}
+                {currentUser ? '暂无反馈记录' : '暂无反馈记录'}
               </p>
             ) : (
               <ul className="space-y-2">
@@ -324,8 +324,8 @@ function FeedbackPanel({ onClose, onSubmitted }: { onClose: () => void; onSubmit
                     </div>
                     <p className="text-[13px] font-semibold text-gray-900">{issue.title}</p>
                     {issue.resolution_note && (
-                      <div className="mt-1.5 rounded-sm border-l-2 border-orange/50 bg-orange/5 px-2.5 py-1.5 text-[12px] text-gray-700">
-                        <span className="font-semibold text-orange">处理记录：</span>
+                      <div className="mt-1.5 rounded-sm border-l-2 border-primary/50 bg-primary/5 px-2.5 py-1.5 text-[12px] text-gray-700">
+                        <span className="font-semibold text-primary">处理记录：</span>
                         {issue.resolution_note}
                       </div>
                     )}
@@ -335,7 +335,7 @@ function FeedbackPanel({ onClose, onSubmitted }: { onClose: () => void; onSubmit
             )}
             <p className="mt-2 text-[11px] text-gray-500">
               显示最近 10 条。需要查看完整历史请到{' '}
-              <a href="/admin/feedback" className="text-orange hover:underline">反馈工作台</a>。
+              <a href="/admin/feedback" className="text-primary hover:underline">反馈工作台</a>。
             </p>
           </div>
         </div>
@@ -393,7 +393,7 @@ export default function ChangelogPage() {
             </div>
             <h1 className="text-[26px] font-black leading-tight text-gray-900">更新记录</h1>
             <p className="mt-2 max-w-[760px] text-sm leading-7 text-gray-500">
-              查看 TopicEye 的最新发版、新增能力和修复。有想法或遇到问题？随时给我们反馈。
+              查看创意工作台的最新功能和修复。有想法或遇到问题？随时给我们反馈。
             </p>
           </div>
           <div className="flex gap-2">
@@ -402,17 +402,7 @@ export default function ChangelogPage() {
                 <Flag size={14} />
                 反馈
               </Button>
-            ) : (
-              <Button
-                type="button"
-                variant="secondary"
-                onClick={() => window.location.href = '/login'}
-                title="请先登录后提交反馈"
-              >
-                <Flag size={14} />
-                登录后反馈
-              </Button>
-            )}
+            ) : null}
             <Button type="button" variant="secondary" onClick={() => void refetch()}>
               <RefreshCw size={14} />
               刷新
@@ -434,7 +424,7 @@ export default function ChangelogPage() {
               value={versionQuery}
               onChange={(e) => setVersionQuery(e.target.value)}
               placeholder="按版本号搜索（如 v0.2、v1.0）"
-              className="flex-1 min-w-[200px] rounded-sm border border-gray-200 bg-white px-3 py-1 text-[12px] focus:border-orange focus:outline-none"
+              className="flex-1 min-w-[200px] rounded-sm border border-gray-200 bg-white px-3 py-1 text-[12px] focus:border-primary focus:outline-none"
             />
             {([
               { value: 'all', label: '全部', count: (updates || []).length },
@@ -449,8 +439,8 @@ export default function ChangelogPage() {
                 className={cx(
                   'flex items-center gap-1.5 rounded-sm border px-3 py-1 text-[12px] transition',
                   statusFilter === tab.value
-                    ? 'border-orange bg-orange text-white'
-                    : 'border-gray-200 bg-white text-gray-700 hover:border-orange/50',
+                    ? 'border-primary bg-primary text-white'
+                    : 'border-gray-200 bg-white text-gray-700 hover:border-primary/50',
                 )}
               >
                 {tab.label}
@@ -487,7 +477,7 @@ export default function ChangelogPage() {
 
         <p className="pt-2 text-center text-[12px] text-gray-500">
           反馈对话框只展示最近 10 条 ·{' '}
-          <a href="/admin/feedback" className="text-orange hover:underline">
+          <a href="/admin/feedback" className="text-primary hover:underline">
             完整反馈工作台（管理员视图、状态机等）&rarr;
           </a>
         </p>

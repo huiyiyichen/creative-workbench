@@ -4,14 +4,14 @@
  * 从 _domains.ts 拆出。
  */
 
-import { request } from './_core';
+import { request, type RequestOptions } from './_core';
 import type { ContentCategoryItem, ScoringFlowResponse } from '@/types/contents';
 import type { ArticleReaderSnapshot, ContentItem, ContentRelation, EvidenceMark, EvidenceLink, PaginatedResponse, TopicInfo, ContentFilterParams } from '@/types';
 import { BASE_URL } from './_core';
 
 export const contentsApi = {
   /** 获取内容列表 */
-  list(params?: ContentFilterParams): Promise<PaginatedResponse<ContentItem>> {
+  list(params?: ContentFilterParams, options?: RequestOptions): Promise<PaginatedResponse<ContentItem>> {
     const query = params
       ? '?' + new URLSearchParams(
           Object.entries(params)
@@ -19,7 +19,7 @@ export const contentsApi = {
             .map(([k, v]) => [k, String(v)])
         ).toString()
       : '';
-    return request(`/contents${query}`);
+    return request(`/contents${query}`, options);
   },
 
   /** 获取单条内容 */

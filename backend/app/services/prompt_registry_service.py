@@ -83,27 +83,6 @@ _PROMPT_CATALOG: list[dict[str, str]] = [
         "attr": "CLASSIFICATION_PROMPT",
     },
     {
-        "name": "creation_explore",
-        "scene": "creation_explore",
-        "description": "探索模式-探索期提示词",
-        "module": "app.services.llm.prompts.creation",
-        "attr": "EXPLORE_PROMPT",
-    },
-    {
-        "name": "creation_focus",
-        "scene": "creation_focus",
-        "description": "探索模式-聚焦期提示词",
-        "module": "app.services.llm.prompts.creation",
-        "attr": "FOCUS_PROMPT",
-    },
-    {
-        "name": "creation_converge",
-        "scene": "creation_converge",
-        "description": "探索模式-收敛期提示词（含自评）",
-        "module": "app.services.llm.prompts.creation",
-        "attr": "CONVERGE_PROMPT",
-    },
-    {
         "name": "prescreen_system",
         "scene": "content_prescreen",
         "description": "内容预筛系统提示词（Lite cascade）",

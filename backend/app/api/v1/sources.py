@@ -32,12 +32,7 @@ from app.schemas.source import (
     normalize_source_url_value,
 )
 from app.services.content_pipeline import ingest_from_source
-from app.services.plan_catalog import (
-    plan_allows_private_source,
-    private_sources_quota,
-    private_sources_quota_exceeded,
-)
-from app.services.scrapers.recognizer import recognize_source_type
+from app.services.scrapers.recognizer import normalize_creator_source, recognize_source_type
 from app.services.source_cache import (
     SourceListCacheParams,
     get_cached_source_list,
@@ -97,6 +92,7 @@ def _normalize_api_source_config(payload: dict, current: Source | None = None) -
 async def create_source(data: SourceCreate, db: AsyncSession = Depends(get_db)):
     repo = SourceRepository(db)
     payload = data.model_dump()
+    normalize_creator_source(payload)
     _normalize_source_status(payload)
     _normalize_api_source_config(payload)
     existing = await repo.get_one(Source.url == payload["url"])
@@ -219,7 +215,7 @@ async def list_my_sources(
         page=page,
         page_size=page_size,
         private_sources_used=private_sources_used,
-        private_sources_quota=private_sources_quota(current_user.plan),
+        private_sources_quota=-1,
     ).model_dump()
     content = set_cached_source_list(cache_params, payload)
     return Response(
@@ -258,18 +254,9 @@ async def create_my_source(
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if not plan_allows_private_source(current_user.plan):
-        raise HTTPException(status_code=403, detail="私有信源需要 Pro 及以上套餐")
     repo = SourceRepository(db)
-    # 配额检查：在去重/创建前拦截，避免无效写入
-    current_count = await repo.count_user_owned(current_user.id)
-    if private_sources_quota_exceeded(current_user.plan, current_count):
-        quota = private_sources_quota(current_user.plan)
-        raise HTTPException(
-            status_code=403,
-            detail=f"私有信源已达上限（{current_count}/{quota}），请升级套餐或删除不再使用的信源",
-        )
     payload = data.model_dump()
+    normalize_creator_source(payload)
     _normalize_source_status(payload)
     _normalize_api_source_config(payload)
     existing = await repo.get_one(Source.url == payload["url"])
@@ -321,6 +308,7 @@ async def update_my_source(
         raise HTTPException(status_code=404, detail=f"Source {source_id} not found") from None
     try:
         payload = data.model_dump(exclude_unset=True)
+        normalize_creator_source(payload, existing)
         _normalize_source_status(payload, existing)
         _normalize_api_source_config(payload, existing)
         if "url" in payload:

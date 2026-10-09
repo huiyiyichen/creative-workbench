@@ -1,9 +1,9 @@
-"""Agent Skills discovery — expose TopicEye as an installable skill.
+"""Agent Skills discovery — expose 创意工作台 as an installable skill.
 
 Implements the Agent Skills discovery protocol (RFC: cloudflare/agent-skills-
-discovery-rfc) so external agents can install TopicEye's read-skill via:
+discovery-rfc) so external agents can install the read-skill via:
 
-    npx skills add https://<your-topiceye-host>
+    npx skills add https://<your-workbench-host>
 
 The CLI fetches ``/.well-known/agent-skills/index.json`` to discover skills,
 then downloads each skill's ``SKILL.md``. All endpoints here are PUBLIC (no
@@ -28,7 +28,7 @@ router = APIRouter(prefix="", tags=["agent-skills"])
 
 SKILL_NAME = "topiceye-reader"
 SKILL_DESCRIPTION = (
-    "读取 TopicEye 选题数据（今日精选 / 日报 / 趋势）。当用户询问"
+    "读取创意工作台选题数据（今日精选 / 日报 / 趋势）。当用户询问"
     "「今天有什么值得写的选题」「最近有什么热点」「给我看看选题日报」时调用。"
     "需要先设置环境变量 TOPICEYE_API_URL 和 TOPICEYE_API_TOKEN。"
 )
@@ -47,9 +47,9 @@ description: {SKILL_DESCRIPTION}
 version: 1.0.0
 ---
 
-# TopicEye Reader — 选题数据读取
+# 创意工作台 Reader — 选题数据读取
 
-通过 HTTP API 读取 TopicEye 已抓取、已分析、已精选的选题数据。TopicEye 是一个内容
+通过 HTTP API 读取创意工作台已抓取、已分析、已精选的选题数据。创意工作台是一个内容
 选题雷达，持续抓取多个信源并用 6 维评分模型筛选高价值选题。
 
 ## 环境变量（必需）
@@ -57,8 +57,8 @@ version: 1.0.0
 调用前必须设置两个环境变量：
 
 ```bash
-export TOPICEYE_API_URL="{base_url}"      # 当前 TopicEye 实例地址
-export TOPICEYE_API_TOKEN="<你的 API Token>" # 在 TopicEye「个人中心 → Agent 接入」创建
+export TOPICEYE_API_URL="{base_url}"      # 当前创意工作台实例地址
+export TOPICEYE_API_TOKEN="<你的 API Token>" # 在创意工作台「个人中心 → Agent 接入」创建
 ```
 
 所有请求带鉴权头：
@@ -73,7 +73,7 @@ Authorization: Bearer $TOPICEYE_API_TOKEN
 
 ### 1. `GET $TOPICEYE_API_URL/api/v1/skill/today-picks` — 今日精选选题
 
-返回最近 N 小时内 TopicEye 的精选选题。**回答"今天有什么值得写的"的首选端点。**
+返回最近 N 小时内创意工作台的精选选题。**回答"今天有什么值得写的"的首选端点。**
 
 参数：`hours`（1–168，默认 48）、`limit`（1–100，默认 20）、`category`（可选，如 `AI`）。
 
@@ -90,7 +90,7 @@ curl "$TOPICEYE_API_URL/api/v1/skill/today-picks?hours=48&limit=10" \\
 
 ### 2. `GET $TOPICEYE_API_URL/api/v1/skill/daily-report` — 日报
 
-返回 TopicEye 生成的日报（已编辑的选题综述）。参数：`date`（YYYY-MM-DD，缺省=今天）。
+返回创意工作台生成的日报（已编辑的选题综述）。参数：`date`（YYYY-MM-DD，缺省=今天）。
 
 关键字段：`overview`（综述段落）、`takeaway`（要点）、`top_picks`（精选条目）、
 `keywords` / `trends`。
@@ -168,7 +168,7 @@ async def agent_skills_index(request: Request):
 
 @router.get(
     "/.well-known/agent-skills/topiceye-reader/SKILL.md",
-    summary="TopicEye reader skill (SKILL.md)",
+    summary="Creative Workbench reader skill (SKILL.md)",
 )
 async def agent_skill_markdown(request: Request) -> PlainTextResponse:
     """The skill instructions, with this instance's base URL baked in."""

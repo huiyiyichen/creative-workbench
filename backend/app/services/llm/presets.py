@@ -72,6 +72,32 @@ PARAMETER_HELP: dict[str, dict[str, Any]] = {
 
 MODEL_PRESETS: tuple[dict[str, Any], ...] = (
     {
+        "key": "deepseek_flash",
+        "label": "DeepSeek Flash（成稿）",
+        "provider": "openai",
+        "model_id": "deepseek-flash",
+        "api_base": "https://api.deepseek.com",
+        "model_family": "deepseek",
+        "channel_name": "deepseek",
+        "description": "用于创作成稿、分镜和视频提示词的 DeepSeek 兼容渠道。",
+        "recommended_for": ["AI 成稿", "分镜设计", "视频提示词"],
+        "requires": ["api_key"],
+        "help": "API 格式为 OpenAI 兼容；填写 DeepSeek API Key 后即可用于创作工作台。",
+        "defaults": {
+            **DEFAULT_MODEL_PARAMETERS,
+            "name": "DeepSeek Flash（成稿）",
+            "requests_per_minute": 20,
+            "temperature": 0.45,
+            "max_tokens": 8000,
+            "context_window": 128000,
+            "api_format": "openai",
+            "capabilities": ["text"],
+            "cost_per_1m_input": None,
+            "cost_per_1m_input_cache_hit": None,
+            "cost_per_1m_output": None,
+        },
+    },
+    {
         "key": "openai_fast",
         "label": "OpenAI 通用快模型",
         "provider": "openai",

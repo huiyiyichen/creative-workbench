@@ -1,291 +1,144 @@
-# TopicEye
+# 创意工作台
 
-**AI-powered content discovery and topic radar for creators.**
+![创意工作台：热点发现、选题判断、素材整理与内容创作](docs/assets/overview.jpg)
 
-[![License: Apache-2.0](https://img.shields.io/badge/License-Apache_2.0-blue.svg)](LICENSE)
-[![CI](https://github.com/fxbin/TopicEye/actions/workflows/ci.yml/badge.svg)](https://github.com/fxbin/TopicEye/actions/workflows/ci.yml)
-[![Backend: FastAPI](https://img.shields.io/badge/Backend-FastAPI-009688.svg)](https://fastapi.tiangolo.com/)
-[![Frontend: Next.js](https://img.shields.io/badge/Frontend-Next.js_16-black.svg)](https://nextjs.org/)
+本地优先的 AI 内容创作工作台，把热点资料、选题判断、内容编辑和视频制作放在一条可操作的流程里。
 
-[English](README.md) | [简体中文](README.zh-CN.md)
+**热点 / 素材 → 选题判断 → 模板与参考 → 成稿与修订 → 文章 / 视频 / MV**
 
----
+## 功能
 
-TopicEye continuously crawls 25+ sources (RSS, Reddit, YouTube, podcasts, newsletters, trending boards), scores every item through a transparent 6-dimension engine, and surfaces the topics worth writing about today. It is built for content creators who are overwhelmed by noise and need curation with taste — not another feed reader.
+- **发现与整理**：多源热点、RSS 与创作者信源，素材收藏、来源记录、趋势观测。
+- **选题判断**：内容评分、来源加权、时效衰减和排序依据。
+- **成稿与编辑**：自由主题输入、创作思路、AI 初稿、按要求修改及版本对比。
+- **创作参考**：内容模板和视觉风格分别选择，支持收藏与复用。
+- **动画讲解**：DeepSeek Harness 生成 React / Remotion 场景，结合千问配音和中文字幕导出视频。
+- **音乐 MV**：上传歌曲与 LRC，按音频和歌词时间组织动画画面。
+- **作品管理**：任务状态、成片预览、MP4 下载及动画源工程保存。
 
-![Today's Picks](docs/screenshots/screenshot-today.png)
+内容模板决定叙事结构，视觉风格决定画面语言，制作方案决定输出形式。单用户使用，数据保存在本地 PostgreSQL；模型推理通过用户配置的服务调用。
 
-## Why TopicEye
+## 从发现到创作
 
-- **Transparent scoring engine, not a black box.** Every selected item ships with a full breakdown: base score (information density / actionability / creator value / viral potential / source authority / freshness), quality gates, time decay, diversity penalty, and feedback signal. See the [`algorithm` page](docs/screenshots/screenshot-algorithm.png) in the app.
-- **Feedback closes the loop.** Your 👍 / 👎 doesn't just get saved — it is weighted at 15% and feeds back into ranking. The engine gets sharper the more you use it.
-- **Multi-source intelligence.** 25+ crawl sources (RSS / Reddit / YouTube / podcasts / newsletters / trending boards) + WeRead reading stats + webnovel radar (Fanqie / Qimao / Zhihu Yanxuan). One platform, full-spectrum signal.
-- **Self-host friendly.** Full Docker setup, PostgreSQL, OAuth login (Google / GitHub). Your data stays yours.
-- **Agent-native (planned).** The scoring engine is being exposed as a stable API so other agents and tools can call it as their ranking layer.
+### 热点发现
 
-## Screenshots
+跨平台榜单、热点共振和持续热度，配合来源与时间筛选，找到值得继续研究的方向。
 
-### Core Discovery
+![热点雷达与跨平台榜单](docs/assets/trending.png)
 
-| Today's Picks | Daily Report | Trending Radar |
-|---|---|---|
-| ![today](docs/screenshots/screenshot-today.png) | ![daily](docs/screenshots/screenshot-daily.png) | ![trending](docs/screenshots/screenshot-trending.png) |
+### 选题与判断
 
-| Trend Tracking | Algorithm Flow |
-|---|---|
-| ![trends](docs/screenshots/screenshot-trends.png) | ![algorithm](docs/screenshots/screenshot-algorithm.png) |
+今日内容按来源、分类和时间组织；当日精选展示排序分与推荐依据，可继续阅读、收藏或进入创作。
 
-### Stats & Reports
+![今日选题与资料筛选](docs/assets/discovery.png)
 
-| Stats Dashboard | Job Stats | Changelog |
-|---|---|---|
-| ![stats](docs/screenshots/screenshot-stats.png) | ![stats-jobs](docs/screenshots/screenshot-stats-jobs.png) | ![changelog](docs/screenshots/screenshot-changelog.png) |
+![当日精选与选题排序](docs/assets/topics.png)
 
-| Weekly Report | Monthly Report | |
-|---|---|---|
-| ![weekly](docs/screenshots/screenshot-weekly.png) | ![monthly](docs/screenshots/screenshot-monthly.png) | |
+### 素材、模板与风格
 
-### New Features — WeRead & Webnovel
+收藏夹集中管理资料与创作参考，内容模板和视觉风格独立分类，以可视化卡片选择和复用。
 
-| WeRead Stats | Webnovel Radar |
-|---|---|
-| ![weread](docs/screenshots/screenshot-weread.png) | ![novel](docs/screenshots/screenshot-novel.png) |
+![收藏夹与内容模板](docs/assets/library.png)
 
-### User Workspace
+![视觉风格分类与预览](docs/assets/styles.png)
 
-| Favorites | My Topics | Topic Config |
-|---|---|---|
-| ![favorites](docs/screenshots/screenshot-favorites.png) | ![my-topics](docs/screenshots/screenshot-my-topics.png) | ![my-topics-config](docs/screenshots/screenshot-my-topics-config.png) |
+### 文章与稿件修订
 
-| Login | Profile | |
-|---|---|---|
-| ![login](docs/screenshots/screenshot-login.png) | ![profile](docs/screenshots/screenshot-profile.png) | |
+填写自己的创作思路，编辑正文，提出改稿要求并对比版本。文章成稿可作为独立输出。
 
-### Admin Console
+![文章编辑、创作思路与修改要求](docs/assets/writing.png)
 
-| Admin Overview | Source Management | Content Management |
-|---|---|---|
-| ![admin](docs/screenshots/screenshot-admin.png) | ![admin-sources](docs/screenshots/screenshot-admin-sources.png) | ![admin-contents](docs/screenshots/screenshot-admin-contents.png) |
+文章截图使用手工示例，展示编辑界面与修改入口。
 
-| User Management | AI Engine (Model Eval) | Mother Topics |
-|---|---|---|
-| ![admin-users](docs/screenshots/screenshot-admin-users.png) | ![admin-model-eval](docs/screenshots/screenshot-admin-model-eval.png) | ![admin-mother-topics](docs/screenshots/screenshot-admin-mother-topics.png) |
+### 视频与多媒介输出
 
-| Release Notes | Feedback Workbench | System Settings |
-|---|---|---|
-| ![admin-updates](docs/screenshots/screenshot-admin-updates.png) | ![admin-feedback](docs/screenshots/screenshot-admin-feedback.png) | ![admin-settings](docs/screenshots/screenshot-admin-settings.png) |
+稿件也可以继续组织为分镜，搭配配音、字幕、动画或歌曲节奏，制作动画讲解和音乐 MV。
 
-## Features
+![动画讲解与分镜创作](docs/assets/studio.png)
 
-| Module | Description |
-|---|---|
-| **Source management** | RSS / RSSHub / Reddit / YouTube / Podcasts / Newsletters / custom sites. Public sources + private sources per user. |
-| **Curation scoring** | 6-dimension weighted engine + P70 percentile cutoff + risk control + user feedback calibration. |
-| **AI analysis** | Per-item summary, key points, topic suggestions (differentiated prompts for CN/EN content). |
-| **Daily / weekly / monthly reports** | Auto-generated from the content pool, with timeline view and scrollable history. |
-| **Trend radar** | Topic and keyword trend tracking. |
-| **WeRead integration** | Sync reading stats and bookshelf from WeRead API; daily auto-refresh cache, reading-time analytics, and bookshelf comparison. |
-| **Webnovel radar** | Fanqie / Qimao / Zhihu Yanxuan trending charts, gated behind a runtime feature flag. |
-| **Mother topics** | Multi-tenant topic templates — admins maintain the system library, users fork their own and customize keywords, weights, and target readers. Fork edits take effect immediately in the scoring queue. |
-| **AI model evaluation** | Admin UI to compare LLM models side-by-side on the same prompts, track quality and cost, and pick the right routing group per task. |
-| **Email verification** | Transactional email via Brevo API or any SMTP provider (QQ Enterprise / Gmail / etc.), configured from the admin settings page. |
-| **Article reader** | In-app reader for source URLs — fetches public HTML only, no auth/cookies/captcha bypass, with SSRF guard and snapshot caching. |
-| **Favorites** | Save items across sessions (per-user). |
-| **My topics** | Personalized topic configuration with mother-topic fork, keyword filters, and scoring overrides. |
-| **Admin console** | Full management UI: sources, content, users, AI model evaluation, mother-topic templates, release notes, feedback, and system settings. |
-| **OAuth login** | Google / GitHub (email + password also supported). |
-| **Rate limiting** | Per-endpoint budgets for login, registration, and LLM calls. |
+## Windows 快速启动
 
-## Architecture
+预装 **Node.js 20+** 和 **uv**，并确认二者可在终端调用。提交包解压后进入 `creative-workbench` 项目目录，双击 `start.cmd`。
 
-### Backend layering
+首次启动会安装 Python 3.12、前后端及 Remotion 依赖，从 EnterpriseDB 下载 PostgreSQL 16.15 Windows 程序，在 `backend/data/` 初始化独立工作库，生成本机 `backend/.env`，构建前端并打开工作台。
 
-Strict one-way dependency (see [AGENTS.md](AGENTS.md) for the full rules):
+后续启动复用环境与数据库。已有 `.env` 会保留；自己的 PostgreSQL 可通过 `DATABASE_URL` 接入。首次安装需要网络，数据库只监听本机。
+
+| 服务 | 默认地址 |
+| --- | --- |
+| 工作台 | `http://127.0.0.1:3000/studio` |
+| 后端 API | `http://127.0.0.1:8102` |
+| API 文档 | `http://127.0.0.1:8102/docs` |
+
+应用端口被占用时，启动器选择后续空闲端口，实际地址显示在启动窗口。
+
+开发模式：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\start-local.ps1 -Development -OpenBrowser
+```
+
+## AI 与视频配置
+
+在管理后台配置自己的模型、服务地址和 API Key；配音在创作页管理。完整视频制作还需 **FFmpeg / ffprobe** 和已配置的 **DeepSeek Harness**（`dsh`）。
+
+| 环节 | 实现 |
+| --- | --- |
+| 内容分析与成稿 | 可配置模型服务，返回结构化文案和分镜 |
+| 动画场景生成 | DeepSeek Harness |
+| 视频画面 | React、Remotion、CSS / Canvas、Three.js |
+| 讲解配音 | Qwen3.5-Omni-Flash |
+| 字幕与合成 | 字幕时间线、Remotion、FFmpeg |
+| 数据与界面 | PostgreSQL、FastAPI、Next.js、Ant Design |
+
+模型配置、密钥和作品数据保存在本地，仓库提供源码、通用配置样例和配图。
+
+## 手动启动
+
+适用于已有 PostgreSQL 或其他操作系统。创建工作库，将 `backend/.env.example` 复制为 `backend/.env` 并填写 `DATABASE_URL`。
+
+后端：
+
+```sh
+cd backend
+uv sync --frozen --python 3.12
+uv run python -m uvicorn app.main:app --host 127.0.0.1 --port 8102
+```
+
+前端，在另一个终端：
+
+```sh
+cd frontend
+npm ci
+npm run dev -- --hostname 127.0.0.1 --port 3000
+```
+
+动画依赖：`cd backend/media_runtime && npm ci`。浏览器采集依赖：在后端目录执行 `uv run playwright install chromium`。数据库迁移由后端启动时执行。
+
+## 源码结构
 
 ```text
-api/v1/ ──► services/ ──► repositories/ ──► models/ ──► sqlalchemy
+backend/app/               API、服务、模型与任务管理
+backend/alembic/           数据库迁移
+backend/media_runtime/     Remotion 模板与复用组件
+backend/tests/             后端测试
+frontend/src/              页面、组件与 API 客户端
+docs/assets/              封面与实际界面截图
+start.cmd                 Windows 启动入口
+start-local.ps1           环境准备与服务启动
 ```
 
-| Layer | Owns | Must not |
-|---|---|---|
-| `api/v1/` | Route declarations, request validation, response shaping | `import sqlalchemy` (except `AsyncSession` type hint), direct ORM queries |
-| `services/` | Business orchestration, transaction boundaries, cross-repo composition | — |
-| `repositories/` | Single entry point for ORM, CRUD + complex query encapsulation | Importing each other, business logic |
-| `models/` | Pure ORM declarations, field definitions, `__table_args__` | Business methods, side effects, IO |
-| `schemas/` | Pydantic request/response models, serialization | ORM imports, DB access |
+## 验证
 
-Cross-cutting: `core/` (config, DB, logging, retry), `middleware/` (rate limit, request metrics), `services/email/` (Brevo + SMTP), `services/llm/` (failover, circuit breaker, response cache), `services/scrapers/` + `services/trending_scrapers/` (per-source fetchers).
-
-### Scoring engine
-
-The 6-dimension base score (weights sum to 1.0):
-
-| Dimension | Weight | What it measures |
-|---|---|---|
-| Information density | 0.25 | Signal-to-noise ratio of the content |
-| Actionability | 0.20 | Can the reader do something with this today? |
-| Creator value | 0.18 | Usefulness for someone writing about this topic |
-| Viral potential | 0.15 | Likelihood of breaking out |
-| Source authority | 0.12 | Trust weight of the originating source |
-| Freshness | 0.10 | Recency decay (`exp(-0.02 × hours)`, floor 0.3) |
-
-Post-processing:
-
-- **Quality gates** — items below 45 are too thin; above 70 are fully trusted.
-- **Risk control** — hard-exclude above 82, soft-degrade starting at 45.
-- **Diversity penalty** — 0.85× per same-source duplicate, 0.92× per same-category duplicate (with grace slots).
-- **Percentile cutoff** — top ~30% (P70 and above) selected.
-- **Feedback signal** — 👍 / 👎 weighted at 15%, clamped at ±20 per item to prevent domination.
-- **Curation floor** — minimum base score 58; the engine refuses to surface weak items just because the batch is weak.
-
-Full config in [backend/app/services/scoring_engine.py](backend/app/services/scoring_engine.py).
-
-### Source matrix
-
-| Category | Sources |
-|---|---|
-| RSS / RSSHub | Any RSS feed, RSSHub routes (custom sites, blogrolls) |
-| Aggregators | Reddit, Hacker News, GitHub Trending, V2EX, Juejin, Sspai, ITHome, 36Kr |
-| Social / short video | Weibo, Douyin (hot + trending), Bilibili, Tieba, Zhihu trending |
-| Finance | Xueqiu, Eastmoney, Netease Finance, Sohu Finance |
-| Discovery | Douban, Hupu, Heiyan, Ishugui, Xyzrank, Toutiao, Baidu |
-| Long-form | YouTube, Podcasts, Newsletters |
-| Reading | WeRead (reading stats + bookshelf via official gateway) |
-| Webnovel | Fanqie, Qimao, Zhihu Yanxuan (runtime feature flag, off by default) |
-
-### Database choices
-
-- **PostgreSQL 16** — the only supported OLTP database (startup validator rejects anything else). Local dev uses the compose `postgres` service; tests run against a throwaway PG container (`make test-backend`).
-- **DuckDB** — read-only analytics layer over the OLTP database. Powers stats dashboards without burdening the write path. Memory and thread budgets configurable via `DUCKDB_THREADS` / `DUCKDB_MEMORY_LIMIT`.
-
-## Tech stack
-
-- **Backend:** FastAPI (async) · SQLAlchemy 2.0 · Alembic · DuckDB (analytics) · httpx
-- **Frontend:** Next.js 16 · React 19 · TypeScript · Tailwind CSS v4
-- **Database:** PostgreSQL 16 · DuckDB as a read-only analytics layer over OLTP
-- **Auth:** Opaque bearer tokens (DB-hashed) + OAuth via Authlib
-- **Email:** Brevo API or SMTP (user-configurable per deployment)
-- **Infra:** Docker / docker-compose (dev + prod) · APScheduler
-
-## Quick start
-
-### Prerequisites
-
-- Python 3.12+ · Node.js 20+ · Git
-- **or** Docker + Docker Compose (easiest path)
-
-### Option A — Docker Compose (production-style, recommended for running the service)
-
-Uses [docker-compose.prod.yml](docker-compose.prod.yml): code baked into the image, no hot reload, healthchecks, resource limits, Postgres by default.
-
-```bash
-git clone https://github.com/fxbin/TopicEye.git
-cd TopicEye
-docker compose -f docker-compose.prod.yml up -d --build
+```sh
+cd frontend
+npx tsc --noEmit
+cd ../backend
+uv run python -m pytest tests/test_scoring_engine.py tests/test_studio_lrc.py -q --noconftest -o addopts=''
 ```
 
-- Frontend: http://localhost:3000
-- Backend API docs: http://localhost:8000/docs
+集成测试使用独立的 `topiceye_test*` 数据库。普通开发库保存作品和模型配置。
 
-> The default [docker-compose.yml](docker-compose.yml) is a hot-reload development setup (bind mounts, `--reload`, `npm run dev`). Use it for local development only — not for deploying the service.
+## 来源与许可
 
-### Option B — Docker Compose (development with hot reload)
-
-```bash
-git clone https://github.com/fxbin/TopicEye.git
-cd TopicEye
-docker compose up -d
-```
-
-Same ports as above. Source changes reload automatically. PostgreSQL is opt-in via the `postgres` profile:
-
-```bash
-docker compose --profile postgres up -d
-```
-
-### Option C — Local development (no Docker)
-
-**1. Backend** (port 8102)
-
-```bash
-cd TopicEye/backend
-uv sync                              # deps via uv, dev group includes pytest + pytest-asyncio
-cp .env.example .env                  # edit as needed
-uv run uvicorn app.main:app --host 127.0.0.1 --port 8102 --reload
-```
-
-**2. Frontend** (port 3000, in a new terminal)
-
-```bash
-cd TopicEye/frontend
-npm install
-npm run dev
-```
-
-Open http://localhost:3000 and point the frontend at the backend with `BACKEND_API_URL=http://127.0.0.1:8102` if the proxy bypass is not set.
-
-> **Proxy note:** if you run a local HTTP proxy (ClashX / Surge on :7890), make sure `localhost` and `127.0.0.1` bypass it, or set `BACKEND_API_URL=http://127.0.0.1:8102` before `npm run dev`.
->
-> **OAuth callback URL:** when running the backend locally on :8102, the OAuth redirect URIs in Google/GitHub consoles should point to `http://localhost:8102/api/v1/auth/oauth/{google,github}/callback`. In Docker mode use `:8000`.
-
-## Configuration
-
-All configuration is environment-driven. See [`backend/.env.example`](backend/.env.example) for the full list with comments. Highlights:
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `DATABASE_URL` | *(required)* | PostgreSQL connection string, e.g. `postgresql+asyncpg://user:pass@host:5432/topiceye`. SQLite support has been removed. |
-| `CORS_ORIGINS` | `http://localhost:3000,...` | Comma-separated allowed frontend origins. |
-| `OAUTH_GOOGLE_CLIENT_ID` / `_SECRET` | empty | Enable Google login. [Guide](backend/.env.example). |
-| `OAUTH_GITHUB_CLIENT_ID` / `_SECRET` | empty | Enable GitHub login. |
-| `OAUTH_FRONTEND_REDIRECT_URL` | `http://localhost:3000/oauth/callback` | Frontend OAuth callback page (token travels via URL fragment). |
-| `ADMIN_SEED_ENABLED` | `false` | Set to `true` plus `ADMIN_EMAIL` / `ADMIN_PASSWORD` to seed/promote an admin on startup. |
-| `AUTH_LOGIN_ATTEMPTS_PER_MINUTE` | `20` | Login rate limit per IP. |
-| `LLM_REQUESTS_PER_MINUTE` | `30` | LLM call rate limit per user. |
-| `RSS_SCRAPER_TIMEOUT_SECONDS` | `15` | Per-fetch timeout; slow sources can override via per-source `settings`. |
-| `SOURCE_SYNC_TIMEOUT_SECONDS` | `120` | Overall sync timeout per source. |
-| `ARTICLE_READER_ENABLED` | `true` | In-app reader for public HTML (SSRF-guarded, no auth bypass). |
-
-> **Webnovel-CN module** (Fanqie / Qimao / Zhihu Yanxuan) is gated behind a runtime feature flag — disabled by default. Admins can enable it from **Source management → Feature flags** in the UI, or via `PUT /api/v1/settings/feature-flags`. No restart needed.
->
-> **Email verification** is configured from the admin settings page. Two providers are supported:
-> - **Brevo API** — free tier 300 emails/day, no credit card required but account approval needed.
-> - **SMTP** — bring your own provider (QQ Enterprises / Gmail / etc.), no approval needed.
-
-## Development
-
-```bash
-# Backend tests (uses an isolated test database)
-cd backend && python -m pytest tests/ -q
-
-# Frontend type check
-cd frontend && npx tsc --noEmit
-
-# Run a single scraper manually
-curl -X POST http://127.0.0.1:8102/api/v1/sources/1/sync
-```
-
-The project uses Conventional Commits (`feat(auth): ...`, `fix(cache): ...`). See [CONTRIBUTING.md](CONTRIBUTING.md) for the full workflow, and [AGENTS.md](AGENTS.md) for the commit discipline and layering rules enforced in this repo.
-
-CI runs lightweight gates on every PR:
-
-- **Frontend type check** (`tsc --noEmit`).
-- **Frontend unit tests + coverage gate** on `src/lib` pure logic modules.
-- **Lint** (`ruff`) on changed Python files (incremental, not a full-history sweep).
-- **Layering check** (AST-enforced `api → service → repo` discipline) and **dependency security scan**.
-
-The full PostgreSQL test suite runs locally instead of on GitHub: `make test-backend` spins up a throwaway `postgres:16-alpine` container on port 5433, runs pytest against it, and removes it afterwards.
-
-## Contributing
-
-Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, code style, and workflow. Feel free to open an issue with the `good first issue` label to find a starter task.
-
-## Special Thanks
-
-[![LINUX DO](docs/images/linuxdo.png)](https://linux.do)
-
-For all things AI, head to [LINUX DO](https://linux.do)! Wishing the community ever greater success~
-
-## License
-
-Licensed under the [Apache License, Version 2.0](LICENSE). Copyright © 2026 fxbin.
+基于 [fxbin/TopicEye](https://github.com/fxbin/TopicEye) 二次开发，沿用 Apache-2.0 许可，版权归原作者 fxbin。许可全文见 [LICENSE](LICENSE)。

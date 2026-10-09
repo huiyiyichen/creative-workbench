@@ -5,8 +5,8 @@ Daily Report API endpoints.
 from __future__ import annotations
 
 import logging
-from datetime import date as date_cls, datetime, timedelta
-from typing import TYPE_CHECKING
+from datetime import UTC, date as date_cls, datetime, timedelta
+from typing import TYPE_CHECKING, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +23,6 @@ from app.schemas.daily_report import (
     DailyReportResponse,
 )
 from app.services.daily_report import LOCAL_TZ, WEEKDAYS, generate_daily_report, get_latest_today_report
-from app.services.plan_catalog import plan_allows_private_source
 
 if TYPE_CHECKING:
     from app.models.user import User
@@ -47,8 +46,6 @@ async def get_my_today_report(
     Requires ``plan_allows_private_source`` (Pro and above). T1-3a shares
     the same paywall.
     """
-    if not plan_allows_private_source(current_user.plan):
-        raise HTTPException(status_code=403, detail="我的日报需 Pro 及以上套餐")
     return await get_latest_today_report(db, owner_user_id=current_user.id)
 
 
@@ -60,8 +57,6 @@ async def get_my_report_by_date(
     current_user: User = Depends(get_current_user),
 ):
     """Fetch the user's own report for a date, or latest snapshot if final does not exist."""
-    if not plan_allows_private_source(current_user.plan):
-        raise HTTPException(status_code=403, detail="我的日报需 Pro 及以上套餐")
     repo = DailyReportRepository(db)
     report = await repo.get_by_date(date, edition=edition, owner_user_id=current_user.id)
     if report is None:
@@ -75,8 +70,6 @@ async def list_my_report_dates(
     current_user: User = Depends(get_current_user),
 ):
     """List all dates that have the user's own reports, newest first."""
-    if not plan_allows_private_source(current_user.plan):
-        raise HTTPException(status_code=403, detail="我的日报需 Pro 及以上套餐")
     repo = DailyReportRepository(db)
     dates = await repo.get_dates_with_reports(owner_user_id=current_user.id)
     return {"dates": dates}
@@ -88,8 +81,6 @@ async def trigger_my_generate(
     current_user: User = Depends(get_current_user),
 ):
     """Force generate today's user-owned daily report snapshot."""
-    if not plan_allows_private_source(current_user.plan):
-        raise HTTPException(status_code=403, detail="我的日报需 Pro 及以上套餐")
     return await generate_daily_report(db, force=True, owner_user_id=current_user.id)
 
 
@@ -219,7 +210,9 @@ async def trigger_generate_version(
     edition: str | None = Query(None, description="snapshot/noon/evening/final/manual"),
     cutoff_at: str | None = Query(None, description="ISO datetime cutoff, defaults to now"),
     force: bool = Query(True, description="Regenerate even if this exact version exists"),
+    scope: Literal["public", "mine"] = Query("public"),
     db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
 ):
     """Generate a specific daily report version/window (async).
 
@@ -230,32 +223,39 @@ async def trigger_generate_version(
 
     from app.services.daily_report import _day_window, _local_today, _local_window_to_utc_naive
 
-    parsed_date = date_cls.fromisoformat(target_date) if target_date else _local_today()
-    parsed_cutoff = datetime.fromisoformat(cutoff_at) if cutoff_at else None
+    try:
+        parsed_date = date_cls.fromisoformat(target_date) if target_date else _local_today()
+        parsed_cutoff = datetime.fromisoformat(cutoff_at) if cutoff_at else None
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail="日期或截止时间格式错误") from exc
     normalized_edition = edition or "manual"
 
     # 快速创建 GENERATING 占位记录（如果还没有）
     from app.services.daily_report import VALID_EDITIONS
 
     if normalized_edition not in VALID_EDITIONS:
-        normalized_edition = "manual"
+        raise HTTPException(status_code=422, detail="不支持的日报版本")
 
     window_start, window_end = _day_window(parsed_date, parsed_cutoff, normalized_edition)
     utc_start, utc_end = _local_window_to_utc_naive(window_start, window_end)
+    utc_start = utc_start.replace(tzinfo=UTC)
+    utc_end = utc_end.replace(tzinfo=UTC)
+    frozen_cutoff = window_end.replace(tzinfo=LOCAL_TZ)
+    owner_user_id = current_user.id if scope == "mine" else None
 
     # 查是否已有记录（取最新一条，避免历史脏数据导致 MultipleResultsFound）
     repo = DailyReportRepository(db)
     report = await repo.find_existing_for_version(
         report_date_iso=parsed_date.isoformat(),
         edition=normalized_edition,
-        owner_user_id=None,
+        owner_user_id=owner_user_id,
     )
 
     if report and report.status == "DONE" and not force:
         return report
 
     if report:
-        repo.mark_generating(report)
+        repo.mark_generating(report, window_start=utc_start, window_end=utc_end, cutoff_at=utc_end)
     else:
         report = repo.create_generating_placeholder(
             report_date_iso=parsed_date.isoformat(),
@@ -263,7 +263,8 @@ async def trigger_generate_version(
             edition=normalized_edition,
             window_start=utc_start,
             window_end=utc_end,
-            cutoff_at=parsed_cutoff,
+            cutoff_at=utc_end,
+            owner_user_id=owner_user_id,
         )
 
     await repo.commit()
@@ -278,16 +279,19 @@ async def trigger_generate_version(
                     bg_db,
                     target_date=parsed_date,
                     edition=normalized_edition,
-                    cutoff_at=parsed_cutoff,
+                    cutoff_at=frozen_cutoff,
                     force=True,
+                    owner_user_id=owner_user_id,
+                    report_id=report_id,
                 )
             except Exception as e:
                 logger.error("Background daily report generation failed: %s", e)
                 # 标记失败；mark_error 再失败必须留痕（曾因 except: pass
                 # 导致报告永远卡在 GENERATING，issue #72），日志兜底。
                 try:
+                    await bg_db.rollback()
                     bg_repo = DailyReportRepository(bg_db)
-                    await bg_repo.mark_error(report_id, f"生成失败: {str(e)[:200]}")
+                    await bg_repo.mark_error(report_id, "日报生成失败，请检查模型配置后重试。")
                 except Exception:
                     logger.exception("Failed to mark daily report id=%s as ERROR", report_id)
 
@@ -307,6 +311,18 @@ async def trigger_generate_version(
             "message": "日报正在后台生成，请稍后刷新查看",
         },
     )
+
+
+@router.get("/generation/{report_id}", response_model=DailyReportResponse)
+async def get_generation_status(
+    report_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    report = await DailyReportRepository(db).get_by_id(report_id)
+    if report is None or report.owner_user_id not in {None, current_user.id}:
+        raise HTTPException(status_code=404, detail="日报记录不存在")
+    return report
 
 
 @router.post("/push-webhook")
@@ -677,8 +693,6 @@ async def get_my_yesterday_tracking(
     user: User = Depends(get_current_user),
 ):
     """昨日追踪（我的日报，Pro+）。额外返回 your_marked（昨日 write/watch 标记的今日进展）。"""
-    if not plan_allows_private_source(user.plan):
-        raise HTTPException(status_code=403, detail="我的日报需 Pro 及以上套餐")
     return await _build_yesterday_tracking_public(db, report_date=report_date, owner_user_id=user.id, user_id=user.id)
 
 

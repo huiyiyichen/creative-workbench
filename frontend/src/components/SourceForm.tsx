@@ -37,7 +37,7 @@ export const CATEGORIES = ['AI', '商业', '科技', '教育', '自媒体', '生
 // 对齐后端 SourceType 枚举 + 已注册的 scraper（见 backend/app/services/scrapers/__init__.py）
 export const SOURCE_TYPES = [
   'RSS', 'RSSHub', 'Reddit', 'API', '网站',
-  'YouTube', 'Podcast', 'Newsletter', 'X', 'TwitterRSS', 'Zhihu',
+  'YouTube', 'Podcast', 'Newsletter', 'X', 'TwitterRSS', 'Zhihu', 'DouyinHot',
 ];
 export const SOURCE_INTERVAL_OPTIONS = [
   { value: 30, label: '30分钟' },
@@ -59,6 +59,7 @@ const inputClass = 'h-9 w-full rounded-xs border border-gray-200 bg-white px-3 t
 const URL_PLACEHOLDERS: Record<string, string> = {
   RSS: 'https://example.com/feed',
   RSSHub: 'xiaohongshu/user/profile/xxx',
+  DouyinHot: 'https://www.douyin.com/hot',
   Reddit: 'https://www.reddit.com/r/ai/hot/.rss',
   API: 'https://example.com/api/items',
   '网站': 'https://example.com',
@@ -72,7 +73,8 @@ const URL_PLACEHOLDERS: Record<string, string> = {
 const TYPE_HINTS: Record<string, string> = {
   TwitterRSS: '通过 xgo.ing 将 X 用户时间线转为 RSS。格式：https://xgo.ing/{用户名}/rss。粘贴 URL 后自动识别类型。',
   X: '通过 Apify 直连 X API，需配置环境变量 APIFY_TOKEN。下方配置填写搜索关键词或 JSON 格式的用户列表。',
-  RSSHub: '填写 RSSHub 路由（不含域名），如 weibo/user/123 或 bilibili/user/456。系统自动尝试多个 RSSHub 实例。',
+  RSSHub: 'B 站 / 抖音博主作品',
+  DouyinHot: '抖音热榜会进入今日内容流，可按关键词继续选题。',
 };
 
 // ─── Per-type keyword/config field ─────────────────────────────────────
@@ -156,6 +158,7 @@ export default function SourceForm({ form, setForm }: SourceFormProps) {
                 ...f,
                 source_type: SOURCE_TYPES.includes(result.source_type) ? result.source_type : f.source_type,
                 url: result.normalized_url || f.url,
+                keyword: result.extra_config ? JSON.stringify(result.extra_config) : f.keyword,
               }));
             } catch {
               // 识别失败静默处理，用户可手动选类型

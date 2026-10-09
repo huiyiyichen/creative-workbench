@@ -68,8 +68,12 @@ export default function ContentAnalysisPanel({ analysis, onClose }: Props) {
 
       {/* Score Breakdown — 6-dimension weighted bars */}
       {analysis.score_breakdown && (
-        <Section title="精选分构成">
-          <ScoreBreakdownChart breakdown={analysis.score_breakdown} />
+        <Section title="排序分构成">
+          <ScoreBreakdownChart
+            breakdown={analysis.score_breakdown}
+            sourceAuthorityKnown={analysis.source_weight != null}
+            contentScore={analysis.curation_score}
+          />
         </Section>
       )}
 

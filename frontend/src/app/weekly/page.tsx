@@ -22,8 +22,8 @@ export default function WeeklyDigestPage() {
       <DigestReportPage<WeeklyDigest, WeeklyDigestWeekSummary>
         title="AI 周刊"
         badge="WEEKLY REVIEW"
-        heroLabel="TOPIC RADAR WEEKLY"
-        heroTitle={<>选题雷达<br />周刊</>}
+        heroLabel="CREATIVE WORKBENCH WEEKLY"
+        heroTitle={<>创意工作台<br />周刊</>}
         sidebarTitle="历史周刊"
         emptyHistoryText="暂无历史周刊"
         emptyText="暂无周刊数据"

@@ -14,8 +14,9 @@ and read back by the matching scraper's ``__init__``.
 
 from __future__ import annotations
 
+import json
 import re
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, quote, urlparse
 
 from app.models.source import SourceType
 
@@ -48,6 +49,35 @@ def recognize_source_type(
     parsed = urlparse(url)
     host = (parsed.hostname or "").lower()
     path = parsed.path or ""
+
+    if host in {"douyin.com", "www.douyin.com"}:
+        match = re.fullmatch(r"/user/(MS4w[\w-]+)/?", path)
+        if match:
+            return SourceType.RSSHub, f"douyin/user/{match.group(1)}", {
+                "platform": "douyin", "original_url": f"https://www.douyin.com/user/{match.group(1)}",
+            }
+    # Bilibili creator pages are normalized to the RSSHub route consumed by
+    # the existing RSSHub scraper. This keeps a pasted space.bilibili.com URL
+    # as a first-class private signal source while preserving the creator id.
+    if host in {"space.bilibili.com", "www.bilibili.com", "bilibili.com"}:
+        match = re.search(r"(?:space\.bilibili\.com/|/space/)(\d+)", url)
+        if match:
+            return SourceType.RSSHub, f"bilibili/user/video-all/{match.group(1)}", {
+                "platform": "bilibili", "query": f"UP主 {match.group(1)}",
+                "original_url": f"https://space.bilibili.com/{match.group(1)}",
+            }
+    if host == "search.bilibili.com":
+        keyword = parse_qs(parsed.query).get("keyword", [""])[0].strip()
+        if keyword:
+            return SourceType.RSSHub, f"bilibili/vsearch/{quote(keyword, safe='')}", {"platform": "bilibili", "query": keyword}
+    if host in {"www.bilibili.com", "bilibili.com"} and (
+        path.rstrip("/") in {"/hot", "/ranking"} or path.startswith("/v/popular/rank/")
+    ):
+        return SourceType.RSSHub, "bilibili/ranking/all", {"platform": "bilibili", "query": "热门视频"}
+    if host in {"douyin.com", "www.douyin.com", "so.douyin.com"} and (
+        path.rstrip("/") in {"/hot", "/hotlist"} or "hot" in path.lower()
+    ):
+        return SourceType.DOUYIN_HOT, "https://www.douyin.com/hot", {"platform": "douyin", "query": "抖音热榜"}
 
     # ── Twitter RSS via xgo.ing bridge ─────────────────────────────────
     if "xgo.ing" in host:
@@ -122,3 +152,22 @@ def recognize_source_type(
         return SourceType.RSS, url, None
 
     return SourceType.RSS, url, None
+
+
+def normalize_creator_source(payload: dict, current=None) -> dict:
+    url = payload.get("url", current.url if current is not None else "")
+    source_type, normalized_url, config = recognize_source_type(url)
+    if not config or config.get("platform") not in {"douyin", "bilibili"}:
+        return payload
+    keyword = payload.get("keyword", current.keyword if current is not None else None)
+    try:
+        existing = json.loads(keyword) if keyword else {}
+    except (ValueError, TypeError):
+        existing = {}
+    payload.update(
+        source_type=source_type, url=normalized_url,
+        platform=config["platform"], keyword=json.dumps(
+            {**(existing if isinstance(existing, dict) else {}), **config}, ensure_ascii=False,
+        ),
+    )
+    return payload

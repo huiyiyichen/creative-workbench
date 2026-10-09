@@ -1,5 +1,5 @@
 /**
- * TopicEye Shared Utilities
+ * Creative Workbench shared utilities
  * Pure functions used across multiple pages
  */
 

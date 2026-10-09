@@ -38,6 +38,8 @@ def invalidate_favorite_cache() -> None:
 
 
 def favorite_to_dict(item: Any) -> dict[str, Any]:
+    snapshot = item.snapshot if isinstance(item.snapshot, dict) else {}
+    is_local_media = isinstance(snapshot.get("local_path"), str)
     return {
         "id": item.id,
         "user_id": item.user_id,
@@ -51,9 +53,12 @@ def favorite_to_dict(item: Any) -> dict[str, Any]:
         "collection_id": item.collection_id,
         "tags": item.tags,
         "note": item.note,
-        "status": _enum_value(item.status),
+        # Historical workflow statuses are normalized to one collection state
+        # at the API boundary; old rows remain intact in the database.
+        "status": "saved" if _enum_value(item.status) != "archived" else "archived",
         "position": item.position,
         "snapshot": item.snapshot,
+        "media_url": f"/api/v1/favorites/{item.id}/file" if is_local_media else snapshot.get("preview_url"),
         "created_at": item.created_at,
         "updated_at": item.updated_at,
     }

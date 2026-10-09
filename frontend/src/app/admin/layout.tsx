@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { useRouter } from 'next/navigation';
 import { Loader2, ShieldCheck } from 'lucide-react';
 import { useAppContext } from '@/components/ClientLayout';
 import AdminSidebar from '@/components/AdminSidebar';
@@ -14,7 +13,6 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const { currentUser, authLoading } = useAppContext();
-  const router = useRouter();
 
   // 加载中：显示骨架
   if (authLoading) {
@@ -28,23 +26,8 @@ export default function AdminLayout({
     );
   }
 
-  // 未登录：跳转登录页
-  if (!currentUser) {
-    if (typeof window !== 'undefined') {
-      router.replace('/login');
-    }
-    return (
-      <div className="flex h-dvh items-center justify-center bg-page">
-        <div className="inline-flex items-center gap-2 text-sm font-bold text-gray-500">
-          <Loader2 size={16} className="animate-spin" />
-          跳转登录...
-        </div>
-      </div>
-    );
-  }
-
   // 非管理员：显示权限提示（Phase 4 替换为专属 403 页）
-  if (currentUser.role !== 'admin') {
+  if (currentUser && currentUser.role !== 'admin') {
     return (
       <div className="flex h-dvh items-center justify-center bg-page p-6">
         <Panel className="max-w-md p-8 text-center">
@@ -57,7 +40,7 @@ export default function AdminLayout({
           </p>
           <button
             type="button"
-            onClick={() => router.replace('/')}
+            onClick={() => { window.location.href = '/'; }}
             className="rounded-sm border border-primary bg-primary px-4 py-2 text-sm font-bold text-white transition hover:bg-primary-hover"
           >
             返回首页

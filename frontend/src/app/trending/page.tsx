@@ -24,14 +24,12 @@ import {
   SourceMiniItem,
   StatTile,
   TrendBadge,
-  WebnovelItemRow,
 } from './_components';
 import {
   CATEGORIES,
   CATEGORY_COLORS,
   SOURCE_BRAND,
   SOURCE_LABELS,
-  isWebnovelSource,
   sourceBrand,
   RESONANCE_COLORS,
 } from './_trending-utils';
@@ -80,7 +78,6 @@ function TrendingPage() {
       const itemList = await trendingApi.list({
         category: selectedCategory || undefined,
         source: selectedSource || undefined,
-        exclude_sources: ['heiyan', 'ishugui'],
         limit: 200,
       });
       setItems(itemList);
@@ -412,9 +409,6 @@ function TrendingPage() {
                     <div className="max-h-[460px] overflow-y-auto [scrollbar-color:#D1D5DB_transparent] [scrollbar-width:thin]">
                       {srcItems.map((item, idx) => {
                         const rank = idx + 1;
-                        if (isWebnovelSource(item.source)) {
-                          return <WebnovelItemRow key={item.id} item={item} rank={rank} />;
-                        }
                         return (
                         <a
                           key={item.id}
@@ -428,7 +422,7 @@ function TrendingPage() {
                         >
                           <span className={cx(
                             'flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-xs font-mono text-[11px] font-black',
-                            idx === 0 ? 'bg-gradient-to-br from-primary to-[#FF8F65] text-white'
+                            idx === 0 ? 'bg-gradient-to-br from-primary to-[#60A5FA] text-white'
                               : idx === 1 ? 'bg-gradient-to-br from-amber to-[#FFB870] text-white'
                                 : idx === 2 ? 'bg-gradient-to-br from-[#FFD59E] to-[#FFE0B2] text-white'
                                   : 'bg-gray-100 text-gray-500',

@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+import json
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from fastapi.responses import Response
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.auth import get_current_user
@@ -28,6 +29,7 @@ from app.services.favorite_cache import (
     invalidate_favorite_cache,
     set_cached_json,
 )
+from app.services.favorite_media import MEDIA_ROOT, safe_media_path, store_media
 from app.services.json_cache import invalidate_json_cache
 
 router = APIRouter(prefix="/favorites", tags=["favorites"])
@@ -177,11 +179,69 @@ async def create_favorite(
     try:
         item = await repo.upsert(data)
         _invalidate_favorite_mutation_caches(content_changed=data.target_type == FavoriteTargetType.CONTENT)
-        return item
+        return favorite_to_dict(item)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/upload", response_model=FavoriteResponse, status_code=201)
+async def upload_favorite(
+    file: UploadFile = File(...),
+    target_type: FavoriteTargetType = Form(...),
+    title: str = Form(...),
+    source_name: str | None = Form(None),
+    note: str | None = Form(None),
+    preset_snapshot: str | None = Form(None),
+    favorite_id: int | None = Form(None),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    content = await file.read(200 * 1024 * 1024 + 1)
+    is_preset = target_type in {FavoriteTargetType.STYLE, FavoriteTargetType.TEMPLATE}
+    media = store_media(
+        user_id=current_user.id,
+        target_type=FavoriteTargetType.IMAGE if is_preset else target_type,
+        filename=file.filename or "",
+        content=content,
+    )
+    snapshot = {
+        **(json.loads(preset_snapshot) if preset_snapshot else {}),
+        "local_path": media["relative_path"],
+        "mime_type": media["mime_type"],
+        "sha256": media["sha256"],
+        "original_name": file.filename,
+    }
+    repo = FavoriteRepo(db, current_user.id)
+    existing = await repo.get_by_id(favorite_id) if favorite_id else None
+    if favorite_id and existing is None:
+        raise HTTPException(status_code=404, detail="收藏不存在")
+    if existing:
+        item = await repo.update(
+            existing.id,
+            FavoriteUpdate(
+                title=title,
+                cover_url=None if is_preset else existing.cover_url,
+                note=note,
+                snapshot=snapshot,
+                status=FavoriteStatus.SAVED,
+            ),
+        )
+    else:
+        item = await repo.upsert(
+            FavoriteCreate(
+                target_type=target_type,
+                target_key=media["target_key"],
+                title=title,
+                source_name=source_name,
+                note=note,
+                snapshot=snapshot,
+                status=FavoriteStatus.SAVED,
+            )
+        )
+    _invalidate_favorite_mutation_caches()
+    return favorite_to_dict(item)
 
 
 @router.get("/state")
@@ -227,7 +287,7 @@ async def reorder_favorites(
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     _invalidate_favorite_mutation_caches()
-    return items
+    return [favorite_to_dict(item) for item in items]
 
 
 @router.post("/reorder-board", response_model=list[FavoriteResponse])
@@ -243,7 +303,7 @@ async def reorder_favorite_board(
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     _invalidate_favorite_mutation_caches()
-    return items
+    return [favorite_to_dict(item) for item in items]
 
 
 @router.post("/bulk-status", response_model=list[FavoriteResponse])
@@ -257,7 +317,7 @@ async def bulk_update_favorite_status(
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
     _invalidate_favorite_mutation_caches()
-    return items
+    return [favorite_to_dict(item) for item in items]
 
 
 @router.post("/bulk-delete")
@@ -281,6 +341,29 @@ async def bulk_delete_favorites(
     return {"deleted": deleted}
 
 
+@router.get("/{favorite_id}/file")
+async def download_favorite_file(
+    favorite_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    item = await FavoriteRepo(db, current_user.id).get_by_id(favorite_id)
+    if not item:
+        raise HTTPException(status_code=404, detail="Favorite not found")
+    snapshot = item.snapshot if isinstance(item.snapshot, dict) else {}
+    relative_path = snapshot.get("local_path")
+    if not isinstance(relative_path, str):
+        raise HTTPException(status_code=404, detail="Local media not found")
+    path = safe_media_path(relative_path)
+    if not path.is_file() or not path.is_relative_to(MEDIA_ROOT):
+        raise HTTPException(status_code=404, detail="Local media not found")
+    return FileResponse(
+        path,
+        media_type=str(snapshot.get("mime_type") or "application/octet-stream"),
+        filename=path.name,
+    )
+
+
 @router.patch("/{favorite_id}", response_model=FavoriteResponse)
 async def update_favorite(
     favorite_id: int,
@@ -292,7 +375,7 @@ async def update_favorite(
     if not item:
         raise HTTPException(status_code=404, detail="Favorite not found")
     _invalidate_favorite_mutation_caches()
-    return item
+    return favorite_to_dict(item)
 
 
 @router.delete("/{favorite_id}")

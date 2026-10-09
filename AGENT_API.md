@@ -1,6 +1,6 @@
 # Agent API
 
-TopicEye exposes its scoring engine as a stable HTTP API so other agents, CLIs, and automation tools (Claude Code, Codex, n8n, custom scripts) can use it as their content-ranking layer.
+Creative Workbench exposes its scoring engine as a stable HTTP API so other agents, CLIs, and automation tools (Claude Code, Codex, n8n, custom scripts) can use it as their content-ranking layer.
 
 ## Authentication
 
@@ -81,9 +81,9 @@ Only `content_id` is required — every other field defaults to a neutral value.
 
 Items with `risk_score > 82` are hard-excluded (won't appear in results).
 
-## Reading TopicEye data (skill endpoints)
+## Reading Creative Workbench data (skill endpoints)
 
-The scoring endpoint above ranks **caller-supplied** items. The skill endpoints below let agents **read TopicEye's own curated output** — today's picks, daily report, and trends. All require the same Bearer token.
+The scoring endpoint above ranks **caller-supplied** items. The skill endpoints below let agents **read the workspace's curated output** — today's picks, daily report, and trends. All require the same Bearer token.
 
 ### `GET /api/v1/skill/today-picks`
 

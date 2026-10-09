@@ -25,6 +25,7 @@ from app.services import duckdb_service
 from app.services.trends import (
     get_keyword_trend_evidence,
     get_topic_trend_evidence,
+    refresh_trend_snapshots,
     snapshot_daily_trends,
 )
 
@@ -41,6 +42,17 @@ async def trigger_snapshot(
     td = date.fromisoformat(target_date) if target_date else None
     async with async_session() as db:
         result = await snapshot_daily_trends(db, td)
+        await db.commit()
+    return {"status": "ok", **result}
+
+
+@router.post("/refresh", dependencies=[Depends(get_current_admin_user)])
+async def refresh_trends(
+    days: int = Query(7, ge=1, le=30),
+):
+    """Refresh topic assignments and trend snapshots from analyzed content."""
+    async with async_session() as db:
+        result = await refresh_trend_snapshots(db, days=days)
         await db.commit()
     return {"status": "ok", **result}
 

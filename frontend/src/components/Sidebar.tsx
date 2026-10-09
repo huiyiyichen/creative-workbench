@@ -3,13 +3,10 @@
 import React from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import {
-  LogIn,
-  LogOut,
   Radar,
-  UserRound,
 } from 'lucide-react';
 import { cx } from '@/components/ui';
-import { isAdmin, visibleNavSpaces } from '@/lib/navigation';
+import { visibleNavSpaces } from '@/lib/navigation';
 import type { AuthUser } from '@/types';
 
 interface SidebarProps {
@@ -61,7 +58,7 @@ export default function Sidebar({
         <div className={cx('flex items-center gap-2.5', compact ? 'justify-center' : 'justify-start')}>
           <div className="relative h-7 w-7">
             {/* Radar icon */}
-            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-primary to-[#FF8F65]">
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary">
               <Radar size={16} className="text-white" strokeWidth={2.4} />
             </div>
             {/* Ping */}
@@ -69,10 +66,10 @@ export default function Sidebar({
           </div>
           {!compact && <div>
             <div className="text-[17px] font-bold leading-tight text-gray-900">
-              选题雷达
+              创意工作台
             </div>
             <div className="mt-px text-[10px] tracking-[0.08em] text-gray-500">
-              TOPIC RADAR
+              CREATIVE WORKBENCH
             </div>
           </div>}
         </div>
@@ -121,67 +118,12 @@ export default function Sidebar({
         ))}
       </nav>
 
-      {/* Bottom User Area */}
+      {/* Local workspace status */}
       <div className={cx('border-t border-gray-100 pb-4 pt-3', compact ? 'px-2.5' : 'px-3')}>
-        {currentUser ? (
-          <div className={cx('flex items-center gap-2', compact ? 'justify-center p-0' : 'justify-between px-3')}>
-            <div className="flex min-w-0 items-center gap-2">
-              <button
-                type="button"
-                onClick={() => router.push('/profile')}
-                aria-label="个人中心"
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-teal to-[#7DD3C0] text-xs font-semibold text-white transition hover:opacity-90"
-                title="个人中心"
-              >
-                <UserRound size={14} strokeWidth={2} />
-              </button>
-              {!compact && (
-                <div className="min-w-0">
-                  <div className="truncate text-xs font-medium text-gray-700">{currentUser.display_name || currentUser.email}</div>
-                  <div className="text-[10px] text-gray-500">
-                    {isAdmin(currentUser) ? '管理员' : currentUser.plan === 'free' ? '免费版' : '付费版'}
-                  </div>
-                </div>
-              )}
-            </div>
-            {!compact && (
-              <button
-                type="button"
-                onClick={onLogout}
-                aria-label="退出登录"
-                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-gray-500 transition hover:bg-gray-100 hover:text-red"
-                title="退出登录"
-              >
-                <LogOut size={14} strokeWidth={2} />
-              </button>
-            )}
-          </div>
-        ) : (
-          <button
-            type="button"
-            onClick={() => router.push('/login')}
-            className={cx(
-              'flex w-full items-center rounded-sm text-sm transition hover:bg-gray-50 hover:text-primary',
-              compact ? 'justify-center px-0 py-2.5' : 'justify-start gap-2 px-3 py-2.5 text-left text-gray-600',
-            )}
-            title={compact ? '登录' : undefined}
-            aria-label={compact ? '登录' : undefined}
-            disabled={authLoading}
-          >
-            <LogIn size={16} strokeWidth={2} />
-            {!compact && <span>{authLoading ? '检查登录' : '登录'}</span>}
-          </button>
-        )}
-        {currentUser && !compact && (
-          <button
-            type="button"
-            onClick={() => router.push('/profile')}
-            className="mt-2 flex w-full items-center justify-start gap-2 rounded-sm px-3 py-2 text-left text-xs font-bold text-gray-500 transition hover:bg-gray-50 hover:text-primary"
-          >
-            <UserRound size={14} strokeWidth={2} />
-            个人中心
-          </button>
-        )}
+        <div className={cx('flex items-center gap-2 text-xs text-gray-500', compact ? 'justify-center' : 'px-3')}>
+          <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
+          {!compact && <span>本地工作区</span>}
+        </div>
       </div>
     </div>
   );

@@ -29,8 +29,8 @@ const notoSerif = Noto_Serif_SC({
 });
 
 export const metadata: Metadata = {
-  title: '选题雷达 · 创作者选题情报站',
-  description: 'AI 驱动的创作者选题推荐平台，帮你发现下一个爆款选题',
+  title: '创意工作台 · AI 创作空间',
+  description: '面向创作者的选题、成稿与成片工作台',
 };
 
 export default async function RootLayout({

@@ -49,5 +49,4 @@ DEFAULT_RSSHUB_INSTANCES = [
 # 默认值：开源用户 clone 后所有可选模块默认关闭，管理员后台按需开启。
 # 新增模块开关时在此追加 key + 默认值。
 DEFAULT_FEATURE_FLAGS: dict[str, bool] = {
-    "webnovel_module": False,
 }

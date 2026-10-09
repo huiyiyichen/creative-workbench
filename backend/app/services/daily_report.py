@@ -17,6 +17,7 @@ from app.core.config import settings
 from app.models.daily_report import DailyReport
 from app.repositories.content_repo import ContentRepo
 from app.repositories.ignored_repo import IgnoredRepo
+from app.repositories.llm_model_repo import LlmModelRepository
 from app.services.content_serialization import latest_analysis_from_item
 from app.services.digest_base import is_active_generating as _digest_is_active_generating
 from app.services.digest_fallback import build_daily_editorial_fallback
@@ -252,6 +253,10 @@ async def get_latest_today_report(
     )
     report = result.scalar_one_or_none()
     if report:
+        if report.status == "GENERATING" and not _is_active_generating(report, _local_now()):
+            report.status = "ERROR"
+            report.overview = "上次日报生成已中断，请重新生成。"
+            await db.commit()
         return report
     return await generate_daily_report(
         db,
@@ -544,6 +549,7 @@ async def generate_daily_report(
     cutoff_at: datetime | None = None,
     force: bool = False,
     owner_user_id: int | None = None,
+    report_id: int | None = None,
 ) -> DailyReport:
     """Generate a versioned daily report for a precise time window.
 
@@ -556,19 +562,32 @@ async def generate_daily_report(
     report_date = target.isoformat()
     weekday = WEEKDAYS[target.weekday()]
     now = _local_now()
+    utc_start, utc_end = _local_window_to_utc_naive(window_start, window_end)
+    stored_start = utc_start.replace(tzinfo=UTC)
+    stored_end = utc_end.replace(tzinfo=UTC)
 
     async def _claim_generation() -> tuple[DailyReport, bool]:
-        existing_stmt = (
-            select(DailyReport)
-            .where(DailyReport.report_date == report_date)
-            .where(DailyReport.edition == normalized_edition)
-            .where(DailyReport.cutoff_at == window_end)
-            .where(_owner_filter(owner_user_id))
-            .with_for_update()
-        )
+        if report_id is not None:
+            existing_stmt = select(DailyReport).where(
+                DailyReport.id == report_id,
+                DailyReport.report_date == report_date,
+                DailyReport.edition == normalized_edition,
+                _owner_filter(owner_user_id),
+            ).with_for_update()
+        else:
+            existing_stmt = (
+                select(DailyReport)
+                .where(DailyReport.report_date == report_date)
+                .where(DailyReport.edition == normalized_edition)
+                .where(DailyReport.cutoff_at == stored_end)
+                .where(_owner_filter(owner_user_id))
+                .with_for_update()
+            )
 
         existing = await db.execute(existing_stmt)
         report = existing.scalar_one_or_none()
+        if report_id is not None and report is None:
+            raise ValueError("日报生成记录不存在")
         if report and report.status == "DONE" and not force:
             return report, False
         if report and _is_active_generating(report, now) and not force:
@@ -580,9 +599,9 @@ async def generate_daily_report(
                 weekday=weekday,
                 edition=normalized_edition,
                 generated_at=now,
-                window_start=window_start,
-                window_end=window_end,
-                cutoff_at=window_end,
+                window_start=stored_start,
+                window_end=stored_end,
+                cutoff_at=stored_end,
                 source_scope="curated",
                 status="GENERATING",
                 content_count=0,
@@ -606,9 +625,9 @@ async def generate_daily_report(
         else:
             report.status = "GENERATING"
             report.generated_at = now
-            report.window_start = window_start
-            report.window_end = window_end
-            report.cutoff_at = window_end
+            report.window_start = stored_start
+            report.window_end = stored_end
+            report.cutoff_at = stored_end
             await db.flush()
 
         return report, True
@@ -631,7 +650,12 @@ async def generate_daily_report(
 
     if not background_items:
         report.status = "ERROR"
-        report.overview = "当前窗口暂无分析数据，请先同步信源并等待 AI 分析完成。"
+        model_available = await LlmModelRepository(db).has_enabled_model()
+        report.overview = (
+            "当前窗口暂无分析数据，请先同步信源并完成 AI 分析。"
+            if model_available
+            else "AI 模型尚未配置。请在「管理后台 → AI 引擎」配置模型并分析内容，再生成日报。"
+        )
         report.source_item_ids = json.dumps([], ensure_ascii=False)
         await db.commit()
         return report
@@ -649,6 +673,13 @@ async def generate_daily_report(
         report.topic_count = 0
         report.source_item_ids = json.dumps([], ensure_ascii=False)
         report.updated_at = _local_now()
+        await db.commit()
+        return report
+
+    if not await LlmModelRepository(db).has_enabled_model():
+        report.status = "ERROR"
+        report.overview = "AI 模型尚未配置。请在「管理后台 → AI 引擎」配置模型并分析内容，再生成日报。"
+        report.source_item_ids = json.dumps([item["id"] for item in curated_items], ensure_ascii=False)
         await db.commit()
         return report
 

@@ -1,7 +1,7 @@
-"""Skill read-API — let external agents read TopicEye curated data.
+"""Skill read-API — let external agents read curated data from 创意工作台.
 
 Exposes three read-only endpoints so external agents (ZCode / Claude skills,
-n8n, custom scripts) can fetch TopicEye's curated output without re-running
+n8n, custom scripts) can fetch 创意工作台's curated output without re-running
 the scoring pipeline themselves:
 
   GET /api/v1/skill/today-picks  — 今日精选选题（含评分明细）
@@ -42,7 +42,7 @@ router = APIRouter(prefix="/skill", tags=["skill"], dependencies=[Depends(get_cu
     response_model=SkillTodayPicksResponse,
     summary="今日精选选题（agent 读取）",
     description=(
-        "返回最近 N 小时内 TopicEye 的精选选题，含每条的评分明细 "
+        "返回最近 N 小时内创意工作台的精选选题，含每条的评分明细 "
         "（analysis.adjusted_curation_score / score_breakdown）。外部 agent "
         '可用它回答"今天有什么值得写的选题"。返回结构与 /contents/today-picks 一致。'
         "\n\nExample: `GET /api/v1/skill/today-picks?hours=48&limit=20`"

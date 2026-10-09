@@ -50,7 +50,7 @@ const COLORS = CHART_COLORS;
 // 强行统一会引入不必要的参数适配，故保留并行。N9 决策：不合并。
 function Sparkline({
   data,
-  color = '#FF6B35',
+  color = 'var(--color-primary)',
   width = 132,
   height = 42,
 }: {
@@ -470,6 +470,7 @@ export default function TrendsPage() {
   const [days, setDays] = useState(7);
   const [activeTab, setActiveTab] = useState<'topics' | 'keywords'>('topics');
   const [evidenceRequest, setEvidenceRequest] = useState<TrendEvidenceRequest | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   type TrendsPayload = { trends: TrendPoint[]; keywords: KeywordItem[] };
   const { data, loading, error, refetch } = useFetch<TrendsPayload>(
@@ -500,6 +501,16 @@ export default function TrendsPage() {
   const openKeywordEvidence = useCallback((keyword: string) => {
     setEvidenceRequest({ kind: 'keyword', keyword, days });
   }, [days]);
+
+  const refreshTrends = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await trendsApi.refresh(days);
+      await refetch();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [days, refetch]);
 
   return (
     <div className="fade-in h-full overflow-y-auto bg-[linear-gradient(180deg,#F8FAFC_0%,#F4F6F8_42%,#EEF2F5_100%)] px-4 pb-8 sm:px-6 lg:px-10">
@@ -546,7 +557,12 @@ export default function TrendsPage() {
               <LoadingState label="加载中…" minHeight="320px" />
             ) : (
               sortedTopics.length === 0 ? (
-                <EmptyState icon={Filter} title="暂无趋势数据" desc="趋势快照生成后会在这里展示话题曲线。" />
+                <EmptyState
+                  icon={Filter}
+                  title="暂无趋势数据"
+                  desc="根据已采集内容生成趋势快照。"
+                  actions={[{ label: refreshing ? '生成中…' : '生成趋势快照', onClick: () => void refreshTrends(), variant: 'primary' }]}
+                />
               ) : (
                 <div className="flex flex-col gap-3">
                   {sortedTopics.map((topic, index) => (
@@ -583,9 +599,9 @@ export default function TrendsPage() {
           <ControlPanel days={days} setDays={setDays} activeTab={activeTab} setActiveTab={setActiveTab} />
           <SignalPanel topics={sortedTopics} />
           <KeywordPanel keywords={keywords} onOpenEvidence={openKeywordEvidence} />
-          <Button type="button" variant="secondary" onClick={() => void refetch()} disabled={loading} className="w-full">
-            <Loader2 size={13} className={loading ? 'animate-spin' : 'hidden'} />
-            刷新趋势
+          <Button type="button" variant="secondary" onClick={() => void refreshTrends()} disabled={loading || refreshing} className="w-full">
+            <Loader2 size={13} className={refreshing || loading ? 'animate-spin' : 'hidden'} />
+            {refreshing ? '生成中…' : '更新趋势'}
           </Button>
         </aside>
       </div>

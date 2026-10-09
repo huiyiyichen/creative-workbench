@@ -36,7 +36,7 @@ _DASHBOARD_HTML = """<!DOCTYPE html>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TopicEye 监控大盘</title>
+<title>创意工作台监控大盘</title>
 <style>
 :root{
   --bg:#0b1120;--surface:#151e30;--surface2:#1c2840;--border:#293b5c;
@@ -134,7 +134,7 @@ table td.num{text-align:right;font-variant-numeric:tabular-nums}
 </head>
 <body>
 <div class="header">
-  <h1><span class="status-dot" id="statusDot"></span>TopicEye 监控大盘</h1>
+  <h1><span class="status-dot" id="statusDot"></span>创意工作台监控大盘</h1>
   <div class="header-right">
     <span id="uptime">运行时间: --</span>
     <span id="lastUpdate">最后更新: --</span>

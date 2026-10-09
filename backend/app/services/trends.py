@@ -11,7 +11,7 @@ from sqlalchemy import and_, exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.analysis import AiAnalysis
-from app.models.content import ContentItem
+from app.models.content import ContentItem, ContentStatus
 from app.models.content_event import (
     ContentEventGroup,
     ContentEventMember,
@@ -31,6 +31,46 @@ logger = logging.getLogger(__name__)
 
 TREND_CALCULATION_VERSION = "trend-v2"
 EvidenceFilter = Literal["all", "selected", "evidenced"]
+
+
+async def refresh_trend_snapshots(
+    db: AsyncSession,
+    *,
+    days: int = 7,
+    target_date: date | None = None,
+) -> dict:
+    """Build topic assignments and snapshots from the latest analyzed content."""
+    from app.services.topic_clustering import cluster_topics
+
+    clustering = await cluster_topics(db, days=days, use_llm_naming=False)
+    if target_date is not None:
+        dates = [target_date]
+    else:
+        result = await db.execute(
+            select(ContentItem.created_at)
+            .where(
+                ContentItem.owner_user_id.is_(None),
+                ContentItem.status == ContentStatus.ANALYZED,
+            )
+            .order_by(ContentItem.created_at.desc())
+        )
+        dates = sorted(
+            {
+                value.date()
+                for value in result.scalars().all()
+                if value is not None
+            },
+            reverse=True,
+        )[:days]
+        dates.sort()
+
+    snapshots = [await snapshot_daily_trends(db, snapshot_date) for snapshot_date in dates]
+    return {
+        "days": days,
+        "dates": [item.isoformat() for item in dates],
+        "clustering": clustering,
+        "snapshots": snapshots,
+    }
 
 
 def _accepted_event_member_exists():

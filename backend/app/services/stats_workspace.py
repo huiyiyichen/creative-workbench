@@ -6,7 +6,6 @@ from app.services.duckdb_service import (
     query_dashboard_stats,
     query_stats_category_distribution,
     query_stats_daily_trend,
-    query_stats_novel_platforms,
     query_stats_overview,
     query_stats_source_distribution,
 )
@@ -22,6 +21,5 @@ def build_default_stats_cache_payloads() -> dict[str, dict]:
         f"stats:source-distribution:{days}": query_stats_source_distribution(days=days),
         f"stats:category-distribution:{days}": query_stats_category_distribution(days=days),
         f"stats:daily-trend:{days}": query_stats_daily_trend(days=days),
-        "stats:novel-platforms": query_stats_novel_platforms(),
         f"stats:dashboard:{days}": query_dashboard_stats(days=days),
     }

@@ -1,3 +1,5 @@
+name: creative-workbench
+
 services:
   backend:
     build:
@@ -13,7 +15,7 @@ services:
       - ./backend:/app
     environment:
       - APP_ENV=${APP_ENV:-development}
-      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://topiceye:topiceye@postgres:5432/topiceye}
+      - DATABASE_URL=${DATABASE_URL:-postgresql+asyncpg://workbench:local-dev-password@postgres:5432/creative_workbench}
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       - AUTO_CREATE_TABLES_ON_STARTUP=${AUTO_CREATE_TABLES_ON_STARTUP:-true}
       - CACHE_WARMUP_ENABLED=${CACHE_WARMUP_ENABLED:-true}
@@ -39,15 +41,15 @@ services:
   postgres:
     image: postgres:16-alpine
     environment:
-      - POSTGRES_DB=${POSTGRES_DB:-topiceye}
-      - POSTGRES_USER=${POSTGRES_USER:-topiceye}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-topiceye}
+      - POSTGRES_DB=${POSTGRES_DB:-creative_workbench}
+      - POSTGRES_USER=${POSTGRES_USER:-workbench}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-local-dev-password}
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-topiceye}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-workbench}"]
       interval: 5s
       timeout: 5s
       retries: 10

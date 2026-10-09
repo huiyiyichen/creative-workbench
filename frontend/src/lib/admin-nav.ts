@@ -35,7 +35,6 @@ export const ADMIN_NAV_ITEMS: readonly AdminNavEntry[] = [
   { id: 'sources', label: '信源管理', href: '/admin/sources', inShell: true },
   { id: 'contents', label: '内容管理', href: '/admin/contents', inShell: true },
   { id: 'content-events', label: '内容事件治理', href: '/admin/content-events', inShell: true },
-  { id: 'users', label: '用户管理', href: '/admin/users', inShell: true },
   { id: 'model-eval', label: 'AI 引擎', href: '/admin/model-eval', inShell: true },
   { id: 'mother-topics', label: '系统母题模板库', href: '/admin/mother-topics', inShell: true },
   { id: 'updates', label: '发版记录', href: '/admin/updates', inShell: true },

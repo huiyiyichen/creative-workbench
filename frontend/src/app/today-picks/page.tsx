@@ -184,7 +184,7 @@ function TodayPicksPage() {
 
   const handleFav = async (id: number) => {
     if (!currentUser) {
-      setActionError('收藏需要登录，点击右上角登录或使用 Google / GitHub 快速登录');
+      setActionError('本地工作区暂时无法保存收藏，请稍后重试');
       return;
     }
     const wasFav = contentFavoriteState.isFavorited(id);
@@ -194,7 +194,7 @@ function TodayPicksPage() {
   };
   const handleStartWorkflow = useCallback(async (item: ContentItem, isFavorited: boolean) => {
     if (!currentUser) {
-      setActionError('推进选题需要登录，点击右上角登录或使用 Google / GitHub 快速登录');
+      setActionError('本地工作区暂时无法推进选题，请稍后重试');
       return;
     }
     setWorkflowPendingId(item.id);

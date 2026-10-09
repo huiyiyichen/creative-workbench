@@ -206,8 +206,11 @@ async def build_today_picks(
         boost = boosts.get(int(item["id"]), 0.0)
         item["personalization_boost"] = boost
         analysis = item.get("analysis") or {}
-        if boost and "adjusted_curation_score" in analysis:
-            analysis["adjusted_curation_score"] = round(analysis["adjusted_curation_score"] + boost, 2)
+        if "adjusted_curation_score" in analysis:
+            breakdown = analysis["score_breakdown"]
+            breakdown["personalization_bonus"] = boost
+            breakdown["final_score"] = round(breakdown["final_score"] + boost, 2)
+            analysis["adjusted_curation_score"] = breakdown["final_score"]
     try:
         visible_group_ids = {
             assignment.event_group_id
@@ -482,7 +485,10 @@ def _row_to_content_payload(row: dict, breakdown: ScoreBreakdown) -> dict:
         "recommendation": _clean_optional_text(row.get("recommendation")),
         "info_density": row.get("info_density") or 0,
         "actionability": row.get("actionability") or 0,
-        "source_weight": row.get("analysis_source_weight") or row.get("source_weight") or 0,
+        "source_weight": (
+            row.get("analysis_source_weight")
+            if row.get("analysis_source_weight") is not None else row.get("source_weight")
+        ),
         "enrichment_status": row.get("enrichment_status") or "pending",
         "enrichment": enrichment,
         "created_at": row.get("analysis_created_at") or row.get("created_at") or datetime.now(UTC).isoformat(),
@@ -625,7 +631,16 @@ def _pack_today_picks(
     event_members_hidden: int = 0,
 ) -> dict:
     topic_ids = {item.get("topic_id") for item in items if item.get("topic_id")}
-    visible_topics = [topic for topic in topic_map.values() if topic["id"] in topic_ids]
+    visible_topics = [
+        {
+            **topic,
+            "best_score": max(
+                item["analysis"]["adjusted_curation_score"]
+                for item in items if item.get("topic_id") == topic["id"]
+            ),
+        }
+        for topic in topic_map.values() if topic["id"] in topic_ids
+    ]
     return {
         "items": items,
         "total": total,

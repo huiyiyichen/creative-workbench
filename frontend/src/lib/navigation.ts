@@ -1,15 +1,11 @@
 import {
   BarChart3,
-  BookOpen,
   Bookmark,
-  Library,
-  Rocket,
   CalendarDays,
   ClipboardList,
-  Crosshair,
-  Gem,
   GitBranch,
   Lightbulb,
+  PenLine,
   Newspaper,
   RadioTower,
   Search,
@@ -60,30 +56,20 @@ export const NAV_SPACES: NavSpace[] = [
     id: 'review',
     label: '复盘',
     items: [
-      { id: 'daily', label: '日报', href: '/daily', icon: Newspaper, access: 'user' },
-      { id: 'weekly', label: '周刊', href: '/weekly', icon: ClipboardList, access: 'user' },
-      { id: 'monthly', label: '月刊', href: '/monthly', icon: CalendarDays, access: 'user' },
-      { id: 'stats', label: '数据统计', href: '/stats', icon: BarChart3, access: 'user' },
+      { id: 'daily', label: '日报', href: '/daily', icon: Newspaper, access: 'public' },
+      { id: 'weekly', label: '周刊', href: '/weekly', icon: ClipboardList, access: 'public' },
+      { id: 'monthly', label: '月刊', href: '/monthly', icon: CalendarDays, access: 'public' },
+      { id: 'stats', label: '数据统计', href: '/stats', icon: BarChart3, access: 'public' },
     ],
   },
   {
     id: 'create',
     label: '创作',
     items: [
-      { id: 'my-sources', label: '我的信源', href: '/sources/me', icon: RadioTower, access: 'user', countKey: 'sources' },
-      { id: 'my-topics', label: '我的母题', href: '/my-topics', icon: Crosshair, access: 'user' },
-      { id: 'favorites', label: '收藏夹', href: '/favorites', icon: Bookmark, access: 'user', countKey: 'favorites' },
-      { id: 'algorithm', label: '算法流程', href: '/algorithm', icon: GitBranch, access: 'user' },
-      { id: 'fanqie', label: '网文雷达', href: '/novel', icon: BookOpen, access: 'user', feature: 'webnovel_module' },
-      { id: 'weread', label: '微信读书', href: '/weread', icon: Library, access: 'user' },
-    ],
-  },
-  {
-    id: 'account',
-    label: '账户',
-    items: [
-      { id: 'plans', label: '权益规划', href: '/plans', icon: Gem, access: 'public' },
-      { id: 'changelog', label: '更新记录', href: '/changelog', icon: Rocket, access: 'public' },
+      { id: 'studio', label: '创作工作台', href: '/studio', icon: PenLine, access: 'public' },
+      { id: 'my-sources', label: '我的信源', href: '/sources/me', icon: RadioTower, access: 'public', countKey: 'sources' },
+      { id: 'favorites', label: '收藏夹', href: '/favorites', icon: Bookmark, access: 'public', countKey: 'favorites' },
+      { id: 'algorithm', label: '算法流程', href: '/algorithm', icon: GitBranch, access: 'public' },
     ],
   },
   {
@@ -95,7 +81,6 @@ export const NAV_SPACES: NavSpace[] = [
   },
 ];
 
-const EXTRA_USER_ONLY_PATHS = ['/profile'];
 // admin 子路径虽被 /admin 前缀匹配覆盖，但显式列出保持安全冗余
 const EXTRA_ADMIN_ONLY_PATHS = [
   '/admin/contents',
@@ -105,12 +90,9 @@ const EXTRA_ADMIN_ONLY_PATHS = [
   '/admin/model-eval',
   '/admin/feedback',
   '/admin/settings',
-  '/admin/users',
 ];
 
-// 显式声明的公开路径（未登录可访问）。OAuth 回调页必须在此列，
-// 否则未登录态进来会被路由守卫踢去 /login，丢失 URL fragment 里的 token。
-const PUBLIC_PATHS = ['/login', '/oauth/callback'];
+const PUBLIC_PATHS = ['/'];
 
 function uniquePaths(paths: string[]): string[] {
   return Array.from(new Set(paths));
@@ -122,7 +104,7 @@ function navPathsForAccess(access: NavAccess): string[] {
     .map((item) => item.href);
 }
 
-export const USER_ONLY_PATHS = uniquePaths([...navPathsForAccess('user'), ...EXTRA_USER_ONLY_PATHS]);
+export const USER_ONLY_PATHS = uniquePaths(navPathsForAccess('user'));
 export const ADMIN_ONLY_PATHS = uniquePaths([...navPathsForAccess('admin'), ...EXTRA_ADMIN_ONLY_PATHS]);
 
 export function isAdmin(user: AuthUser | null): boolean {

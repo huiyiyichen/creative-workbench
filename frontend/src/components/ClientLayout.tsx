@@ -4,13 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { usePathname } from 'next/navigation';
 import Sidebar from '@/components/Sidebar';
 import NotificationBell from '@/components/NotificationBell';
+import ProductionStatus from '@/components/ProductionStatus';
 import { AppProvider, useAuthContext, useFavoritesContext, useAppContext } from '@/providers/AppProvider';
 import type { PrefetchData } from '@/lib/server-prefetch';
 
 // Backward compat: 38 个消费者从 @/components/ClientLayout 导入 useAppContext
 export { useAppContext };
 
-const CHROMELESS_PATHS = new Set(['/login']);
 const ADMIN_PATH_PREFIX = '/admin';
 
 /**
@@ -43,7 +43,6 @@ function LayoutChrome({ children }: { children: React.ReactNode }) {
   const { topicCount, todayPicksCount, favoriteTotal, sourceCount } = useFavoritesContext();
   const [compactNav, setCompactNav] = useState(false);
 
-  const isChromelessPath = CHROMELESS_PATHS.has(pathname);
   const isAdminPath = pathname === ADMIN_PATH_PREFIX || pathname.startsWith(`${ADMIN_PATH_PREFIX}/`);
 
   useEffect(() => {
@@ -52,14 +51,6 @@ function LayoutChrome({ children }: { children: React.ReactNode }) {
     window.addEventListener('resize', updateCompact);
     return () => window.removeEventListener('resize', updateCompact);
   }, []);
-
-  if (isChromelessPath) {
-    return (
-      <main className="h-dvh overflow-hidden bg-page">
-        {children}
-      </main>
-    );
-  }
 
   if (isAdminPath) {
     // admin 路径由 app/admin/layout.tsx 接管壳，这里只保留 context
@@ -85,6 +76,7 @@ function LayoutChrome({ children }: { children: React.ReactNode }) {
       />
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-page">
         <div className="flex h-12 shrink-0 items-center justify-end border-b border-gray-100 bg-white px-6">
+          <ProductionStatus />
           {currentUser && <NotificationBell />}
         </div>
         <div className="min-h-0 flex-1 overflow-auto">

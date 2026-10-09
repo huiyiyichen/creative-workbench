@@ -14,7 +14,7 @@ from collections.abc import Sequence
 from sqlalchemy import func, or_, select
 
 from app.core.user_identity import normalize_email
-from app.models.user import User, UserOAuthAccount, UserRole
+from app.models.user import User, UserRole
 from app.repositories.base import BaseRepository
 
 
@@ -74,18 +74,3 @@ class UserRepository(BaseRepository[User]):
         stmt = stmt.order_by(User.created_at.desc()).offset((page - 1) * page_size).limit(page_size)
         result = await self.db.execute(stmt)
         return result.scalars().all(), total
-
-    async def list_oauth_providers_by_user_ids(self, user_ids: list[int]) -> dict[int, list[str]]:
-        """批量查询多个用户的 OAuth provider 列表，返回 {user_id: [provider, ...]}。
-
-        供 list_users 端点一次性拉取本页用户的 OAuth provider，避免 N+1。
-        """
-        if not user_ids:
-            return {}
-        result = await self.db.execute(
-            select(UserOAuthAccount.user_id, UserOAuthAccount.provider).where(UserOAuthAccount.user_id.in_(user_ids))
-        )
-        oauth_map: dict[int, list[str]] = {}
-        for uid, provider in result.all():
-            oauth_map.setdefault(uid, []).append(provider)
-        return oauth_map

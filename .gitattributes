@@ -1,0 +1,7 @@
+* text=auto
+# Preserve ASCII/CRLF batch files in clones and downloadable source archives.
+*.cmd -text whitespace=cr-at-eol
+*.ps1 text eol=crlf
+*.sh text eol=lf
+*.png binary
+*.jpg binary

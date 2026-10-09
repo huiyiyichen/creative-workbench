@@ -224,13 +224,6 @@ export function createFavoritesStore(deps: {
       const key = getFavoriteTargetKey(target);
       const currentUser = authStore.getState().currentUser;
 
-      if (!currentUser) {
-        router.push('/login');
-        if (options?.throwOnError) {
-          throw new Error('请先登录');
-        }
-        return get().favoriteTargets.has(key);
-      }
       if (_favoriteTargetPending.has(key)) {
         return get().favoriteTargets.has(key);
       }
@@ -320,13 +313,6 @@ export function createFavoritesStore(deps: {
       const targetKey = getContentFavoriteKey(id);
       const currentUser = authStore.getState().currentUser;
 
-      if (!currentUser) {
-        router.push('/login');
-        if (options?.throwOnError) {
-          throw new Error('请先登录');
-        }
-        return get().favorites.has(id);
-      }
       if (_favoritePending.has(id)) {
         return get().favorites.has(id);
       }

@@ -432,7 +432,7 @@ async def send_test_message() -> dict:
         return {"sent": 0, "failed": 0, "details": [], "error": "未配置 webhook"}
 
     ts = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
-    text = f"✅ [TEST] TopicEye 通知推送测试\n这是一条测试消息，确认 webhook 配置生效。\n\n_{ts}_"
+    text = f"✅ [TEST] 创意工作台通知推送测试\n这是一条测试消息，确认 webhook 配置生效。\n\n_{ts}_"
 
     details: list[dict] = []
     sent = 0

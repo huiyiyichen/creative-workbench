@@ -3,32 +3,22 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  BookOpen,
-  Check,
   ChevronDown,
   ChevronUp,
-  Clock3,
-  ExternalLink,
-  PenLine,
-  Star,
-  X,
   ArrowUp,
+  RefreshCw,
 } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
 import { useAppContext } from '@/components/ClientLayout';
 import Header from '@/components/Header';
 import CategoryChip from '@/components/CategoryChip';
-import { Badge, Button, Panel, Toolbar, cx } from '@/components/ui';
-import { contentCategoriesApi, contentsApi, feedbackApi } from '@/lib/api';
-import type { FeedbackType } from '@/lib/api';
+import { Button, Toolbar, cx } from '@/components/ui';
+import { contentCategoriesApi, contentsApi, sourcesApi } from '@/lib/api';
 import { useContentFavoriteStates } from '@/hooks/useContentFavoriteStates';
 import type { ContentItem, ContentAnalysis, RecommendLevel } from '@/types';
 import {
   ContentTimeline,
-  EditorialItem,
   Spinner,
   TimelineSummary,
-  levelColor,
 } from './_components';
 import {
   RECOMMEND_FILTERS,
@@ -37,14 +27,12 @@ import {
   getContentTime,
   prettyTag,
 } from './_app-utils';
-import { explainRecommendation, getRecommendationReason } from '@/lib/recommendation';
+import { explainRecommendation } from '@/lib/recommendation';
 import { mergeItemsById } from '@/lib/utils';
 import ContentAnalysisPanel from '@/components/ContentAnalysisPanel';
 import { startContentWorkflow } from '@/lib/workflow';
 import {
   parseUTC,
-  formatClock as formatTime,
-  timeAgo,
   isToday,
   formatTimelineDate,
 } from '@/lib/datetime';
@@ -54,7 +42,7 @@ const CONTENT_LOAD_STEP = 40;
 
 export default function HomePage() {
   const router = useRouter();
-  const { currentUser, toggleFavorite, refreshCounts, reportContentTotal } = useAppContext();
+  const { toggleFavorite, refreshCounts, reportContentTotal } = useAppContext();
   const [items, setItems] = useState<ContentItem[]>([]);
   const [totalAvailable, setTotalAvailable] = useState(0);
   const [nextPage, setNextPage] = useState(2);
@@ -62,6 +50,9 @@ export default function HomePage() {
   const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [categoryOptions, setCategoryOptions] = useState<string[]>(['全部']);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [syncNotice, setSyncNotice] = useState<string | null>(null);
+  const [refreshVersion, setRefreshVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [activeCategory, setActiveCategory] = useState('全部');
   const [categoryExpanded, setCategoryExpanded] = useState(false);
@@ -144,7 +135,7 @@ export default function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, [activeTimeRange, activeSourceType, activeCategory, searchQuery, activeRecommendLevel, activeTag]);
+  }, [activeTimeRange, activeSourceType, activeCategory, searchQuery, activeRecommendLevel, activeTag, refreshVersion, reportContentTotal]);
 
   // 标签统计与基础口径联动（时间/来源/分类/搜索），覆盖口径内全部内容；
   // 等级/标签筛选不改变 chips 本身，只改变列表结果。
@@ -167,7 +158,41 @@ export default function HomePage() {
     return () => {
       cancelled = true;
     };
-  }, [activeTimeRange, activeSourceType, activeCategory, searchQuery]);
+  }, [activeTimeRange, activeSourceType, activeCategory, searchQuery, refreshVersion]);
+
+  async function syncContent() {
+    setSyncing(true);
+    setSyncNotice(null);
+    setError(null);
+    try {
+      const result = await sourcesApi.list({ enabled: true, source_type: 'RSS', page_size: 100 });
+      if (!result.items.length) {
+        setError('没有启用的 RSS 信源，请先在信源管理中添加。');
+        return;
+      }
+      let added = 0, failed = 0;
+      const failures: string[] = [];
+      for (let offset = 0; offset < result.items.length; offset += 3) {
+        const batch = result.items.slice(offset, offset + 3);
+        const outcomes = await Promise.allSettled(batch.map(source => sourcesApi.sync(source.id)));
+        outcomes.forEach((outcome, index) => {
+          if (outcome.status === 'fulfilled') added += outcome.value.new;
+          else {
+            failed += 1;
+            failures.push(batch[index].name);
+          }
+        });
+        setRefreshVersion(value => value + 1);
+        setSyncNotice(`已处理 ${Math.min(offset + 3, result.items.length)}/${result.items.length} 个信源，新增 ${added} 条`);
+      }
+      if (failed) setError(`${failed} 个信源同步失败：${failures.join('、')}。已采集内容已保留。`);
+      await refreshCounts?.();
+    } catch (syncError) {
+      setError(syncError instanceof Error ? syncError.message : '同步失败');
+    } finally {
+      setSyncing(false);
+    }
+  }
 
   const resetPagination = useCallback(() => {
     setNextPage(2);
@@ -202,10 +227,6 @@ export default function HomePage() {
   }, [nextPage, activeTimeRange, activeSourceType, activeCategory, searchQuery, activeRecommendLevel, activeTag]);
 
   const handleIgnore = useCallback(async (id: number) => {
-    if (!currentUser) {
-      router.push('/login');
-      return;
-    }
     try {
       await contentsApi.ignore(id);
       setItems((prev) => prev.filter((item) => item.id !== id));
@@ -213,7 +234,7 @@ export default function HomePage() {
     } catch (err) {
       console.error('Ignore failed:', err);
     }
-  }, [currentUser, refreshCounts, router]);
+  }, [refreshCounts]);
 
   const tagOptions = useMemo(() => {
     const keys = tagFacets.map((facet) => facet.tag);
@@ -310,6 +331,7 @@ export default function HomePage() {
   return (
     <div ref={scrollRef} onScroll={handleScroll} className="fade-in h-full overflow-y-auto px-10 py-8">
       {/* Header */}
+      <div className="flex max-w-[820px] flex-wrap items-start justify-between gap-3">
       <Header
         title="今日选题"
         date={dateStr}
@@ -318,6 +340,12 @@ export default function HomePage() {
           { label: '今日新增', value: todayCount, color: 'var(--color-teal-text)' },
         ]}
       />
+      <Button type="button" variant="secondary" disabled={syncing} onClick={() => void syncContent()}>
+        <RefreshCw size={15} className={syncing ? 'animate-spin' : ''} />
+        {syncing ? '同步中…' : '同步内容'}
+      </Button>
+      </div>
+      {syncNotice && <div role="status" className="mb-4 text-sm text-gray-600">{syncNotice}</div>}
 
       {/* Search bar */}
       <div className="mb-4 max-w-[820px]">
@@ -528,7 +556,9 @@ export default function HomePage() {
             )}
             {filtered.length === 0 && (
               <div className="py-[60px] text-center text-sm text-gray-400">
-                当前筛选条件下没有内容
+                {totalAvailable === 0 && searchQuery === '' && activeCategory === '全部' && activeSourceType === '全部' && activeRecommendLevel === '全部' && activeTag === '全部'
+                  ? '尚未采集到内容'
+                  : '当前筛选条件下没有内容'}
               </div>
             )}
           </div>

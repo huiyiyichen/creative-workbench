@@ -12,13 +12,6 @@
 import { createStore } from 'zustand';
 import type { StoreApi } from 'zustand';
 
-import {
-  authApi,
-  getAuthToken,
-  getAuthTokenExpiresAt,
-  setAuthToken,
-  setAuthTokenExpiresAt,
-} from '@/lib/api';
 import type { AuthTokenResponse, AuthUser } from '@/types';
 
 // ── State ─────────────────────────────────────────────────────
@@ -54,28 +47,13 @@ export function createAuthStore(initial: {
     enabledFeatures: initial.featureFlags ?? {},
     featuresLoading: !initial.featureFlags,
 
-    applyAuthSession: (session: AuthTokenResponse) => {
-      setAuthToken(session.access_token);
-      setAuthTokenExpiresAt(session.expires_at);
-      set({ currentUser: session.user });
-    },
+    applyAuthSession: (session: AuthTokenResponse) => set({ currentUser: session.user }),
 
     updateEnabledFeatures: (flags: Record<string, boolean>) => {
       set({ enabledFeatures: flags || {} });
     },
 
-    logout: async () => {
-      try {
-        if (getAuthToken()) {
-          await authApi.logout();
-        }
-      } catch {
-        // Local logout should still clear stale or invalid sessions.
-      } finally {
-        setAuthToken(null);
-        set({ currentUser: null });
-      }
-    },
+    logout: async () => {},
   }));
 }
 

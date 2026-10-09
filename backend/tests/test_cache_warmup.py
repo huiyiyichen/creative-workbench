@@ -26,7 +26,6 @@ STATS_WORKSPACE_CACHE_KEYS = {
     "stats:source-distribution:30",
     "stats:category-distribution:30",
     "stats:daily-trend:30",
-    "stats:novel-platforms",
     "stats:dashboard:30",
 }
 

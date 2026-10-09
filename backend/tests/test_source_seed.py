@@ -1,5 +1,4 @@
 import json
-from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import select
@@ -59,14 +58,14 @@ async def test_seed_default_sources_is_idempotent(tmp_path):
             assert rows[0].url == "https://example.com/feed.xml"
             assert rows[0].weight == 4
             assert rows[0].fetch_interval_minutes == 120
-            assert rows[0].last_sync_at is not None
+            assert rows[0].last_sync_at is None
             assert rows[1].url == "sspai/index"
     finally:
         await engine.dispose()
 
 
 @pytest.mark.asyncio
-async def test_seed_default_sources_defers_existing_unsynced_source(tmp_path):
+async def test_seed_default_sources_keeps_existing_unsynced_source_unknown(tmp_path):
     seed_path = tmp_path / "sources.json"
     seed_path.write_text(
         json.dumps([{"name": "Example Feed", "url": "https://example.com/feed.xml"}]),
@@ -83,14 +82,12 @@ async def test_seed_default_sources_defers_existing_unsynced_source(tmp_path):
             db.add(Source(name="Example Feed", url="https://example.com/feed.xml"))
             await db.commit()
 
-        before = datetime.now(UTC).replace(tzinfo=None)
         async with session_factory() as db:
             created = await seed_default_sources(db, seed_path=seed_path)
             await db.commit()
             assert created == 0
 
             source = (await db.execute(select(Source))).scalar_one()
-            assert source.last_sync_at is not None
-            assert source.last_sync_at >= before
+            assert source.last_sync_at is None
     finally:
         await engine.dispose()

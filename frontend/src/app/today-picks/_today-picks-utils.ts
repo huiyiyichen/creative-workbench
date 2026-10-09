@@ -44,7 +44,7 @@ export function getAnalysis(item: ContentItem): ContentAnalysis | undefined {
 
 export function scoreOf(item: ContentItem): number {
   const analysis = getAnalysis(item);
-  return analysis?.adjusted_curation_score || analysis?.curation_score || 0;
+  return analysis?.adjusted_curation_score ?? analysis?.curation_score ?? 0;
 }
 
 export function tagsOf(analysis?: ContentAnalysis | null): string[] {

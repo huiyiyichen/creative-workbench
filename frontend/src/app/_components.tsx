@@ -52,7 +52,7 @@ import { getContentTime, getItemTags, prettyTag } from './_app-utils';
 /* ── Color mapping for recommend levels (timeline dots + summary) ── */
 
 export function levelColor(level: RecommendLevel): string {
-  if (level === '强烈建议写') return '#FF6B35';
+  if (level === '强烈建议写') return '#2563EB';
   if (level === '适合深挖') return '#8B5CF6';
   if (level === '适合蹭热点') return '#D97706';
   if (level === '不建议追') return '#9CA3AF';
@@ -341,7 +341,7 @@ export function EditorialItem({
             className={cx('inline-flex border-0 bg-transparent p-0.5 transition', isFav ? 'text-primary' : 'text-gray-300 hover:text-primary')}
             title={isFav ? '取消收藏' : '收藏'}
           >
-            <Star size={16} strokeWidth={2} fill={isFav ? '#FF6B35' : 'none'} />
+            <Star size={16} strokeWidth={2} fill={isFav ? 'var(--color-primary)' : 'none'} />
           </button>
           <button
             type="button"
@@ -446,10 +446,6 @@ export function FeedbackButtons({ contentId }: { contentId: number }) {
 
   const handleFeedback = async (type: FeedbackType) => {
     if (activeFeedback === type) return;
-    if (!currentUser) {
-      router.push('/login');
-      return;
-    }
     try {
       await feedbackApi.submit(contentId, type);
       setActiveFeedback(type);

@@ -1,5 +1,5 @@
 /**
- * TopicEye API Client
+ * Creative Workbench API Client
  * Backend API wrapper using fetch
  */
 
@@ -23,16 +23,7 @@ import type {
   WeeklyDigest,
   WeeklyDigestListResponse,
   WeeklyDigestWeeksResponse,
-  AuthTokenResponse,
   AuthUser,
-  IntegrationStatus,
-  PlanCatalogResponse,
-  WeReadSyncResult,
-  WeReadSearchResponse,
-  WeReadBookInfo,
-  WeReadReadData,
-  WeReadBestBookmarks,
-  WeReadShelfSync,
   NotificationListResponse,
 } from '@/types';
 import type { FavoriteCreatePayload, FavoriteTargetState } from '@/lib/favorites';
@@ -42,7 +33,6 @@ import type {
   StatsSourceItem,
   StatsCategoryItem,
   StatsTrendItem,
-  StatsNovelPlatform,
   StatsDashboard,
   JobStatsByStatus,
   JobStatsByJobKey,
@@ -94,16 +84,6 @@ import type {
   ContentScoringResult,
 } from '@/types/trending';
 import type {
-  FanqieCategory,
-  FanqieBook,
-  WebnovelMovementItem,
-  WebnovelCategoryItem,
-  WebnovelWeeklyReport,
-  QimaoBook,
-  ZhihuAlbum,
-  ZhihuCategory,
-} from '@/types/webnovel';
-import type {
   LlmModelItem,
   LlmModelPresetItem,
   LlmModelPresetCatalog,
@@ -130,7 +110,6 @@ export type {
   StatsSourceItem,
   StatsCategoryItem,
   StatsTrendItem,
-  StatsNovelPlatform,
   StatsDashboard,
   JobStatsByStatus,
   JobStatsByJobKey,
@@ -172,14 +151,6 @@ export type {
   MotherTopic,
   MotherTopicMutation,
   ContentScoringResult,
-  FanqieCategory,
-  FanqieBook,
-  WebnovelMovementItem,
-  WebnovelCategoryItem,
-  WebnovelWeeklyReport,
-  QimaoBook,
-  ZhihuAlbum,
-  ZhihuCategory,
   LlmModelItem,
   LlmModelPresetItem,
   LlmModelPresetCatalog,
@@ -207,7 +178,6 @@ import {
   formatApiErrorDetail,
   assertUniqueIds,
   chunkArray,
-  BASE_URL,
   FAVORITE_STATE_BATCH_SIZE,
 } from './api/_core';
 export { getAuthToken, setAuthToken, getAuthTokenExpiresAt, setAuthTokenExpiresAt, formatApiErrorDetail, FAVORITE_STATE_BATCH_SIZE };
@@ -215,66 +185,8 @@ export { getAuthToken, setAuthToken, getAuthTokenExpiresAt, setAuthTokenExpiresA
 // ─── Auth API ───
 
 export const authApi = {
-  register(data: { email: string; password: string; display_name?: string | null; verification_code: string }): Promise<AuthTokenResponse> {
-    return request('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-
-  /** 发送邮箱验证码（注册前调用）。成功返回 204。 */
-  sendCode(email: string): Promise<void> {
-    return request('/auth/send-code', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    });
-  },
-
-  login(data: { email: string; password: string }): Promise<AuthTokenResponse> {
-    return request('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  },
-
   me(): Promise<AuthUser> {
     return request('/auth/me');
-  },
-
-  logout(): Promise<{ logged_out: boolean }> {
-    return request('/auth/logout', { method: 'POST' });
-  },
-
-  /** 续期当前 session（主动调用，返回更新后的 expires_at）。 */
-  refresh(): Promise<AuthTokenResponse> {
-    return request('/auth/refresh', { method: 'POST' });
-  },
-
-  /** 用户自助修改密码（校验旧密码，成功后撤销其他设备会话）。 */
-  changePassword(oldPassword: string, newPassword: string): Promise<{ message: string }> {
-    return request('/auth/change-password', {
-      method: 'POST',
-      body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }),
-    });
-  },
-
-  /** OAuth 登录入口 URL。前端用 window.location.href 整页跳转，
-   *  后端 302 到 provider 授权页，回调后再 302 回 /oauth/callback（token 走 fragment）。 */
-  oauthLoginUrl(provider: 'google' | 'github'): string {
-    return `${BASE_URL}/auth/oauth/${provider}/login`;
-  },
-
-  /** 已启用的 OAuth provider 列表，前端据此渲染按钮。 */
-  async oauthProviders(): Promise<{ providers: string[] }> {
-    return request('/auth/oauth/providers');
-  },
-};
-
-// ─── Plans API ───
-
-export const plansApi = {
-  list(): Promise<PlanCatalogResponse> {
-    return request('/plans');
   },
 };
 
@@ -309,60 +221,24 @@ export const notificationsApi = {
   },
 };
 
-// ─── Integrations API ───
-
-export const integrationsApi = {
-  getWeRead(): Promise<IntegrationStatus> {
-    return request('/integrations/weread');
-  },
-
-  updateWeRead(data: { api_key: string; config?: Record<string, unknown> }): Promise<IntegrationStatus> {
-    return request('/integrations/weread', {
-      method: 'PUT',
-      body: JSON.stringify({ api_key: data.api_key, config: data.config || {} }),
-    });
-  },
-
-  clearWeRead(): Promise<IntegrationStatus> {
-    return request('/integrations/weread', { method: 'DELETE' });
-  },
-
-  syncWeRead(limit = 0): Promise<WeReadSyncResult> {
-    return request(`/integrations/weread/sync?limit=${limit}`, { method: 'POST' });
-  },
-
-  searchWeRead(keyword: string, count = 10, scope = 10): Promise<WeReadSearchResponse> {
-    const params = new URLSearchParams({ keyword, count: String(count), scope: String(scope) });
-    return request(`/integrations/weread/search?${params}`);
-  },
-
-  getWeReadBook(bookId: string): Promise<WeReadBookInfo> {
-    return request(`/integrations/weread/book/${bookId}`);
-  },
-
-  getWeReadReadData(readType: 'all' | 'week' | 'month' | 'year' = 'all', forceRefresh = false): Promise<WeReadReadData> {
-    const params = new URLSearchParams({ read_type: readType });
-    if (forceRefresh) params.set('force_refresh', 'true');
-    return request(`/integrations/weread/readdata?${params}`);
-  },
-
-  getWeReadBookmarks(bookId: string, count = 20): Promise<WeReadBestBookmarks> {
-    return request(`/integrations/weread/book/${bookId}/bookmarks?count=${count}`);
-  },
-
-  getWeReadShelf(forceRefresh = false): Promise<WeReadShelfSync> {
-    const params = forceRefresh ? '?force_refresh=true' : '';
-    return request(`/integrations/weread/shelf${params}`);
-  },
-};
 
 
 // Domain API objects extracted to lib/api/ submodules for module size.
 // Re-export for backward compat — `import { sourcesApi } from '@/lib/api'` still works.
-export { sourcesApi, contentsApi, contentCategoriesApi, favoritesApi, topicsApi, analysesApi, dailyReportApi, creationApi, apiTokensApi, evidenceApi, contentEventsAdminApi } from './api/_domains';
+export {
+  sourcesApi,
+  contentsApi,
+  contentCategoriesApi,
+  favoritesApi,
+  topicsApi,
+  analysesApi,
+  dailyReportApi,
+  studioApi,
+  evidenceApi,
+  contentEventsAdminApi,
+} from './api/_domains';
 export type {
   SourceBatchImportItem,
-  ApiTokenItem,
   EvidenceStats,
   EvidenceEffectStats,
   ContentEventRelation,
@@ -374,6 +250,13 @@ export type {
   ContentEventMutationResponse,
   ContentEventNormalizeRequest,
   ContentEventNormalizeResponse,
+  StudioCatalog,
+  StudioBrief,
+  StudioDraft,
+  StudioProject,
+  StudioShot,
+  StudioCue,
+  StudioArtifact,
 } from './api/_domains';
 export { settingsApi, statsApi, statsJobsApi, trendsApi, feedbackApi, productFeedbackApi, adminPromptsApi, scoringDashboardApi } from './api/_analytics';
 export type { PromptRegistryItem, PromptRegistryListResponse, PromptDetailResponse, ScoringDashboardSummary, ScoringDashboardResponse } from './api/_analytics';
@@ -382,7 +265,4 @@ export { readRecordApi } from './api/_read-records';
 export type { ReadTargetType, ReadRecordReportPayload, ReadRecordResponse } from './api/_read-records';
 export { trendingApi } from './api/_trending';
 export { motherTopicsApi } from './api/_mother-topics';
-export { fanqieApi, webnovelReportsApi, qimaoApi, zhihuApi } from './api/_mother-topics';
 export { modelsApi } from './api/_models';
-export { usersApi } from './api/_users';
-export type { UserListItem, UserListResponse, UserUpdatePayload, UserCreatePayload, UserCreateResponse } from '@/types/users';

@@ -70,7 +70,7 @@ export function ModelEditForm({ model, onClose }: { model?: LlmModelItem | null;
   const isEdit = !!model;
   const [catalog, setCatalog] = useState<LlmModelPresetCatalog | null>(null);
   const [loadingCatalog, setLoadingCatalog] = useState(!isEdit);
-  const [presetKey, setPresetKey] = useState('deepseek_balanced');
+  const [presetKey, setPresetKey] = useState('deepseek_flash');
   const [showAdvanced, setShowAdvanced] = useState(isEdit);
   const [form, setForm] = useState({
     name: model?.name || '',
@@ -78,6 +78,8 @@ export function ModelEditForm({ model, onClose }: { model?: LlmModelItem | null;
     model_id: model?.model_id || '',
     api_key: '',
     api_base: model?.api_base || '',
+    api_format: model?.api_format || 'openai',
+    capabilities: model?.capabilities?.length ? model.capabilities : ['text'],
     routing_group: model?.routing_group || 'default',
     model_family: model?.model_family || '',
     channel_name: model?.channel_name || '',
@@ -211,6 +213,10 @@ export function ModelEditForm({ model, onClose }: { model?: LlmModelItem | null;
       provider: preset.provider,
       model_id: preset.model_id || '',
       api_base: preset.api_base || '',
+      api_format: (preset.api_format || String(defaults.api_format || 'openai')) as 'openai' | 'gemini',
+      capabilities: Array.isArray(preset.capabilities || defaults.capabilities)
+        ? (preset.capabilities || defaults.capabilities) as string[]
+        : ['text'],
       routing_group: String(defaults.routing_group || 'default'),
       model_family: preset.model_family || '',
       channel_name: preset.channel_name || '',
@@ -441,6 +447,13 @@ export function ModelEditForm({ model, onClose }: { model?: LlmModelItem | null;
             <TextInput id="model-name" required={isEdit} aria-invalid={submitAttempted && !!fieldErrors.name} aria-describedby={submitAttempted && fieldErrors.name ? 'model-name-error' : undefined} value={form.name} onChange={(e) => patchForm({ name: e.target.value })} placeholder={selectedPreset?.defaults.name ? String(selectedPreset.defaults.name) : '不填则使用预设名称'} />
             {submitAttempted && fieldErrors.name && <div id="model-name-error" role="alert" className="mt-1 text-[10px] font-bold leading-4 text-red">{fieldErrors.name}</div>}
           </div>
+          <div>
+            <FieldLabel htmlFor="model-api-format">API 格式</FieldLabel>
+            <SelectInput id="model-api-format" value={form.api_format} onChange={(e) => patchForm({ api_format: e.target.value as 'openai' | 'gemini' })}>
+              <option value="openai">OpenAI 兼容</option>
+              <option value="gemini">Gemini 原生</option>
+            </SelectInput>
+          </div>
           {(needsModelId || showAdvanced || (submitAttempted && !!fieldErrors.model_id)) && (
             <div>
               <FieldLabel htmlFor="model-id" required>Model ID</FieldLabel>
@@ -579,6 +592,31 @@ export function ModelEditForm({ model, onClose }: { model?: LlmModelItem | null;
             <div>
               <FieldLabel>模型家族</FieldLabel>
               <TextInput value={form.model_family} onChange={(e) => patchForm({ model_family: e.target.value })} placeholder="如 deepseek / qwen / glm" />
+            </div>
+            <div>
+              <FieldLabel>能力</FieldLabel>
+              <div className="flex flex-wrap gap-3 rounded-xs border border-gray-200 bg-gray-50 px-2.5 py-2">
+                {[
+                  ['text', '文本'],
+                  ['image', '图像'],
+                  ['video', '视频'],
+                  ['audio', '音频'],
+                ].map(([value, label]) => (
+                  <label key={value} className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-600">
+                    <input
+                      type="checkbox"
+                      checked={form.capabilities.includes(value)}
+                      onChange={(event) => {
+                        const next = event.target.checked
+                          ? Array.from(new Set([...form.capabilities, value]))
+                          : form.capabilities.filter((item) => item !== value);
+                        patchForm({ capabilities: next.length ? next : ['text'] });
+                      }}
+                    />
+                    {label}
+                  </label>
+                ))}
+              </div>
             </div>
             <div>
               <FieldLabel>渠道名</FieldLabel>

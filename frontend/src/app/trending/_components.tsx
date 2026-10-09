@@ -4,7 +4,6 @@
  * Trending page 子组件（从 page.tsx 抽出的展示组件）。
  *
  * 9 个展示组件：
- * - WebnovelItemRow      网文榜单行（额外信息密度展示）
  * - TrendBadge           趋势方向徽章（up/down/new/stable）
  * - PanelTitle           面板标题（re-export 自 @/components/ui）
  * - StatTile             统计数字块（re-export 自 @/components/StatTile）
@@ -15,7 +14,7 @@
  * - ClusterCard          跨平台聚类卡片（折叠/展开）
  *
  * 静态配置（CATEGORIES / SOURCE_BRAND / CATEGORY_COLORS / TREND_ICONS /
- * RESONANCE_COLORS / isWebnovelSource）来自 _trending-utils.ts。
+ * RESONANCE_COLORS 来自 _trending-utils.ts。
  */
 
 import React, { useState } from 'react';
@@ -45,67 +44,7 @@ import {
   RESONANCE_COLORS,
   SOURCE_LABELS,
   TREND_ICONS,
-  isWebnovelSource,
 } from './_trending-utils';
-
-export function WebnovelItemRow({ item, rank }: { item: TrendingItem; rank: number }) {
-  const extra = (item.extra || {}) as Record<string, unknown>;
-  const author = (extra.author as string) || '';
-  const words = (extra.words_str as string) || (extra.total_word_size as string) || '';
-  const tags = Array.isArray(extra.tags)
-    ? (extra.tags as unknown[]).map(String)
-    : Array.isArray(extra.tag_v3)
-      ? (extra.tag_v3 as unknown[]).map(String)
-      : [];
-  const shelf = (extra.shelf as string) || item.hot_value_raw || '';
-  const score = extra.book_score != null ? String(extra.book_score) : '';
-  const isShort = (extra.type as number) === 1 || (extra.words as number) <= 30000;
-
-  return (
-    <a
-      href={item.url || '#'}
-      target="_blank"
-      rel="noopener noreferrer"
-      className={cx(
-        'flex items-start gap-2.5 border-b border-gray-100 px-3.5 py-2 no-underline transition hover:bg-purple-light',
-        rank <= 3 ? 'bg-gray-50' : 'bg-white',
-      )}
-    >
-      <span className={cx(
-        'mt-0.5 flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-xs font-mono text-[11px] font-black',
-        rank === 1 ? 'bg-gradient-to-br from-purple to-[#C084FC] text-white'
-          : rank === 2 ? 'bg-gradient-to-br from-amber to-[#FFB870] text-white'
-            : rank === 3 ? 'bg-gradient-to-br from-[#FFD59E] to-[#FFE0B2] text-white'
-              : 'bg-gray-100 text-gray-500',
-      )}>
-        {rank}
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-[12.5px] font-black leading-snug text-gray-900">
-          {item.title}
-        </div>
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10px] text-gray-500">
-          {author && <span>{author}</span>}
-          {words && <span>· {words}</span>}
-          {isShort && <span className="rounded-xs bg-purple-light px-1 py-px font-bold text-purple">短篇</span>}
-          {score && <span className="text-amber">★ {score}</span>}
-        </div>
-        {tags.length > 0 && (
-          <div className="mt-1 flex flex-wrap gap-1">
-            {tags.slice(0, 3).map((t, i) => (
-              <span key={i} className="rounded-xs bg-gray-100 px-1 py-px text-[9px] text-gray-600">
-                {t}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
-      <span className="mt-0.5 shrink-0 whitespace-nowrap text-[9px] text-gray-400">
-        {shelf}
-      </span>
-    </a>
-  );
-}
 
 export function TrendBadge({ trend }: { trend: string | null }) {
   if (!trend || trend === 'stable') return null;

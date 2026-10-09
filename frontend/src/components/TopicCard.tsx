@@ -77,7 +77,7 @@ export default function TopicCard({ topic, isFav, onToggleFav }: TopicCardProps)
           aria-pressed={isFav}
           title={isFav ? '取消收藏' : '收藏'}
         >
-          <Star size={18} strokeWidth={2} fill={isFav ? '#FF6B35' : 'none'} />
+          <Star size={18} strokeWidth={2} fill={isFav ? 'var(--color-primary)' : 'none'} />
         </button>
       </div>
     </Panel>

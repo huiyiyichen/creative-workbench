@@ -1,233 +1,81 @@
-# Agent Guidelines
+# 创意工作台当前开发规则
 
-## Quality Registry Anchor
+## 当前目标
 
-缺陷与回归的唯一事实源：[`docs/quality/regression-matrix.md`](docs/quality/regression-matrix.md)。
+本仓库当前分支用于把创意工作台开发为单用户、本地优先的 AI 内容创作工作台。
 
-新确认缺陷先在该文件登记（十个维度）再开 issue；关闭 issue 时同步其状态；
-稳定化迭代收尾时刷新「未复跑」条目。不要把缺陷清单散落到其它文档或目录——
-`docs/` 其余内容默认本地不入库（`.gitignore` 仅白名单 `quality/`），
-`.vidt/` 等 agent 工作目录是被忽略的可丢弃会话态，同样不是归宿。
+主流程：
 
-## 权限档位与安全不变量（参照 DeepSeek Harness 橙皮书 v260814 的规范实现）
+`热点/资料 -> 选题池 -> 趋势证据 -> 内容模板 -> AI 初稿 -> 人工编辑 -> 创作历史`
 
-每个 agent 会话开场即生效的**三句权限档位**（任何一条要突破都必须先获所有者批准）：
+热点采集保留为入口；内容创作、模板复用和稿件修订是主要交付。
 
-1. **可写范围**：仅本仓库工作区（分支、暂存、本地提交）；仓库外文件一律只读。
-2. **远端写入**：push 分支、创建 PR 属常规动作；**合并 PR、直推 main、force-push、删除提交/历史改写——逐次审批**（见 Delivery Workflow）。
-3. **高风险操作**：数据库迁移、删除类命令、依赖大版本升级——先备份、留回滚路径，再动手（见「迁移与高风险变更」）。
+## 产品边界
 
-从橙皮书采纳的规范条目：
+### 删除
 
-- **教训必须机器化**：事故/缺陷的复盘结论只有落成测试或 CI 门禁才算关闭，只写进文档不算（现状范例：backend-layering 作业、回归矩阵每条的回归测试列）。
-- **中断重试纪律**：被中断的副作用操作（迁移、远端写入、发布）不得盲目重试——先核实外部状态（迁移版本、远端 ref、受影响数据行）或问所有者；仅只读/幂等操作可直接重试。
-- **安全关键依赖的采用度门槛**：承担安全不变量的依赖（加密、认证协议、沙箱类）必须有被证明的采用度与维护活跃度；其余位置优先选成熟依赖而非手写。
-- **禁止安静的失败**：启动期任何组件「挂起等待/未挂载/被跳过」必须显式报错或记 warning；静默 PENDING 按缺陷处理（先例：健康与生命周期加固波，#71~#73）。
-- **AGENTS.md 即模型接口**：本文件是喂给 agent 的，其事实性声明（命令、路径、门禁清单）过期比普通文档严重一档——承载行为变更的 PR 必须同步核对本文相关段落。
+从导航、页面、路由、API 注册、后台任务、配置和运行时依赖中移除：
 
-## Delivery Workflow（Issue → branch → PR → Verifier → merge）
+- 登录、注册、账户、个人资料、密码、邮箱验证、找回密码、邮件服务
+- Google/GitHub OAuth 和回调页
+- 微信读书及所有阅读数据、integration、技能入口
+- 番茄、七猫、知乎盐选网文雷达及周报、抓取、统计和任务
+- plans、套餐、权益、订阅、商业化限制
+- admin/users 用户管理
 
-正常路径：**有意义的变更必须有 issue → 分支 → PR → 检查绿 → 合并**，直推 main 不是常规路径。
+知乎热榜是热点来源，必须保留；知乎盐选网文模块必须删除，不能按关键字整体误删知乎热榜能力。
 
-- **三道审批闸门（所有者 2026-09-28 定）**：agent 实现并本地验证后，先报告变更摘要/diff，**所有者审核批准后才可 `git commit`**；**创建 PR 前须先告知并获确认**；**合并 PR 需单独批准**。任何对话中的总括性授权都不覆盖这三道闸门，每个切片逐次过闸。直推 main、force-push、删除提交/历史改写等远端写入同样逐次批准。
-- **分支命名**：`issue-<number>-<short-slug>`（如 `issue-4-cryptography-50`）。
-- **PR 必须链接 issue** 并附 Worker 证据（本地验证命令 + 结果，见 PR 模板 Verification 段）。
-- **Verifier 契约**：CI 五项检查（types / tests / lint / layering / security-scan）是机器 Verifier，全绿是合并且预存红已显式处置的前提；承载行为变更的 PR 还需在模板 Verifier verdict 段落记录独立复核结论（复核者不得是同一实现过程）。
-- **热修例外**：生产事故可直推 main 修复，但须在 24h 内补 PR 或在关联 issue 留 post-hoc 审计评论（原因、影响面、回归验证）。
-- main 的 push CI 自动复验由 #65 引入；矩阵与 DoD 证据以 main 运行为准。
+历史迁移文件和旧数据库表默认保留，避免不可逆破坏。代码、路由和调度不能继续使用已下线模块。确需删表时，单独备份、写迁移、做回滚验证。
 
-## Commit Discipline
+### 保留并增强
 
-Follow the existing project history. Recent commits use concise Conventional
-Commit-style messages with Chinese summaries:
+- 多源热点与 RSS、公开榜单、手动同步、去重和来源证据
+- 趋势观测、排名与原始指标分离、历史不足提示
+- 选题池：候选、已选、创作中、归档
+- 内容模板库：用途、受众、内容结构、语气、参考片段、视觉风格和适用媒介
+- 文案草稿、修订、来源关联、人工定稿和创作历史
+- AI provider 配置与结构化草稿能力，但不让模型授予审核状态
+- 后续的图片、动态排版、TUI/ASCII、音乐 PV、网页和数字人输出接口
 
-```text
-fix(auth): 降低登录链路数据库写锁等待
-fix(cache): 重试统计工作台启动预热
-fix(trending): 合并重复信源筛选项
-```
+## 架构规则
 
-Use this shape for new commits:
+- 单用户模式不显示登录页，不要求用户 token，不保留账号切换。
+- 后端依赖方向保持 `api -> services -> repositories -> models`；新增 API 不在路由里直接写 ORM 查询。
+- 业务数据、来源证据、稿件修订、模板版本和渲染产物分开保存。
+- 模板、视觉风格、表现方案和输出媒介独立；禁止复制整套“模板 × 风格”页面。
+- 内容定稿后，渲染只读取冻结输入，不调用模型补文案。
+- 远程来源只使用固定允许的公开来源；不接受任意用户 URL 抓取，不跟随不受控重定向。
+- API 密钥不能进入日志、前端 bundle、测试快照或提交。环境变量和本地数据库中的现有秘密不打印、不迁移。
+- 文案模型输出校验为有界结构数据。用户已确认的 DeepSeek Harness 制片流程在独立作品目录生成前端 / Remotion 工程，由固定渲染器导出视频。
+- 空数据、缺失指标和历史不足保持未知，不补零、不伪造曲线。
 
-```text
-<type>(<scope>): <中文说明>
-```
+## 前端规则
 
-Preferred types:
+- 使用 Ant Design 成熟组件，优先 `Table`、`Form`、`Select`、`Tabs`、`Drawer`、`Modal`、`Upload`。
+- 首页先呈现热点发现和选题工作流，不做营销落地页。
+- 导航只展示当前保留的功能；已删除路径应返回 404 或明确不可用。
+- 页面少字，删除装饰性小字、重复双语、功能说明和操作教学段落。
+- 必要的来源、状态、错误、权限和授权提示必须清楚可见。
+- 内容编辑器支持长标题、中文、引用来源、修订和冲突提示。
 
-- `fix`: bug fixes, permission changes, UI behavior corrections, config safety fixes
-- `feat`: user-visible new capability
-- `chore`: tooling, scripts, repository hygiene, non-product maintenance
-- `test`: tests only
-- `docs`: documentation only
+## 验证
 
-Preferred scopes:
+按变更范围运行最小必要检查：
 
-- `auth`, `cache`, `trending`, `backend`, `frontend`, `config`, `db`, `docs`, `test`
+- 后端语法：`cd backend && uv run python -m py_compile <changed-files>`
+- 后端相关测试：`cd backend && uv run python -m pytest tests/<relevant-test> -q`
+- 前端类型：`cd frontend && npx tsc --noEmit`
+- 分层：`python backend/scripts/check_layering.py`
+- 浏览器/页面变更：启动真实前端，检查保留路由、删除路由、导航、中文和移动视口
 
-## Commit Boundaries
+删除模块必须有反向验证：路由不注册、导航不出现、配置不再引用、调度任务不启动、相关运行时代码不被导入。
 
-- Keep each commit focused on one user-visible behavior, risk boundary, or maintenance concern.
-- Do not mix backend, frontend, docs, and config changes unless they are required for the same fix.
-- Put tests in the same commit as the behavior they verify.
-- Keep local-only files out of commits, especially `backend/.env`, databases, venvs, caches, screenshots, and generated browser artifacts.
-- Stage explicit paths. Avoid `git add -A` when the worktree contains unrelated or user-owned changes.
+缺陷登记唯一位置是 `docs/quality/regression-matrix.md`。实现完成后同步实际结果，不能只更新计划。
 
-## Before Committing
+## Git 与交付
 
-Inspect the staged diff:
-
-```bash
-git diff --cached --stat
-git diff --cached --summary
-```
-
-Run the smallest relevant verification:
-
-- Backend Python syntax: `cd backend && uv run python -m py_compile <changed-python-files>`
-- Backend tests: `cd backend && uv run python -m pytest <relevant-tests> -q`（依赖由 uv 管理：`uv sync` 安装，事实源为 pyproject.toml + uv.lock）
-- Shell scripts: `bash -n <script>`
-- Frontend type check: `cd frontend && npx tsc --noEmit`
-- Full quality gate (manual): `make lint`（ruff + 分层检查 + 前端类型检查）
-
-Note: `frontend` currently has an `npm run lint` script that invokes `next lint`,
-which may fail under the installed Next.js version by treating `lint` as a
-project directory. Prefer `npx tsc --noEmit` unless the lint script is fixed.
-
-## Rewriting Local Commits
-
-If asked to adjust recent commits:
-
-- First confirm the worktree is clean.
-- Create a backup branch before rewriting, for example:
-
-```bash
-git branch backup/recent-before-rewrite HEAD
-```
-
-- Preserve the final file tree unless the user explicitly asks for content changes.
-- After rewriting, compare with the backup branch:
-
-```bash
-git diff backup/recent-before-rewrite..HEAD
-```
-
-An empty diff means the rewrite only changed commit history, not project content.
-
-## Commit Examples
-
-Good:
-
-```text
-fix(auth): 登录页隐藏应用导航
-fix(auth): 移出默认管理员种子凭据
-fix(backend): 整理后端根目录诊断脚本
-docs: 补充 agent 提交规范
-```
-
-Avoid:
-
-```text
-Update stuff
-Fix bugs
-Move admin seed credentials to env
-Deduplicate trending source filters
-```
-
-## Layering Discipline
-
-后端依赖方向（严格单向，禁止逆向或跨层）：
-
-```text
-api/v1/ ──► services/ ──► repositories/ ──► models/ ──► sqlalchemy
-```
-
-### 各层职责与禁止事项
-
-| 层 | 允许 | 禁止 |
-|---|---|---|
-| `api/v1/` | 路由声明、请求校验、调用 service / repository、response shaping | `import sqlalchemy`（例外：`AsyncSession` 仅作类型注解可保留）；`from app.models import <ORMModel>`（ORM 模型类）；直接 `select(...)` / `db.execute(...)` / `db.add(...)` |
-| `services/` | 业务编排、事务边界、调用 repository、跨 repo 组合 | 无（允许直接 import sqlalchemy / app.models） |
-| `repositories/` | ORM 唯一入口，CRUD + 复杂查询封装，继承 `BaseRepository[ModelType]` 或独立类 | 互相 `import`（repo 之间不依赖）；写业务逻辑（业务逻辑属于 service） |
-| `models/` | 纯 ORM 声明、字段定义、`__table_args__` | 业务方法、副作用、IO 操作 |
-| `schemas/` | Pydantic 请求/响应模型、序列化 | ORM import、DB 访问 |
-
-### 例外清单
-
-- `app.models.<X>` 中的 **Enum 类**（如 `SourceStatus`、`ContentStatus`、`FavoriteTargetType`）允许 api 层 import，因为它们是值对象而非 ORM 模型。
-- `AsyncSession` 作 FastAPI 依赖注入的类型注解允许 api 层 import（`from sqlalchemy.ext.asyncio import AsyncSession`）。
-- `app.core.database.get_db` 作 FastAPI 依赖允许 api 层 import。
-- `IntegrityError` 等异常类允许 api 层 import（用于 try/except 捕获）。
-
-### 存量违规与迁移策略
-
-`api/v1/` 层的**硬违规（直接写 ORM 查询）已基本清零**。剩余的 `import sqlalchemy`
-绝大多数是 `AsyncSession` 类型注解与 `sqlalchemy.exc` 异常类等**已列入例外**的用法。
-
-**机器强制**：`select/insert/update/delete` 构造与 `db.execute/db.add/db.scalars/db.scalar`
-出现在 `api/v1/*.py` 会被 CI 的 `backend-layering` 作业阻断（本地跑 `make layering`
-或 `python scripts/check_layering.py`），无需再靠人工数文件。符号级的
-`from app.models import <ORMModel>`（ORM 模型类混在 Enum/User 依赖里）因与允许项同模块，
-自动判定会误报，仍靠下面的评审 checklist 兜底。
-
-迁移策略（仍适用于符号级存量清理）：
-
-1. **新增代码必须遵循分层约束**，PR 评审时强制检查。
-2. **存量按风险等级打包迁移**，每个 commit 迁移 3-5 个相关的 api 文件（避免单 commit 过碎、也避免大批量混合）。打包维度：同类查询模式（如纯 list / 含 JOIN / 含聚合）或同业务域（如 trending 系列）。
-3. **迁移优先级**：含复杂 JOIN / 子查询 / N+1 的 endpoint 优先；纯 `get_by_id` 类简单查询可后迁。
-4. 迁移时行为必须完全等价，**不优化性能、不改变返回字段**，避免混合关注点。
-
-### 评审 checklist
-
-提交前自查 3 条：
-
-- [ ] 新增的 `api/v1/*.py` 是否 import 了 `sqlalchemy`（除 `AsyncSession` 类型注解）或 `app.models.<ORMModel>`？
-- [ ] 新增的 ORM 查询（`select` / `db.execute` / `db.add`）是否在 `api/v1/*.py` 中？如在，必须下沉到 `repositories/`。
-- [ ] 新增的 `repositories/*.py` 是否互相 `import`？如在，必须拆解或合并到同一 repo。
-
-### 示例
-
-**违规**（api 层直接写 ORM 查询）：
-
-```python
-# app/api/v1/topics.py
-from sqlalchemy import select, func
-from app.models.topic import TopicGroup
-
-@router.get("")
-async def list_topics(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(TopicGroup).order_by(TopicGroup.best_score.desc()))
-    return {"items": result.scalars().all()}
-```
-
-**合规**（下沉到 repo）：
-
-```python
-# app/repositories/topic_repo.py
-class TopicRepository(BaseRepository[TopicGroup]):
-    model = TopicGroup
-
-    async def list_ordered_by_best_score(self) -> Sequence[TopicGroup]:
-        stmt = select(TopicGroup).order_by(TopicGroup.best_score.desc())
-        result = await self.db.execute(stmt)
-        return result.scalars().all()
-
-# app/api/v1/topics.py
-from app.repositories.topic_repo import TopicRepository
-
-@router.get("")
-async def list_topics(db: AsyncSession = Depends(get_db)):
-    repo = TopicRepository(db)
-    items = await repo.list_ordered_by_best_score()
-    return {"items": items}
-```
-
-## 迁移与高风险变更
-
-数据库迁移属高风险操作，执行前先备份、出问题有回滚路径：
-
-- **前置备份**：`cd backend && ./scripts/backup_db.sh`（PG pg_dump，默认保留 7 份）。
-- **回滚**：`cd backend && ./scripts/rollback_migration.sh [target]`。会先自动备份，再执行
-  `alembic downgrade <target>`（`target` 可选，默认 `-1` 回退一格；也可传具体 revision 或 `base`）。
-- **验证**：先在测试环境跑 `alembic downgrade -1`，确认上一版 schema 被恢复且应用能启动，再到生产执行。
-- `alembic/env.py` 的 `render_as_batch=True` 对 PostgreSQL 无害，保留 batch 模式备用。
+- 当前从 `origin/main` 新建本地开发分支；不要把旧工作区 `D:\作业\内容选题\TopicEye` 的本地修改复制回来。
+- 不修改 `main`，不 force-push，不改写历史，不删除远端分支。
+- 保持聚焦提交；提交前检查 staged diff 和相关验证。
+- 不把数据库、`.env`、虚拟环境、缓存、截图和生成文件提交。
+- 报告实际改动、验证命令、结果和剩余限制；不把旧测试或规划文档当成当前功能证据。

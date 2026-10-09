@@ -252,7 +252,7 @@ async def fetch_models_dev_catalog(url: str) -> dict:
     async with httpx.AsyncClient(
         timeout=settings.MODEL_CATALOG_REFRESH_TIMEOUT_SECONDS,
         follow_redirects=True,
-        headers={"User-Agent": "TopicEye-ModelCatalog/1.0"},
+        headers={"User-Agent": "CreativeWorkbench-ModelCatalog/1.0"},
     ) as client:
         response = await client.get(url)
         response.raise_for_status()

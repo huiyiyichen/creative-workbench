@@ -1,4 +1,4 @@
-"""Unified time helpers for TopicEye backend.
+"""Unified time helpers for Creative Workbench backend.
 
 All code should import from here instead of using ``datetime.utcnow()``,
 ``datetime.now(UTC)``, or defining local ``_utc_now()`` functions.

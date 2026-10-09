@@ -1,4 +1,4 @@
-"""Alembic migration environment for TopicEye.
+"""Alembic migration environment for Creative Workbench.
 
 The migration URL is derived from settings.DATABASE_URL (sync form), so the
 same env.py works for both SQLite and PostgreSQL. Autogenerate relies on the
@@ -32,8 +32,6 @@ import app.models.article_snapshot  # noqa: F401, E402
 import app.models.category  # noqa: F401, E402
 import app.models.creation  # noqa: F401, E402
 import app.models.daily_report  # noqa: F401, E402
-import app.models.email_verification  # noqa: F401, E402
-import app.models.fanqie  # noqa: F401, E402
 import app.models.favorite  # noqa: F401, E402
 import app.models.feedback  # noqa: F401, E402
 import app.models.llm_model  # noqa: F401, E402
@@ -43,15 +41,12 @@ import app.models.mother_topic  # noqa: F401, E402
 import app.models.notification  # noqa: F401, E402
 import app.models.pick_mark  # noqa: F401, E402
 import app.models.product_feedback  # noqa: F401, E402
-import app.models.qimao  # noqa: F401, E402
 import app.models.read_record  # noqa: F401, E402
 import app.models.scheduled_job  # noqa: F401, E402
 import app.models.trending  # noqa: F401, E402
 import app.models.user  # noqa: F401, E402
-import app.models.user_integration  # noqa: F401, E402
 import app.models.webhook_delivery_log  # noqa: F401, E402
 import app.models.weekly_digest  # noqa: F401, E402
-import app.models.zhihu  # noqa: F401, E402
 from app.core.config import settings  # noqa: E402
 from app.core.database import Base  # noqa: E402
 from app.core.db_backend import create_database_profile  # noqa: E402

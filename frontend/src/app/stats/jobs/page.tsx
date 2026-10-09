@@ -82,7 +82,7 @@ export default function JobStatsPage() {
       <header className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-semibold text-gray-900">
-            <Activity className="h-6 w-6 text-orange" />
+            <Activity className="h-6 w-6 text-primary" />
             抓取/调度任务监控
           </h1>
           <p className="mt-1 text-sm text-gray-500">
@@ -100,7 +100,7 @@ export default function JobStatsPage() {
                 className={cx(
                   'min-h-8 px-3 py-1 text-[13px] transition',
                   days === opt.value
-                    ? 'bg-orange text-white'
+                    ? 'bg-primary text-white'
                     : 'bg-white text-gray-700 hover:bg-gray-50',
                 )}
               >
@@ -200,7 +200,7 @@ export default function JobStatsPage() {
             <button
               type="button"
               onClick={() => setSelectedJobKey(null)}
-              className="text-[12px] text-orange hover:underline"
+              className="text-[12px] text-primary hover:underline"
             >
               清除筛选
             </button>
@@ -328,7 +328,7 @@ function JobKeyRow({
       onClick={onClick}
       className={cx(
         'cursor-pointer border-b border-gray-100 transition hover:bg-gray-50',
-        isSelected && 'bg-orange/5',
+        isSelected && 'bg-primary/5',
       )}
     >
       <td className="px-2 py-2 font-mono text-[12px] text-gray-700">

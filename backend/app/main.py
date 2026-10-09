@@ -7,7 +7,6 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from starlette.middleware.sessions import SessionMiddleware
 
 import app.models.analysis_job  # noqa: F401
 import app.models.app_setting  # noqa: F401
@@ -18,8 +17,6 @@ import app.models.creation  # noqa: F401
 
 # Ensure all models are imported for table creation
 import app.models.daily_report  # noqa: F401
-import app.models.email_verification  # noqa: F401
-import app.models.fanqie  # noqa: F401
 import app.models.favorite  # noqa: F401
 import app.models.feedback  # noqa: F401
 import app.models.llm_model  # noqa: F401
@@ -30,15 +27,13 @@ import app.models.notification  # noqa: F401
 import app.models.pick_mark  # noqa: F401
 import app.models.product_feedback  # noqa: F401
 import app.models.prompt_registry  # noqa: F401
-import app.models.qimao  # noqa: F401
 import app.models.read_record  # noqa: F401
 import app.models.scheduled_job  # noqa: F401
+import app.models.studio  # noqa: F401
 import app.models.trending  # noqa: F401
 import app.models.user  # noqa: F401
-import app.models.user_integration  # noqa: F401
 import app.models.webhook_delivery_log  # noqa: F401
 import app.models.weekly_digest  # noqa: F401
-import app.models.zhihu  # noqa: F401
 from app.api.v1.auth import get_current_admin_user
 from app.api.v1.router import router as v1_router
 from app.core.config import DEFAULT_LOCAL_SECRET_KEY, settings
@@ -172,23 +167,6 @@ def ensure_runtime_secret_safety() -> None:
         raise RuntimeError("APP_ENV=production requires INTEGRATION_SECRET_KEY or a custom APP_SECRET_KEY")
 
 
-def ensure_admin_seed_safety() -> None:
-    """Fail fast when the admin seed password is a known leaked/placeholder value.
-
-    默认种子密码曾误提交进 git 历史（b520ac7），视为已永久泄露；拒绝以该值
-    （或模板占位符/过短口令）启动，避免任何沿用示例配置的部署被直接接管。
-    注意：这里必须直接 raise 而不是走 _run_seed_step 的"降级为 warning"路径。
-    """
-    if not settings.ADMIN_SEED_ENABLED:
-        return
-    from app.services.auth_service import validate_admin_seed_password
-
-    try:
-        validate_admin_seed_password(settings.ADMIN_PASSWORD)
-    except ValueError as exc:
-        raise RuntimeError(f"Insecure ADMIN_PASSWORD refused at startup: {exc}") from exc
-
-
 async def _run_seed_step(
     name: str,
     *,
@@ -286,7 +264,6 @@ async def lifespan(app: FastAPI):
     _jieba_prewarm_task = asyncio.create_task(asyncio.to_thread(_prewarm_jieba))
 
     ensure_runtime_secret_safety()
-    ensure_admin_seed_safety()
 
     # Startup: bring the database to the latest Alembic revision. Legacy
     # databases shaped by the old ensure_* helpers are stamped as current;
@@ -308,6 +285,15 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning("Sequence sync check failed (non-fatal): %s", exc)
 
+    try:
+        from app.services.studio_service import recover_unfinished_artifacts
+
+        recovered = await recover_unfinished_artifacts()
+        if recovered:
+            logger.warning("Recovered %d unfinished studio artifact(s) from a previous process", recovered)
+    except Exception as exc:
+        logger.warning("Studio artifact recovery skipped (non-fatal): %s", exc)
+
     # Slow query listener (SQL > 1s log warning, > 5s alert webhook)
     try:
         from app.core.slow_query import attach_to_all_engines
@@ -315,36 +301,6 @@ async def lifespan(app: FastAPI):
         attach_to_all_engines()
     except Exception as exc:
         logger.warning("Slow query listener setup failed (non-fatal): %s", exc)
-
-    # ── Seed steps (idempotent; failures downgrade to warning, never block startup) ──
-    admin_email = (settings.ADMIN_EMAIL or "").strip()
-    admin_password = settings.ADMIN_PASSWORD or ""
-    admin_enabled = bool(settings.ADMIN_SEED_ENABLED and admin_email and admin_password)
-    admin_skip_reason = (
-        "ADMIN_EMAIL and ADMIN_PASSWORD are not configured"
-        if settings.ADMIN_SEED_ENABLED and not admin_enabled
-        else None
-    )
-
-    async def _seed_admin() -> None:
-        from app.services.auth_service import ensure_admin_user
-
-        async with async_session() as admin_db:
-            admin = await ensure_admin_user(
-                admin_db,
-                email=admin_email,
-                password=admin_password,
-                display_name=settings.ADMIN_DISPLAY_NAME,
-            )
-            await admin_db.commit()
-            logger.info("Admin account ready: %s", admin.email)
-
-    await _run_seed_step(
-        "Admin account",
-        enabled=admin_enabled,
-        run=_seed_admin,
-        skip_reason=admin_skip_reason,
-    )
 
     seed_enabled = bool(settings.STARTUP_SEED_ENABLED)
 
@@ -483,21 +439,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="TopicEye API",
-    description="AI-powered content discovery and topic analysis platform",
+    title="Creative Workbench API",
+    description="AI-powered creator research and production workspace",
     version="0.5.0",
     lifespan=lifespan,
-)
-
-# Authlib's OAuth state/nonce must persist across /login and /callback.
-# Signed, short-lived, host-only cookie; HTTPS-only in production.
-app.add_middleware(
-    SessionMiddleware,
-    secret_key=settings.APP_SECRET_KEY,
-    session_cookie="topiceye_oauth_state",
-    max_age=900,
-    same_site="lax",
-    https_only=settings.AUTH_COOKIE_SECURE,
 )
 
 # CORS — allow frontend origins from config (CORS_ORIGINS)
@@ -608,7 +553,7 @@ async def health_live():
             status_code=503,
             content={"status": "unhealthy", "db": db_error},
         )
-    return {"status": "alive", "service": "topiceye-backend"}
+    return {"status": "alive", "service": "creative-workbench-backend"}
 
 
 @app.get("/health/ready", tags=["health"])
@@ -654,7 +599,7 @@ async def health_ready():
     overall = "ready" if oltp_error is None else "not_ready"
     payload = {
         "status": overall,
-        "service": "topiceye-backend",
+        "service": "creative-workbench-backend",
         "database": {
             "backend": database_profile.backend,
             **diagnostics,

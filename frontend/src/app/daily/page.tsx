@@ -71,6 +71,7 @@ export default function DailyReportPage() {
   const [generating, setGenerating] = useState(false);
   const [generatingDate, setGeneratingDate] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [markError, setMarkError] = useState<string | null>(null);
   // 生成轮询代际：新一轮生成或组件卸载时自增，使旧的 5s 轮询循环
   // 在下一次醒来后直接退出，避免卸载后持续请求 / 交错 setState
   const generateSeqRef = useRef(0);
@@ -92,7 +93,7 @@ export default function DailyReportPage() {
       missing: calendarData.missing_count || 0,
       generating: calendarData.generating_count || 0,
     });
-  }, []);
+  }, [reportScope]);
 
   useEffect(() => {
     (async () => {
@@ -190,20 +191,19 @@ export default function DailyReportPage() {
       setError(null);
       const today = localDateString();
       // POST 返回 202（后台异步生成），不再等 LLM 完成
-      await dailyReportApi.generateVersion({
+      const generation = await dailyReportApi.generateVersion({
         target_date: date,
         edition: date < today ? 'final' : 'manual',
         force: true,
+        scope: reportScope,
       });
       // 轮询直到 DONE（最多 120 秒）
       const maxAttempts = 24;
       for (let i = 0; i < maxAttempts; i++) {
-        await new Promise((r) => setTimeout(r, 5000)); // 每 5 秒轮询
+        if (i > 0) await new Promise((r) => setTimeout(r, 5000));
         if (seq !== generateSeqRef.current) return; // 已被新一轮生成/卸载取代，放弃旧轮询
         try {
-          const data = date < today
-            ? await dailyReportApi.getByDate(date)
-            : await dailyReportApi.getToday();
+          const data = await dailyReportApi.getGenerationStatus(generation.id);
           if (seq !== generateSeqRef.current) return;
           const reportData = data as unknown as DailyReportData;
           if (reportData.status === 'DONE' || reportData.status === 'ERROR') {
@@ -217,8 +217,9 @@ export default function DailyReportPage() {
           }
           // 还在 GENERATING，继续等
           setReport(reportData);
-        } catch {
-          // 轮询失败，继续重试
+        } catch (pollError) {
+          setError(pollError instanceof Error ? pollError.message : '读取日报状态失败');
+          return;
         }
       }
       // 超时
@@ -235,7 +236,7 @@ export default function DailyReportPage() {
         setGeneratingDate(null);
       }
     }
-  }, [refreshReportIndexes]);
+  }, [refreshReportIndexes, reportScope]);
 
   const handleRegenerate = async () => {
     await generateForDate(report?.report_date || selectedDate || localDateString());
@@ -324,7 +325,6 @@ export default function DailyReportPage() {
   // 今日已选抽屉开关（一期补行动闭环）
   const [drawerOpen, setDrawerOpen] = useState(false);
   // 标记失败的轻量内联提示（修掉原 handleMark 静默失败）
-  const [markError, setMarkError] = useState<string | null>(null);
   // 站内阅读：点选题卡片标题旁的 BookOpen 打开全局 ReaderDrawer（挂在 ClientLayout，全站单实例）
   const { openReader, currentUser } = useAppContext();
   // 手动推送日报到群
@@ -500,6 +500,7 @@ export default function DailyReportPage() {
               icon={AlertTriangle}
               tone="error"
               action={(
+                <div className="flex items-center justify-center gap-3">
                 <ReportActionButton
                   onClick={() => generateForDate(recoveryDate)}
                   loading={generating && generatingDate === recoveryDate}
@@ -507,6 +508,8 @@ export default function DailyReportPage() {
                 >
                   生成 {recoveryDate}
                 </ReportActionButton>
+                <a href="/admin/model-eval" className="text-sm text-primary underline underline-offset-4">AI 引擎</a>
+                </div>
               )}
             >
               {error}
@@ -523,6 +526,7 @@ export default function DailyReportPage() {
                 >
                   重试生成
                 </ReportActionButton>
+                <a href="/admin/model-eval" className="mt-3 block text-sm text-primary underline underline-offset-4">AI 引擎</a>
               </div>
             </div>
           ) : report?.status === 'GENERATING' ? (

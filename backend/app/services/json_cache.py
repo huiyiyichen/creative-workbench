@@ -16,7 +16,7 @@ _MAX_ENTRIES = 2000
 _MAX_TOTAL_BYTES = 64 * 1024 * 1024  # 64MB
 _EVICTION_BATCH_FRACTION = 0.1  # 超预算时一次淘汰 ~10%，摊销代价
 
-_CACHE: dict[str, tuple[float, bytes]] = {}
+_CACHE: dict[str, tuple[int, bytes]] = {}
 _TOTAL_BYTES = 0
 
 
@@ -26,8 +26,8 @@ def get_cached_json(cache_key: str, *, ttl_seconds: float) -> tuple[bytes, float
     if not cached:
         return None
     cached_at, content = cached
-    age_seconds = time.monotonic() - cached_at
-    if age_seconds > ttl_seconds:
+    age_seconds = (time.time_ns() - cached_at) / 1_000_000_000
+    if age_seconds >= ttl_seconds:
         _pop_entry(cache_key)
         return None
     return content, age_seconds
@@ -39,8 +39,8 @@ def get_cached_value(cache_key: str, *, ttl_seconds: float) -> tuple[Any, float]
     if not cached:
         return None
     cached_at, content = cached
-    age_seconds = time.monotonic() - cached_at
-    if age_seconds > ttl_seconds:
+    age_seconds = (time.time_ns() - cached_at) / 1_000_000_000
+    if age_seconds >= ttl_seconds:
         _pop_entry(cache_key)
         return None
     return json.loads(content), age_seconds
@@ -52,7 +52,7 @@ def set_cached_json(cache_key: str, payload: Any) -> bytes:
     if cache_key not in _CACHE and (len(_CACHE) >= _MAX_ENTRIES or _TOTAL_BYTES + len(content) > _MAX_TOTAL_BYTES):
         _evict_oldest_until_space(len(content))
     _pop_entry(cache_key)
-    _CACHE[cache_key] = (time.monotonic(), content)
+    _CACHE[cache_key] = (time.time_ns(), content)
     _TOTAL_BYTES += len(content)
     return content
 

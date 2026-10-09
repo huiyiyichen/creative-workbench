@@ -1,5 +1,5 @@
 /**
- * TopicEye Design Tokens
+ * Creative Workbench Design Tokens
  *
  * Tailwind CSS is the canonical visual system. The same values are
  * defined in `src/app/globals.css` via Tailwind v4 `@theme`.
@@ -11,11 +11,11 @@
  */
 
 export const T = {
-  // Primary (Orange)
-  primary: '#FF6B35',
-  primaryHover: '#E85D2A',
-  primaryLight: '#FFF4EE',
-  primaryBorder: '#FFD0B5',
+  // Primary (Blue)
+  primary: '#2563EB',
+  primaryHover: '#1D4ED8',
+  primaryLight: '#EFF6FF',
+  primaryBorder: '#BFDBFE',
 
   // Teal
   teal: '#00C9A7',
@@ -100,7 +100,7 @@ export const LEVEL_CONFIG_CLASSES: Record<string, { bg: string; color: string; b
  * 可保留本地版本；通用场景应优先用 CHART_COLORS。
  */
 export const CHART_COLORS: readonly string[] = [
-  '#FF6B35', // primary orange
+  '#2563EB', // primary blue
   '#00C9A7', // teal
   '#3B82F6', // blue
   '#D97706', // amber

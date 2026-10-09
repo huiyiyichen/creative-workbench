@@ -20,8 +20,8 @@ export default function MonthlyDigestPage() {
     <DigestReportPage<MonthlyDigest, MonthlyDigestMonthSummary>
       title="AI 月刊"
       badge="MONTHLY REVIEW"
-      heroLabel="TOPIC RADAR MONTHLY"
-      heroTitle={<>选题雷达<br />月刊</>}
+      heroLabel="CREATIVE WORKBENCH MONTHLY"
+      heroTitle={<>创意工作台<br />月刊</>}
       sidebarTitle="历史月刊"
       emptyHistoryText="暂无历史月刊"
       emptyText="暂无月刊数据"

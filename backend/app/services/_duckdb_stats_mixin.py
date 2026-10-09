@@ -294,35 +294,6 @@ class StatsMixin:
             ]
         }
 
-    def query_stats_novel_platforms(self) -> dict[str, Any]:
-        """Novel radar platform counts, computed in DuckDB."""
-        conn = self._get_conn()
-        fanqie = conn.execute("""
-            SELECT COUNT(id), MAX(crawled_at)
-            FROM oltp_db.fanqie_books
-        """).fetchone()
-        qimao = conn.execute("""
-            SELECT COUNT(id), MAX(crawled_at)
-            FROM oltp_db.qimao_books
-        """).fetchone()
-        zhihu = conn.execute("""
-            SELECT COUNT(id), MAX(updated_at)
-            FROM oltp_db.zhihu_albums
-        """).fetchone()
-
-        def fmt(value):
-            if value is None:
-                return None
-            return value.isoformat() if hasattr(value, "isoformat") else str(value)
-
-        return {
-            "platforms": [
-                {"name": "番茄小说", "table": "fanqie", "count": fanqie[0] or 0, "last_sync": fmt(fanqie[1])},
-                {"name": "七猫小说", "table": "qimao", "count": qimao[0] or 0, "last_sync": fmt(qimao[1])},
-                {"name": "知乎盐选", "table": "zhihu", "count": zhihu[0] or 0, "last_sync": fmt(zhihu[1])},
-            ]
-        }
-
     def query_daily_stats(self) -> dict[str, Any]:
         """Statistics for daily report generation."""
         conn = self._get_conn()
@@ -369,7 +340,6 @@ class StatsMixin:
         source_distribution = self.query_stats_source_distribution(days=days, scored_items=scored_items)
         category_distribution = self.query_stats_category_distribution(days=days)
         daily_trend = self.query_stats_daily_trend(days=days, scored_items=scored_items)
-        novel_platforms = self.query_stats_novel_platforms()
 
         conn = self._get_conn()
         cutoff = (datetime.now(UTC) - timedelta(days=days)).isoformat()
@@ -432,7 +402,6 @@ class StatsMixin:
             "sources": source_distribution["sources"],
             "categories": category_distribution["categories"],
             "trend": daily_trend["trend"],
-            "platforms": novel_platforms["platforms"],
             "kpi": {
                 "total_crawled": kpi_row[0] or 0,
                 "total_curated": len(selected_items),

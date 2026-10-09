@@ -34,7 +34,6 @@ import app.models.category  # noqa: F401
 import app.models.content_label  # noqa: F401
 import app.models.creation  # noqa: F401
 import app.models.daily_report  # noqa: F401
-import app.models.fanqie  # noqa: F401
 import app.models.favorite  # noqa: F401
 import app.models.feedback  # noqa: F401
 import app.models.llm_model  # noqa: F401
@@ -47,9 +46,7 @@ import app.models.ranking_eval  # noqa: F401
 import app.models.read_record  # noqa: F401
 import app.models.source  # noqa: F401
 import app.models.user  # noqa: F401
-import app.models.user_integration  # noqa: F401
 import app.models.weekly_digest  # noqa: F401
-import app.models.zhihu  # noqa: F401
 from app.core.database import Base
 
 
@@ -89,7 +86,12 @@ async def db(test_session_factory: async_sessionmaker[AsyncSession]) -> AsyncGen
 @pytest.fixture(scope="session", autouse=True)
 def _ensure_test_db_schema():
     """一次性建好测试 DB 的 schema（PostgreSQL）。autouse=True 自动对所有 session 跑。"""
+    from sqlalchemy.engine import make_url
     from sqlalchemy.ext.asyncio import create_async_engine
+
+    test_database = make_url(os.environ["DATABASE_URL"]).database or ""
+    if not test_database.startswith("topiceye_test"):
+        raise RuntimeError("Tests require an isolated topiceye_test* database; refusing destructive cleanup.")
 
     async def _init():
         engine = create_async_engine(os.environ["DATABASE_URL"])

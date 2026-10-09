@@ -8,6 +8,10 @@ backend/*.db-shm
 backend/*.db-wal
 backend/.env
 .env
+.env.*
+**/.env
+**/.env.*
+!**/.env.example
 backend/venv/
 backend/.venv/
 
@@ -28,6 +32,21 @@ frontend/node_modules/
 frontend/.next/
 frontend/out/
 frontend/.env.local
+frontend/.runtime-*.log
+**/node_modules/
+**/.venv/
+**/.next*/
+**/__pycache__/
+*.log
+*.tsbuildinfo
+*.pyc
+*.zip
+*.mp4
+*.mkv
+*.mov
+*.wav
+*.mp3
+output/
 
 # Docker
 docker-data/
@@ -54,6 +73,7 @@ docs/*
 !docs/screenshots/
 !docs/images/
 !docs/quality/
+!docs/assets/
 
 # Test cache
 .pytest_cache/
@@ -66,6 +86,8 @@ htmlcov/
 .lazyweb/
 .playwright-cli/
 .playwright-mcp/
+backend/media_runtime/node_modules/
+output/playwright/
 
 .zcode/
 .workbuddy/

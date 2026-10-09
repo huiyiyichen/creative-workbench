@@ -83,6 +83,35 @@ def test_mid_risk_item_is_penalized_without_being_hard_filtered():
     assert by_id[2].final_score < by_id[1].final_score
 
 
+def test_higher_base_can_rank_lower_after_time_decay_and_source_weight(monkeypatch):
+    from app.services import scoring_engine
+
+    monkeypatch.setattr(
+        scoring_engine,
+        "_compute_base_score",
+        lambda item: (80.5 if item.content_id == 1 else 70.4, {}),
+    )
+    monkeypatch.setattr(scoring_engine, "_compute_quality_factor", lambda _item: (1.0, {}))
+    monkeypatch.setattr(scoring_engine, "_compute_risk_factor", lambda _item: 1.0)
+    monkeypatch.setattr(
+        scoring_engine,
+        "_compute_time_decay",
+        lambda item, _now: 0.39 if item.content_id == 1 else 0.846,
+    )
+
+    stale_high_base = _item(1, source_weight_db=4)
+    fresh_lower_base = _item(2, source_weight_db=5)
+    scored = score_items([stale_high_base, fresh_lower_base])
+    by_id = {item.content_id: breakdown for breakdown, item in scored}
+
+    assert by_id[1].base_score > by_id[2].base_score
+    assert by_id[1].source_bonus == 6
+    assert by_id[2].source_bonus == 12
+    assert by_id[1].final_score == 33.73
+    assert by_id[2].final_score == 69.71
+    assert scored[0][1].content_id == 2
+
+
 def test_source_and_category_diversity_reduce_repeated_items():
     items = [_item(i, source_id=1, category="AI", curation_score=85, creator_score=85) for i in range(1, 6)]
 

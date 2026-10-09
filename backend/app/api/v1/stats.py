@@ -16,7 +16,6 @@ from app.services.duckdb_service import (
     query_dashboard_stats,
     query_stats_category_distribution,
     query_stats_daily_trend,
-    query_stats_novel_platforms,
     query_stats_overview,
     query_stats_source_distribution,
     run_query,
@@ -32,7 +31,6 @@ STATS_CACHE_KEYS = {
     "source_distribution": "stats:source-distribution:{days}",
     "category_distribution": "stats:category-distribution:{days}",
     "daily_trend": "stats:daily-trend:{days}",
-    "novel_platforms": "stats:novel-platforms",
     "dashboard": "stats:dashboard:{days}",
 }
 
@@ -138,16 +136,6 @@ async def get_daily_trend(days: int = Query(7, ge=1, le=90)):
     if cached:
         return cached
     return await _query_response(cache_key, lambda: query_stats_daily_trend(days=days))
-
-
-@router.get("/novel-platforms")
-async def get_novel_platform_stats():
-    """网文雷达统计：番茄 / 七猫 / 知乎数量与最近同步时间。"""
-    cache_key = _stats_cache_key("novel_platforms")
-    cached = _cached_response(cache_key)
-    if cached:
-        return cached
-    return await _query_response(cache_key, query_stats_novel_platforms)
 
 
 @router.get("/dashboard")

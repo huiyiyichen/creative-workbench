@@ -1,16 +1,14 @@
 'use client';
 
-import React, { useState } from 'react';
-import { BookOpen, Loader2, PenLine, Video, X } from 'lucide-react';
-import type { LucideIcon } from 'lucide-react';
-import { useAppContext } from '@/components/ClientLayout';
-import { creationApi } from '@/lib/api';
+import React from 'react';
+import { ArrowRight, Film, PenLine, X } from 'lucide-react';
 import { Button, Panel } from '@/components/ui';
 import type { ContentAnalysis } from '@/types';
-import CreationPlanDisplay from '@/components/CreationPlanDisplay';
 import RelationPanel from '@/components/RelationPanel';
 import EvidencePanel from '@/components/EvidencePanel';
 import { useDialogFocus } from '@/components/useDialogFocus';
+import ScoreBreakdownChart from '@/components/ScoreBreakdownChart';
+import { explainRecommendation } from '@/lib/recommendation';
 
 interface AnalysisPanelProps {
   analysis: ContentAnalysis & { _content_id?: number };
@@ -19,29 +17,8 @@ interface AnalysisPanelProps {
 
 export default function AnalysisPanel({ analysis, onClose }: AnalysisPanelProps) {
   const { dialogRef, onKeyDown } = useDialogFocus<HTMLDivElement>(true, onClose);
-  const { currentUser } = useAppContext();
-  const contentId = analysis.content_id || 0;
-  const [creationPlan, setCreationPlan] = useState<Record<string, unknown> | null>(null);
-  const [generating, setGenerating] = useState(false);
-  const [activePlatform, setActivePlatform] = useState<string | null>(null);
-  const platforms: Array<{ id: string; label: string; icon: LucideIcon }> = [
-    { id: 'xiaohongshu', label: '小红书图文', icon: BookOpen },
-    { id: 'short_video', label: '短视频脚本', icon: Video },
-  ];
-
-  const handleGenerate = async (platform: string) => {
-    if (!contentId) return;
-    setActivePlatform(platform);
-    setGenerating(true);
-    try {
-      const plan = await creationApi.generatePlan(contentId, platform);
-      setCreationPlan(plan);
-    } catch (err) {
-      console.error('Failed to generate plan:', err);
-    } finally {
-      setGenerating(false);
-    }
-  };
+  const contentId = analysis.content_id || analysis._content_id || 0;
+  const decision = explainRecommendation(analysis);
 
   return (
     <>
@@ -62,20 +39,32 @@ export default function AnalysisPanel({ analysis, onClose }: AnalysisPanelProps)
           </button>
         </div>
 
+        {analysis.score_breakdown && <div className="mb-6">
+          <h3 className="mb-3 text-[13px] font-semibold text-gray-700">排序依据</h3>
+          <ScoreBreakdownChart
+            breakdown={analysis.score_breakdown}
+            sourceAuthorityKnown={analysis.source_weight != null}
+            contentScore={analysis.curation_score}
+          />
+        </div>}
         <div className="mb-6">
-          <h3 className="mb-3 text-[13px] font-semibold text-gray-700">精选评分</h3>
+          <h3 className="mb-2 text-[13px] font-semibold text-gray-700">写作建议 · {decision.level}</h3>
+          <p className="text-xs leading-6 text-gray-600">{decision.reason}</p>
+        </div>
+        <div className="mb-6">
+          <h3 className="mb-3 text-[13px] font-semibold text-gray-700">AI 内容评分</h3>
           {[
-            { label: '精选分', value: analysis.curation_score || 0, color: '#FF6B35' },
+            { label: '内容分', value: analysis.curation_score, color: 'var(--color-primary)' },
             { label: '信息密度', value: analysis.info_density || 0, color: '#8B5CF6' },
             { label: '可操作性', value: analysis.actionability || 0, color: '#3B82F6' },
-            { label: '来源权威', value: analysis.source_weight || 0, color: '#10B981' },
+            { label: '来源权威', value: analysis.source_weight, color: '#10B981' },
           ].map((s) => (
             <div key={s.label} className="mb-2 flex items-center gap-2.5">
               <span className="w-16 text-xs text-gray-500">{s.label}</span>
               <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">
                 <div className="h-full rounded-full" style={{ width: `${s.value}%`, background: s.color }} />
               </div>
-              <span className="w-6 text-right text-xs font-semibold text-gray-700">{Math.round(s.value || 0)}</span>
+              <span className="w-8 text-right text-xs font-semibold text-gray-700">{s.value == null ? '未知' : Math.round(s.value)}</span>
             </div>
           ))}
         </div>
@@ -86,7 +75,7 @@ export default function AnalysisPanel({ analysis, onClose }: AnalysisPanelProps)
             { label: '质量', value: analysis.quality_score, color: '#10B981' },
             { label: '热度', value: analysis.hot_score, color: '#EF4444' },
             { label: '新鲜度', value: analysis.freshness_score, color: '#3B82F6' },
-            { label: '创作价值', value: analysis.creator_score, color: '#FF6B35' },
+            { label: '创作价值', value: analysis.creator_score, color: 'var(--color-primary)' },
             { label: '爆文潜力', value: analysis.viral_score, color: '#F59E0B' },
             { label: '风险', value: analysis.risk_score, color: '#6B7280' },
           ].map((s) => (
@@ -137,44 +126,19 @@ export default function AnalysisPanel({ analysis, onClose }: AnalysisPanelProps)
           </div>
         )}
 
-        {currentUser && (
+        {contentId > 0 && (
           <Panel className="mt-7 border-primary-border/60 bg-primary-light/40 p-5">
             <h3 className="mb-1 flex items-center gap-2 text-sm font-bold text-gray-900">
               <PenLine size={15} strokeWidth={2} />
-              生成创作方案
+              进入创作工作台
             </h3>
-            <p className="mb-3.5 text-xs text-gray-500">基于该内容生成平台专属创作方案</p>
-
-            <div className="mb-4 flex gap-2">
-              {platforms.map((p) => {
-                const Icon = p.icon;
-                const active = activePlatform === p.id && creationPlan;
-                return (
-                  <Button
-                    key={p.id}
-                    type="button"
-                    onClick={() => handleGenerate(p.id)}
-                    disabled={generating}
-                    variant={active ? 'primary' : 'secondary'}
-                    className="flex-1 px-2 py-2.5 text-xs font-semibold"
-                  >
-                    <Icon size={14} strokeWidth={2} />
-                    {p.label}
-                  </Button>
-                );
-              })}
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs text-gray-600"><Film size={15} />模板、视觉风格、分镜和成片统一管理</div>
+              <Button type="button" variant="primary" onClick={() => { window.location.href = `/studio?content_id=${contentId}`; }}>
+                打开
+                <ArrowRight size={14} />
+              </Button>
             </div>
-
-            {generating && (
-              <div className="p-6 text-center text-[13px] text-gray-400">
-                <Loader2 size={20} strokeWidth={2} className="mx-auto mb-2 animate-spin" />
-                创作方案生成中...
-              </div>
-            )}
-
-            {creationPlan && !generating && (
-              <CreationPlanDisplay plan={creationPlan} platform={activePlatform || ''} />
-            )}
           </Panel>
         )}
 

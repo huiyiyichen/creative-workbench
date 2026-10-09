@@ -19,7 +19,6 @@ import {
   Send,
   Settings,
   ShieldCheck,
-  Users,
   type LucideIcon,
 } from 'lucide-react';
 import { cx } from '@/components/ui';
@@ -41,7 +40,6 @@ const ADMIN_NAV_ICONS: Record<string, LucideIcon> = {
   sources: RadioTower,
   contents: Newspaper,
   'content-events': GitMerge,
-  users: Users,
   'model-eval': BrainCircuit,
   'mother-topics': BookOpen,
   updates: Rocket,
@@ -66,17 +64,11 @@ const ADMIN_NAV_ITEMS: AdminNavItem[] = ADMIN_NAV_ENTRIES.map((entry) => {
 export default function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
-  const { currentUser, authLoading, logout } = useAppContext();
+  const { currentUser, authLoading } = useAppContext();
 
   const isActive = (href: string) => {
     if (href === '/admin') return pathname === '/admin';
     return pathname === href || pathname.startsWith(`${href}/`);
-  };
-
-  const handleLogout = () => {
-    if (logout) {
-      void logout();
-    }
   };
 
   return (
@@ -154,16 +146,7 @@ export default function AdminSidebar() {
                 管理员
               </div>
             </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              disabled={authLoading}
-              aria-label="退出登录"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-sm text-slate-500 transition hover:bg-slate-800 hover:text-red-400"
-              title="退出登录"
-            >
-              <LogOut size={14} strokeWidth={2} />
-            </button>
+            <span className="h-2 w-2 rounded-full bg-emerald-400" aria-label="本地工作区" />
           </div>
         )}
       </div>

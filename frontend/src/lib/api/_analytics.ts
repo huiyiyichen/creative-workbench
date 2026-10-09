@@ -6,42 +6,13 @@
 import { request } from './_core';
 export type FeedbackType = 'like' | 'dislike' | 'skip' | 'not_relevant' | 'outdated' | 'great_pick';
 import type { IssueFeedbackItem, IssueFeedbackListResponse, IssueFeedbackSeverity, IssueFeedbackStatus, ProductUpdateEntry, ProductUpdateItem, ProductUpdateKind, ProductUpdateListResponse, ProductUpdateStatus } from '@/types/product-feedback';
-import type { JobStatsByJobKey, JobStatsResponse, RSSHubInstance, StatsCategoryItem, StatsDashboard, StatsNovelPlatform, StatsOverview, StatsSourceItem, StatsTrendItem } from '@/types/stats';
+import type { JobStatsByJobKey, JobStatsResponse, RSSHubInstance, StatsCategoryItem, StatsDashboard, StatsOverview, StatsSourceItem, StatsTrendItem } from '@/types/stats';
 import type {
   TrendEvidenceFilter,
   TrendEvidenceResponse,
   TrendKeywordItem,
   TrendPoint,
 } from '@/types/trends';
-
-/** 邮件 Provider 配置响应（api_key / smtp_password 脱敏） */
-export interface EmailProviderConfig {
-  provider: string;
-  from_email: string;
-  from_name: string;
-  api_key_configured: boolean;
-  api_key_preview: string;
-  smtp_host: string;
-  smtp_port: number;
-  smtp_username: string;
-  smtp_password_configured: boolean;
-  smtp_password_preview: string;
-  smtp_use_ssl: boolean;
-  supported_providers: string[];
-}
-
-/** 邮件 Provider 配置更新请求。api_key / smtp_password 为空时保留原值 */
-export interface EmailProviderConfigUpdate {
-  provider: string;
-  from_email: string;
-  from_name: string;
-  api_key: string;
-  smtp_host: string;
-  smtp_port: number;
-  smtp_username: string;
-  smtp_password: string;
-  smtp_use_ssl: boolean;
-}
 
 /** 单个 webhook 配置响应（URL 脱敏） */
 export interface WebhookItem {
@@ -110,19 +81,6 @@ export const settingsApi = {
     });
   },
 
-  /** 获取邮件 Provider 配置（api_key 脱敏） */
-  getEmailProvider(): Promise<EmailProviderConfig> {
-    return request('/settings/email-provider');
-  },
-
-  /** 更新邮件 Provider 配置。api_key 为空时保留原值 */
-  updateEmailProvider(data: EmailProviderConfigUpdate): Promise<{ updated: boolean }> {
-    return request('/settings/email-provider', {
-      method: 'PUT',
-      body: JSON.stringify(data),
-    });
-  },
-
   /** 获取通知推送 webhook 配置（webhook_url 脱敏） */
   getNotificationWebhook(): Promise<NotificationWebhookConfig> {
     return request('/settings/notification-webhook');
@@ -171,10 +129,6 @@ export const statsApi = {
     return request(`/stats/daily-trend?days=${days}`);
   },
 
-  /** 网文平台统计 */
-  getNovelPlatforms(): Promise<{ platforms: StatsNovelPlatform[] }> {
-    return request('/stats/novel-platforms');
-  },
 
   /** Aggregated stats workspace payload, with legacy dashboard fields included */
   getDashboard(days = 7): Promise<StatsDashboard> {
@@ -196,6 +150,11 @@ export const statsJobsApi = {
 // ─── Trends API ───
 
 export const trendsApi = {
+  /** Build current topic assignments and trend snapshots from analyzed content. */
+  refresh(days = 7): Promise<Record<string, unknown>> {
+    return request(`/trends/refresh?days=${days}`, { method: 'POST' });
+  },
+
   /** Topic trend curves for the last N days */
   topics(days = 7): Promise<{ days: number; trends: TrendPoint[] }> {
     return request(`/trends/topics?days=${days}`);

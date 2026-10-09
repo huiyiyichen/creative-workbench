@@ -44,19 +44,11 @@ export interface StatsTrendItem {
   analyzed_count: number;
 }
 
-export interface StatsNovelPlatform {
-  name: string;
-  table: string;
-  count: number;
-  last_sync: string | null;
-}
-
 export interface StatsDashboard {
   overview: StatsOverview;
   sources: StatsSourceItem[];
   categories: StatsCategoryItem[];
   trend: StatsTrendItem[];
-  platforms: StatsNovelPlatform[];
   kpi: { total_crawled: number; total_curated: number; avg_curation: number; active_sources: number };
   source_breakdown: Array<{ source_name: string; source_type: string; content_count: number; curated_count: number; avg_score: number }>;
   daily_trend: Array<{ date: string; content_count: number; curated_count: number; avg_curation: number }>;

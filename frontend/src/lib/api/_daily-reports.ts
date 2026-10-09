@@ -4,8 +4,8 @@
  * 从 _domains.ts 拆出。
  */
 
-import { request } from './_core';
-import type { PaginatedResponse, YesterdayTrackingData } from '@/types';
+import { request, type RequestOptions } from './_core';
+import type { YesterdayTrackingData } from '@/types';
 
 export interface WebhookDeliveryLogItem {
   id: number;
@@ -122,13 +122,17 @@ export const dailyReportApi = {
   },
 
   /** 生成指定日报版本 */
-  generateVersion(params: { target_date?: string; edition?: string; cutoff_at?: string; force?: boolean } = {}): Promise<Record<string, unknown>> {
+  generateVersion(params: { target_date?: string; edition?: string; cutoff_at?: string; force?: boolean; scope?: 'public' | 'mine' } = {}): Promise<{ id: number; report_date: string; status: string }> {
     const query = new URLSearchParams(
       Object.entries(params)
         .filter(([, v]) => v !== undefined)
         .map(([k, v]) => [k, String(v)])
     ).toString();
     return request(`/daily-reports/generate-version${query ? `?${query}` : ''}`, { method: 'POST' });
+  },
+
+  getGenerationStatus(id: number): Promise<Record<string, unknown>> {
+    return request(`/daily-reports/generation/${id}`);
   },
 
   /** 手动推送日报到 webhook（管理员） */
@@ -186,54 +190,169 @@ export const dailyReportApi = {
   },
 };
 
-export const creationApi = {
-  /** 生成创作方案（快速模式） */
-  generatePlan(contentId: number, platform: string): Promise<Record<string, unknown>> {
-    return request('/creation/plan', {
+export interface StudioCatalog {
+  templates: Array<{
+    id: string;
+    name: string;
+    category?: string;
+    description?: string;
+    image?: string;
+    modes: string[];
+    beats: string[];
+    custom?: boolean;
+    favorite_id?: number;
+  }>;
+  styles: Array<{
+    id: string;
+    name: string;
+    category?: string;
+    description?: string;
+    image?: string;
+    colors: string[];
+    background: string;
+    foreground: string;
+    accent: string;
+    secondary: string;
+    rules: string[];
+    native_mv: boolean;
+    custom?: boolean;
+    favorite_id?: number;
+  }>;
+}
+
+export interface StudioShot {
+  seconds: number;
+  beat: string;
+  visual: string;
+  camera: string;
+  audio: string;
+  transition: string;
+  caption: string;
+  prompt: string;
+}
+
+export interface StudioCue {
+  time: number;
+  text: string;
+}
+
+export interface StudioBrief {
+  theme: string;
+  mode: 'article' | 'video_prompt' | 'animation_video' | 'music_video';
+  template_id: string | null;
+  style_id: string | null;
+  presentation: 'cinematic' | 'kinetic' | 'ascii' | 'tui' | null;
+  production: 'video_model' | 'code_animation' | 'native_mv' | null;
+  duration_seconds: number;
+  aspect_ratio: '16:9' | '9:16' | '1:1';
+  audience: string;
+  intent: string;
+  bilingual: boolean;
+}
+
+export interface StudioDraft {
+  title: string;
+  logline: string;
+  body: string;
+  shots: StudioShot[];
+  cues: StudioCue[];
+  provenance: 'manual' | 'compiled' | 'ai';
+}
+
+export interface StudioProject {
+  id: number;
+  title: string;
+  version: number;
+  brief: StudioBrief;
+  draft: StudioDraft;
+  previous_revision?: { version: number; draft: StudioDraft } | null;
+  source: Record<string, unknown>;
+  finalized_version: number | null;
+  revisions: Array<{ version: number; reason: string; created_at: string }>;
+  assets: Array<{ id: number; kind: string; name: string; duration: number | null }>;
+  artifacts: StudioArtifact[];
+  updated_at: string | null;
+}
+
+export interface StudioArtifact {
+  id: number;
+  project_id: number;
+  version: number;
+  kind: string;
+  status: string;
+  title?: string;
+  progress: {
+    percent?: number | null;
+    stage?: string;
+    logs?: Array<{ at: string; stage: string }>;
+    started_at?: string;
+    elapsed_seconds?: number;
+    last_heartbeat?: string;
+    workspace_files?: number;
+    last_file_at?: string | null;
+  };
+  preview_path: string | null;
+  source_path?: string | null;
+  storage_path: string | null;
+  download_path: string | null;
+  error: string | null;
+  created_at?: string | null;
+}
+
+export const studioApi = {
+  catalog(options?: RequestOptions): Promise<StudioCatalog> {
+    return request('/studio/catalog', options);
+  },
+  listProjects(options?: RequestOptions): Promise<{ items: StudioProject[]; total: number }> {
+    return request('/studio/projects', options);
+  },
+  createProject(body: { brief: StudioBrief; content_id?: number; favorite_id?: number }): Promise<StudioProject> {
+    return request('/studio/projects', { method: 'POST', body: JSON.stringify(body) });
+  },
+  getProject(id: number): Promise<StudioProject> {
+    return request(`/studio/projects/${id}`);
+  },
+  jobs(): Promise<{ items: StudioArtifact[] }> {
+    return request('/studio/jobs');
+  },
+  revision(id: number, version: number): Promise<{ version: number; brief: StudioBrief; draft: StudioDraft }> {
+    return request(`/studio/projects/${id}/revisions/${version}`);
+  },
+  saveProject(id: number, body: { expected_version: number; brief: StudioBrief; draft: StudioDraft }): Promise<StudioProject> {
+    return request(`/studio/projects/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+  },
+  generateDraft(id: number, expectedVersion: number, engine: 'rules' | 'ai' = 'rules', action: 'generate' | 'refine' = 'generate', instructions = ''): Promise<StudioProject> {
+    return request(`/studio/projects/${id}/draft`, {
       method: 'POST',
-      body: JSON.stringify({ content_id: contentId, platform }),
+      body: JSON.stringify({ expected_version: expectedVersion, engine, action, instructions }),
     });
   },
-
-  /** 获取可用平台列表 */
-  listPlatforms(): Promise<Record<string, unknown>> {
-    return request('/creation/platforms');
+  productionPrompt(id: number): Promise<{ project_id: number; version: number; prompt: string }> {
+    return request(`/studio/projects/${id}/production-prompt`);
   },
-
-  /** 探索期：假设挑战 + 方向生成（探索模式 Step 1） */
-  exploreDirections(contentId: number): Promise<Record<string, unknown>> {
-    return request('/creation/explore', {
+  uploadAudio(id: number, file: File): Promise<{ id: number; kind: string; name: string; duration: number }> {
+    const form = new FormData();
+    form.append('file', file);
+    return request(`/studio/projects/${id}/audio`, { method: 'POST', body: form, headers: {} });
+  },
+  uploadLrc(id: number, file: File): Promise<StudioProject> {
+    const form = new FormData();
+    form.append('file', file);
+    return request(`/studio/projects/${id}/lrc`, { method: 'POST', body: form, headers: {} });
+  },
+  finalize(id: number, expectedVersion: number): Promise<StudioProject> {
+    return request(`/studio/projects/${id}/finalize`, {
       method: 'POST',
-      body: JSON.stringify({ content_id: contentId }),
+      body: JSON.stringify({ expected_version: expectedVersion }),
     });
   },
-
-  /** 聚焦期：苏格拉底追问（探索模式 Step 2） */
-  focusQuestions(params: {
-    content_id: number;
-    selected_direction: string;
-    unique_value?: string;
-    pitfall?: string;
-    focus_round: number;
-    previous_qa?: Array<Record<string, unknown>>;
-    user_redirect?: string;
-  }): Promise<Record<string, unknown>> {
-    return request('/creation/focus', {
-      method: 'POST',
-      body: JSON.stringify(params),
-    });
+  render(id: number): Promise<{ artifact_id: number; status: string }> {
+    return request(`/studio/projects/${id}/render`, { method: 'POST' });
   },
-
-  /** 收敛期：结构化方案输出（探索模式 Step 3） */
-  convergePlan(params: {
-    content_id: number;
-    platform: string;
-    selected_direction: string;
-    focus_answers: Array<Record<string, unknown>>;
-  }): Promise<Record<string, unknown>> {
-    return request('/creation/converge', {
-      method: 'POST',
-      body: JSON.stringify(params),
-    });
+  artifact(id: number): Promise<StudioArtifact> {
+    return request(`/studio/artifacts/${id}`);
+  },
+  harnessProduction(id: number): Promise<{ artifact_id: number; status: string; kind: string }> {
+    return request(`/studio/projects/${id}/harness-production`, { method: 'POST' });
   },
 };

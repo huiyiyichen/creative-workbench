@@ -281,6 +281,7 @@ class DailyReportRepository(BaseRepository[DailyReport]):
         cutoff_at,
         status: str = "GENERATING",
         overview: str = "正在生成日报...",
+        owner_user_id: int | None = None,
     ) -> DailyReport:
         """创建并 db.add 一个 GENERATING 占位日报记录，返回实例引用。
 
@@ -296,11 +297,12 @@ class DailyReportRepository(BaseRepository[DailyReport]):
             cutoff_at=cutoff_at,
             status=status,
             overview=overview,
+            owner_user_id=owner_user_id,
         )
         self.db.add(report)
         return report
 
-    def mark_generating(self, report: DailyReport) -> None:
+    def mark_generating(self, report: DailyReport, *, window_start=None, window_end=None, cutoff_at=None) -> None:
         """将已有日报记录标记为 GENERATING（原地修改属性，不 commit）。
 
         供 trigger_generate_version 端点使用——api 层不直接修改 ORM 属性。
@@ -308,6 +310,14 @@ class DailyReportRepository(BaseRepository[DailyReport]):
         """
         report.status = "GENERATING"
         report.updated_at = datetime.now(LOCAL_TZ)
+        report.generated_at = report.updated_at
+        report.overview = "正在生成日报..."
+        if window_start is not None:
+            report.window_start = window_start
+        if window_end is not None:
+            report.window_end = window_end
+        if cutoff_at is not None:
+            report.cutoff_at = cutoff_at
 
     async def mark_error(self, report_id: int, error_msg: str) -> None:
         """按主键加载日报记录并标记为 ERROR（含 overview 错误信息）。

@@ -1,5 +1,5 @@
 """
-Unified exception hierarchy for TopicEye backend.
+Unified exception hierarchy for Creative Workbench backend.
 
 All custom exceptions inherit from AppException so that FastAPI exception
 handlers can catch them uniformly.

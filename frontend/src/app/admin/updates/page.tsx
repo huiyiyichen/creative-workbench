@@ -260,7 +260,7 @@ export default function AdminUpdatesPage() {
                 value={versionQuery}
                 onChange={(e) => setVersionQuery(e.target.value)}
                 placeholder="按版本号搜索"
-                className="flex-1 min-w-[180px] rounded-sm border border-gray-200 bg-white px-3 py-1 text-[12px] focus:border-orange focus:outline-none"
+                className="flex-1 min-w-[180px] rounded-sm border border-gray-200 bg-white px-3 py-1 text-[12px] focus:border-primary focus:outline-none"
               />
               {([
                 { value: 'all', label: '全部', count: (items || []).length },
@@ -275,8 +275,8 @@ export default function AdminUpdatesPage() {
                   className={cx(
                     'flex items-center gap-1.5 rounded-sm border px-3 py-1 text-[12px] transition',
                     statusFilter === tab.value
-                      ? 'border-orange bg-orange text-white'
-                      : 'border-gray-200 bg-white text-gray-700 hover:border-orange/50',
+                      ? 'border-primary bg-primary text-white'
+                      : 'border-gray-200 bg-white text-gray-700 hover:border-primary/50',
                   )}
                 >
                   {tab.label}
@@ -434,7 +434,7 @@ function UpdateEditor({
                 value={draft.version}
                 onChange={(e) => onChange({ ...draft, version: e.target.value })}
                 placeholder="如 v0.2.0"
-                className="w-full rounded-sm border border-gray-200 bg-white px-3 py-1.5 text-[13px] focus:border-orange focus:outline-none"
+              className="w-full rounded-sm border border-gray-200 bg-white px-3 py-1.5 text-[13px] focus:border-primary focus:outline-none"
               />
             </div>
             <div>
@@ -448,8 +448,8 @@ function UpdateEditor({
                     className={cx(
                       'rounded-sm border px-3 py-1 text-[12px] transition',
                       draft.status === opt.value
-                        ? 'border-orange bg-orange text-white'
-                        : 'border-gray-200 bg-white text-gray-700 hover:border-orange/50',
+                        ? 'border-primary bg-primary text-white'
+                        : 'border-gray-200 bg-white text-gray-700 hover:border-primary/50',
                     )}
                   >
                     {opt.label}
@@ -463,7 +463,7 @@ function UpdateEditor({
                 type="date"
                 value={draft.target_date}
                 onChange={(e) => onChange({ ...draft, target_date: e.target.value })}
-                className="w-full rounded-sm border border-gray-200 bg-white px-3 py-1.5 text-[13px] focus:border-orange focus:outline-none"
+              className="w-full rounded-sm border border-gray-200 bg-white px-3 py-1.5 text-[13px] focus:border-primary focus:outline-none"
               />
             </div>
             <div>
@@ -472,7 +472,7 @@ function UpdateEditor({
                 type="date"
                 value={draft.shipped_at}
                 onChange={(e) => onChange({ ...draft, shipped_at: e.target.value })}
-                className="w-full rounded-sm border border-gray-200 bg-white px-3 py-1.5 text-[13px] focus:border-orange focus:outline-none"
+              className="w-full rounded-sm border border-gray-200 bg-white px-3 py-1.5 text-[13px] focus:border-primary focus:outline-none"
               />
             </div>
           </div>
@@ -501,8 +501,8 @@ function UpdateEditor({
                           className={cx(
                             'rounded-sm border px-2 py-0.5 text-[11px] transition',
                             it.kind === opt.value
-                              ? 'border-orange bg-orange text-white'
-                              : 'border-gray-200 bg-white text-gray-700 hover:border-orange/50',
+                              ? 'border-primary bg-primary text-white'
+                              : 'border-gray-200 bg-white text-gray-700 hover:border-primary/50',
                           )}
                         >
                           {opt.label}
@@ -523,7 +523,7 @@ function UpdateEditor({
                     onChange={(e) => onUpdateItem(idx, { title: e.target.value })}
                     maxLength={200}
                     placeholder="更新项标题"
-                    className="mb-2 w-full rounded-sm border border-gray-200 bg-white px-2.5 py-1.5 text-[13px] focus:border-orange focus:outline-none"
+                    className="mb-2 w-full rounded-sm border border-gray-200 bg-white px-2.5 py-1.5 text-[13px] focus:border-primary focus:outline-none"
                   />
                   <textarea
                       value={it.description}
@@ -531,7 +531,7 @@ function UpdateEditor({
                       rows={2}
                       maxLength={500}
                       placeholder="描述这次更新（用户看到的文案）"
-                      className="w-full rounded-sm border border-gray-200 bg-white px-2.5 py-1.5 text-[13px] focus:border-orange focus:outline-none"
+                      className="w-full rounded-sm border border-gray-200 bg-white px-2.5 py-1.5 text-[13px] focus:border-primary focus:outline-none"
                     />
                   </li>
                 ))}

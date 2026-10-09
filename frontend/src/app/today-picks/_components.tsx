@@ -77,7 +77,7 @@ export function OverviewStrip({
 }) {
   const stats = [
     { label: '精选内容', value: total, hint: loadedCount < total ? `已加载 ${loadedCount}` : '事件归并后', icon: Target, color: 'text-primary' },
-    { label: '平均分', value: avgScore || '-', hint: '算法校准', icon: BarChart3, color: 'text-teal' },
+    { label: '平均排序分', value: avgScore ?? '-', hint: '当前筛选', icon: BarChart3, color: 'text-teal' },
     { label: '话题组', value: topicCount, hint: '聚类结果', icon: Layers3, color: 'text-purple' },
     {
       label: '来源',
@@ -304,7 +304,7 @@ export function LeadPick({
         </div>
         <div className="flex items-center justify-center rounded-sm border border-primary-border bg-primary-light p-4 max-md:justify-start">
           <div className="text-center max-md:text-left">
-            <div className="mb-1 text-[11px] text-gray-500">SCORE</div>
+            <div className="mb-1 text-[11px] text-gray-500">排序分</div>
             <div className="font-mono text-[40px] font-black leading-none text-primary">{Math.round(score)}</div>
           </div>
         </div>
@@ -660,7 +660,11 @@ export function PickCard({
         />
         {showBreakdown && breakdown && (
           <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50/50 p-3" onClick={(e) => e.stopPropagation()}>
-            <ScoreBreakdownChart breakdown={breakdown} />
+            <ScoreBreakdownChart
+              breakdown={breakdown}
+              sourceAuthorityKnown={analysis?.source_weight != null}
+              contentScore={analysis?.curation_score}
+            />
           </div>
         )}
       </div>
