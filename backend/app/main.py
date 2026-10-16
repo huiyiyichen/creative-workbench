@@ -532,7 +532,7 @@ async def health_check():
 
 @app.get("/health/live", tags=["health"])
 async def health_live():
-    """轻量存活检查（Docker healthcheck 用）。
+    """轻量存活检查。
 
     只确认：进程能响应 HTTP + DB 连接可达。
     不检查 DuckDB / scheduler / LLM——那些是就绪检查的事。

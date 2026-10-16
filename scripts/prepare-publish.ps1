@@ -14,11 +14,11 @@ $folders = @(
 )
 $paths = @(
   '.gitignore', '.gitattributes', 'LICENSE', 'README.md',
-  'start.cmd', 'start-local.ps1', 'docker-compose.yml',
-  'backend/.dockerignore', 'backend/.env.example', 'backend/alembic.ini',
-  'backend/Dockerfile', 'backend/pyproject.toml', 'backend/pytest.ini', 'backend/uv.lock',
+  'start.cmd', 'start-local.ps1',
+  'backend/.env.example', 'backend/alembic.ini',
+  'backend/pyproject.toml', 'backend/pytest.ini', 'backend/uv.lock',
   'backend/media_runtime/package.json', 'backend/media_runtime/package-lock.json',
-  'frontend/.dockerignore', 'frontend/.env.example', 'frontend/.gitignore', 'frontend/Dockerfile',
+  'frontend/.env.example', 'frontend/.gitignore',
   'frontend/eslint.config.mjs', 'frontend/next.config.js', 'frontend/package.json',
   'frontend/package-lock.json', 'frontend/postcss.config.mjs', 'frontend/tailwind.config.ts',
   'frontend/tsconfig.json', 'frontend/vitest.config.ts'

@@ -7,7 +7,7 @@
 # =============================================================================
 
 .DEFAULT_GOAL := help
-.PHONY: help setup dev dev-db test test-backend test-frontend \
+.PHONY: help setup test test-backend test-frontend \
         lint lint-backend lint-frontend layering backup
 
 help:  ## 列出所有可用目标
@@ -17,12 +17,6 @@ help:  ## 列出所有可用目标
 setup:  ## 安装后端(dev)与前端依赖
 	cd backend && uv sync
 	cd frontend && npm ci
-
-dev:  ## docker compose 起全栈（backend + frontend + postgres）
-	docker compose up
-
-dev-db:  ## 仅启动 PostgreSQL（本地开发用）
-	docker compose up postgres
 
 test: test-backend test-frontend  ## 跑后端 + 前端测试
 

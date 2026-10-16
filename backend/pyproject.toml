@@ -6,7 +6,7 @@
 #
 # 常用命令：
 #   - uv sync            安装全部依赖（含 dev group）到 backend/.venv
-#   - uv sync --no-dev   仅生产依赖（Docker 构建用）
+#   - uv sync --no-dev   仅生产依赖
 #   - uv run <cmd>       在锁定环境中执行命令（如 uv run pytest）
 #   - uv lock            依赖声明变更后重新锁定
 #

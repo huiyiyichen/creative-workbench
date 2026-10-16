@@ -48,12 +48,6 @@ frontend/.runtime-*.log
 *.mp3
 output/
 
-# Docker
-docker-data/
-
-# Deploy (runtime-generated Nginx config)
-deploy/nginx/conf.d/
-
 # IDE
 .idea/
 .vscode/
