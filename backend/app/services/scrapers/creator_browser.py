@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import re
 from datetime import UTC, datetime
 
@@ -67,10 +68,8 @@ async def fetch_creator_posts(route: str) -> list[dict]:
 
             async def read_response(response):
                 if response_path in response.url and response.status == 200:
-                    try:
+                    with contextlib.suppress(ValueError, KeyError):
                         posts.extend(parse(await response.json()))
-                    except (ValueError, KeyError):
-                        pass
 
             pending: set[asyncio.Task] = set()
 
