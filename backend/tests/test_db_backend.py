@@ -17,21 +17,21 @@ from app.core.time import naive_utc_now
 
 
 def test_postgresql_profile_and_duckdb_attach_sql():
-    url = "postgresql://topiceye:secret@localhost:5432/topiceye"
+    url = "postgresql://creative_workbench:secret@localhost:5432/creative_workbench"
 
     profile = create_database_profile(url)
 
     assert database_backend(url) == "postgresql"
     assert profile.is_postgresql
-    assert profile.url == "postgresql+asyncpg://topiceye:***@localhost:5432/topiceye".replace("***", "secret")
+    assert profile.url == "postgresql+asyncpg://creative_workbench:***@localhost:5432/creative_workbench".replace("***", "secret")
     assert async_database_url(url) == profile.url
     assert sync_database_url(url).startswith("postgresql+psycopg://")
     assert duckdb_extension_name(profile) == "postgres"
     attach_sql = duckdb_attach_sql(profile)
     assert "TYPE postgres" in attach_sql
     assert "READ_ONLY" in attach_sql
-    assert "dbname=topiceye" in attach_sql
-    assert "user=topiceye" in attach_sql
+    assert "dbname=creative_workbench" in attach_sql
+    assert "user=creative_workbench" in attach_sql
     assert "password=secret" in attach_sql
 
     diagnostics = database_diagnostics(profile)
@@ -48,20 +48,20 @@ def test_postgresql_profile_and_duckdb_attach_sql():
 
 
 def test_postgres_alias_profile_uses_asyncpg_and_duckdb_postgres_attach():
-    url = "postgres://topiceye:secret@localhost:5432/topiceye"
+    url = "postgres://creative_workbench:secret@localhost:5432/creative_workbench"
 
     profile = create_database_profile(url)
 
     assert database_backend(url) == "postgresql"
-    assert profile.url == "postgresql+asyncpg://topiceye:secret@localhost:5432/topiceye"
-    assert profile.sync_url == "postgresql+psycopg://topiceye:secret@localhost:5432/topiceye"
+    assert profile.url == "postgresql+asyncpg://creative_workbench:secret@localhost:5432/creative_workbench"
+    assert profile.sync_url == "postgresql+psycopg://creative_workbench:secret@localhost:5432/creative_workbench"
     assert profile.async_driver == "asyncpg"
     assert duckdb_extension_name(profile) == "postgres"
     assert "TYPE postgres" in duckdb_attach_sql(profile)
 
 
 def test_database_secret_redaction_covers_urls_conninfo_and_attach_sql():
-    url = "postgresql+asyncpg://topiceye:s3 cr'et@localhost:5432/topiceye"
+    url = "postgresql+asyncpg://creative_workbench:s3 cr'et@localhost:5432/creative_workbench"
     profile = create_database_profile(url)
     attach_sql = duckdb_attach_sql(profile)
     raw_error = f"failed for {url}; conninfo password='s3 cr\\'et'; attach={attach_sql}"
@@ -71,11 +71,11 @@ def test_database_secret_redaction_covers_urls_conninfo_and_attach_sql():
     assert redacted is not None
     assert "s3 cr'et" not in redacted
     assert "password=***" in redacted
-    assert "postgresql+asyncpg://topiceye:***@localhost:5432/topiceye" in redacted
+    assert "postgresql+asyncpg://creative_workbench:***@localhost:5432/creative_workbench" in redacted
 
 
 def test_database_profile_rejects_unsupported_backend():
-    url = "mysql+aiomysql://topiceye:secret@localhost:3306/topiceye"
+    url = "mysql+aiomysql://creative_workbench:secret@localhost:3306/creative_workbench"
 
     with pytest.raises(ValueError, match="Unsupported database backend"):
         create_database_profile(url)

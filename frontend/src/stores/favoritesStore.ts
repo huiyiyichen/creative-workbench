@@ -78,8 +78,8 @@ export type FavoritesContextType = Omit<
 
 // ── localStorage helpers ──────────────────────────────────────
 
-const FAVORITES_STORAGE_KEY = 'topiceye_favorites';
-const FAVORITE_TARGETS_STORAGE_KEY = 'topiceye_favorite_targets';
+const FAVORITES_STORAGE_KEY = 'creative_workbench_favorites';
+const FAVORITE_TARGETS_STORAGE_KEY = 'creative_workbench_favorite_targets';
 
 function userStorageKey(baseKey: string, userId: number | null): string {
   return userId ? `${baseKey}:user:${userId}` : baseKey;

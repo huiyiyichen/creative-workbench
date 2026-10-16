@@ -180,7 +180,7 @@ async def test_duckdb_status_redacts_database_secret_on_unhandled_error(
     settings_notifications_client: httpx.AsyncClient,
     monkeypatch,
 ):
-    url = "postgresql+asyncpg://topiceye:s3 cr'et@localhost:5432/topiceye"
+    url = "postgresql+asyncpg://creative_workbench:s3 cr'et@localhost:5432/creative_workbench"
     profile = create_database_profile(url)
 
     def fail_get_analytics():
@@ -197,12 +197,12 @@ async def test_duckdb_status_redacts_database_secret_on_unhandled_error(
     assert "s3 cr'et" not in payload["error"]
     assert "s3 cr\\'et" not in payload["error"]
     assert "password=***" in payload["error"]
-    assert "postgresql+asyncpg://topiceye:***@localhost:5432/topiceye" in payload["error"]
+    assert "postgresql+asyncpg://creative_workbench:***@localhost:5432/creative_workbench" in payload["error"]
 
 
 @pytest.mark.asyncio
 async def test_health_redacts_duckdb_database_secret_on_error(monkeypatch):
-    url = "postgresql+asyncpg://topiceye:s3 cr'et@localhost:5432/topiceye"
+    url = "postgresql+asyncpg://creative_workbench:s3 cr'et@localhost:5432/creative_workbench"
     profile = create_database_profile(url)
 
     def fail_get_analytics():
@@ -233,7 +233,7 @@ async def test_health_redacts_duckdb_database_secret_on_error(monkeypatch):
     assert "s3 cr'et" not in error
     assert "s3 cr\\'et" not in error
     assert "password=***" in error
-    assert "postgresql+asyncpg://topiceye:***@localhost:5432/topiceye" in error
+    assert "postgresql+asyncpg://creative_workbench:***@localhost:5432/creative_workbench" in error
 
 
 @pytest.mark.asyncio

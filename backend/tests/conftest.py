@@ -90,8 +90,8 @@ def _ensure_test_db_schema():
     from sqlalchemy.ext.asyncio import create_async_engine
 
     test_database = make_url(os.environ["DATABASE_URL"]).database or ""
-    if not test_database.startswith("topiceye_test"):
-        raise RuntimeError("Tests require an isolated topiceye_test* database; refusing destructive cleanup.")
+    if not test_database.startswith("creative_workbench_test"):
+        raise RuntimeError("Tests require an isolated creative_workbench_test* database; refusing destructive cleanup.")
 
     async def _init():
         engine = create_async_engine(os.environ["DATABASE_URL"])

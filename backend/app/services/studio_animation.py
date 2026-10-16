@@ -250,7 +250,7 @@ async def render_storyboard(brief, draft, directory, style, on_progress=None, on
             planning.cancel()
             await asyncio.gather(planning, return_exceptions=True)
     plan["width"], plan["height"] = {"16:9": (960, 540), "9:16": (540, 960), "1:1": (720, 720)}[brief.aspect_ratio]
-    font = Path(os.environ.get("TOPICEYE_CJK_FONT", "C:/Windows/Fonts/NotoSansSC-VF.ttf"))
+    font = Path(os.environ.get("CREATIVE_WORKBENCH_CJK_FONT", "C:/Windows/Fonts/NotoSansSC-VF.ttf"))
     (directory / "fonts").mkdir(exist_ok=True)
     shutil.copyfile(font, directory / "fonts" / "NotoSansSC.ttf")
     if on_stage:

@@ -166,9 +166,9 @@ async def render_native_mv(
     fonts = directory / "fonts"
     fonts.mkdir(exist_ok=True)
     # The replaceable font slot requires an installed open-source Chinese font.
-    font = Path(os.environ.get("TOPICEYE_CJK_FONT", "C:/Windows/Fonts/NotoSansSC-VF.ttf"))
+    font = Path(os.environ.get("CREATIVE_WORKBENCH_CJK_FONT", "C:/Windows/Fonts/NotoSansSC-VF.ttf"))
     if not font.is_file():
-        raise AppException("未找到 Noto Sans SC 字体，请配置 TOPICEYE_CJK_FONT", 503)
+        raise AppException("未找到 Noto Sans SC 字体，请配置 CREATIVE_WORKBENCH_CJK_FONT", 503)
     await asyncio.to_thread(shutil.copyfile, font, fonts / "NotoSansSC.ttf")
     await asyncio.to_thread(
         (directory / "lyrics.ass").write_text,

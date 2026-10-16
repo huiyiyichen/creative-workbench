@@ -148,7 +148,7 @@ async def prepare_animation(
     fonts = workspace / "public" / "fonts"
     fonts.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(
-        os.environ.get("TOPICEYE_CJK_FONT", "C:/Windows/Fonts/NotoSansSC-VF.ttf"),
+        os.environ.get("CREATIVE_WORKBENCH_CJK_FONT", "C:/Windows/Fonts/NotoSansSC-VF.ttf"),
         fonts / "NotoSansSC.ttf",
     )
     config = await tts_config(db, with_secret=True) if soundtrack is None else None

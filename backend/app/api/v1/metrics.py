@@ -1,45 +1,45 @@
 """
 Prometheus 兼容的 /metrics 端点。
 
-暴露 TopicEye 的关键运行指标，可被 Prometheus / Grafana / VictoriaMetrics
+暴露 Creative Workbench 的关键运行指标，可被 Prometheus / Grafana / VictoriaMetrics
 抓取。无需第三方库——直接输出 Prometheus text format。
 
 指标覆盖（业务数据层）：
-- topiceye_sources_total{status}: 按 status 分的 source 数
-- topiceye_content_total{status}: 按 status 分的内容数
-- topiceye_content_recent_24h: 最近 24h 新增内容数
-- topiceye_analyses_total: 分析总数
-- topiceye_job_runs_total{status}: job 运行数（从 job_execution_logs）
-- topiceye_uptime_seconds: 进程运行时间
-- topiceye_slow_queries_total: 慢查询累计计数
-- topiceye_low_signal_total: 预过滤跳过的低信号内容累计计数
+- creative_workbench_sources_total{status}: 按 status 分的 source 数
+- creative_workbench_content_total{status}: 按 status 分的内容数
+- creative_workbench_content_recent_24h: 最近 24h 新增内容数
+- creative_workbench_analyses_total: 分析总数
+- creative_workbench_job_runs_total{status}: job 运行数（从 job_execution_logs）
+- creative_workbench_uptime_seconds: 进程运行时间
+- creative_workbench_slow_queries_total: 慢查询累计计数
+- creative_workbench_low_signal_total: 预过滤跳过的低信号内容累计计数
 
 指标覆盖（HTTP 请求可观测性层 — 来自 RequestMetricsCollector）：
-- topiceye_http_requests_total{method,path,status}: HTTP 请求总数
-- topiceye_http_request_duration_seconds{method,path}: 请求延迟 histogram
-- topiceye_http_requests_in_progress: 当前在途请求数
-- topiceye_http_rate_limit_hits_total{path}: 限流命中次数
-- topiceye_http_errors_total{method,path,status_class}: 5xx 错误数
+- creative_workbench_http_requests_total{method,path,status}: HTTP 请求总数
+- creative_workbench_http_request_duration_seconds{method,path}: 请求延迟 histogram
+- creative_workbench_http_requests_in_progress: 当前在途请求数
+- creative_workbench_http_rate_limit_hits_total{path}: 限流命中次数
+- creative_workbench_http_errors_total{method,path,status_class}: 5xx 错误数
 
 指标覆盖（LLM 调用聚合层 — 来自 RequestMetricsCollector）：
-- topiceye_llm_calls_total{scene,status}: LLM 调用总数
-- topiceye_llm_call_duration_seconds{scene}: LLM 调用延迟 histogram
-- topiceye_llm_tokens_total{scene,direction}: LLM token 用量
-- topiceye_llm_cost_total{scene}: LLM 累计成本 (USD)
+- creative_workbench_llm_calls_total{scene,status}: LLM 调用总数
+- creative_workbench_llm_call_duration_seconds{scene}: LLM 调用延迟 histogram
+- creative_workbench_llm_tokens_total{scene,direction}: LLM token 用量
+- creative_workbench_llm_cost_total{scene}: LLM 累计成本 (USD)
 
 指标覆盖（数据库连接池层）：
-- topiceye_db_pool_size{pool}: 连接池配置大小
-- topiceye_db_pool_checked_out{pool}: 当前已借出连接数
-- topiceye_db_pool_overflow{pool}: 当前溢出连接数
+- creative_workbench_db_pool_size{pool}: 连接池配置大小
+- creative_workbench_db_pool_checked_out{pool}: 当前已借出连接数
+- creative_workbench_db_pool_overflow{pool}: 当前溢出连接数
 
 指标覆盖（LLM 模型池运行层 — 来自 LlmPoolMetrics，MP-P0-T3）：
-- topiceye_llm_pool_inflight{scope}: 当前在途调用数（gauge）
-- topiceye_llm_pool_max_active{scope}: 历史最大在途（gauge）
-- topiceye_llm_pool_admitted_total{scope}: 已放行调用累计（counter）
-- topiceye_llm_pool_queue_wait_seconds_total{scope}: 排队等待累计秒（counter）
-- topiceye_llm_pool_rate_limit_wait_seconds_total{scope}: 限流等待累计秒（counter）
-- topiceye_llm_pool_circuit_events_total{scope,event}: 熔断事件累计（counter）
-- topiceye_analysis_pending_total: 仍可被分析队列领取的内容数（积压深度）
+- creative_workbench_llm_pool_inflight{scope}: 当前在途调用数（gauge）
+- creative_workbench_llm_pool_max_active{scope}: 历史最大在途（gauge）
+- creative_workbench_llm_pool_admitted_total{scope}: 已放行调用累计（counter）
+- creative_workbench_llm_pool_queue_wait_seconds_total{scope}: 排队等待累计秒（counter）
+- creative_workbench_llm_pool_rate_limit_wait_seconds_total{scope}: 限流等待累计秒（counter）
+- creative_workbench_llm_pool_circuit_events_total{scope,event}: 熔断事件累计（counter）
+- creative_workbench_analysis_pending_total: 仍可被分析队列领取的内容数（积压深度）
 
 scope 形如 route:{routing_group}|channel:{channel_or_model}|scene:{scene}，
 为低基数聚合键，不包含 prompt、密钥或内容 id。
@@ -98,7 +98,7 @@ def _render_llm_pool_metrics(
         data = pool_snapshot[scope]
         if "active" in data:
             _emit(
-                "topiceye_llm_pool_inflight",
+                "creative_workbench_llm_pool_inflight",
                 "gauge",
                 data["active"],
                 "LLM calls currently in-flight per pool scope",
@@ -106,7 +106,7 @@ def _render_llm_pool_metrics(
             )
         if "max_active" in data:
             _emit(
-                "topiceye_llm_pool_max_active",
+                "creative_workbench_llm_pool_max_active",
                 "gauge",
                 data["max_active"],
                 "High-water mark of in-flight LLM calls per pool scope",
@@ -114,7 +114,7 @@ def _render_llm_pool_metrics(
             )
         if "admitted" in data:
             _emit(
-                "topiceye_llm_pool_admitted_total",
+                "creative_workbench_llm_pool_admitted_total",
                 "counter",
                 data["admitted"],
                 "LLM calls admitted per pool scope (cumulative)",
@@ -122,7 +122,7 @@ def _render_llm_pool_metrics(
             )
         if "queue_wait_seconds" in data:
             _emit(
-                "topiceye_llm_pool_queue_wait_seconds_total",
+                "creative_workbench_llm_pool_queue_wait_seconds_total",
                 "counter",
                 data["queue_wait_seconds"],
                 "Cumulative seconds spent waiting for a completion slot",
@@ -130,7 +130,7 @@ def _render_llm_pool_metrics(
             )
         if "rate_limit_wait_seconds" in data:
             _emit(
-                "topiceye_llm_pool_rate_limit_wait_seconds_total",
+                "creative_workbench_llm_pool_rate_limit_wait_seconds_total",
                 "counter",
                 data["rate_limit_wait_seconds"],
                 "Cumulative seconds spent waiting on RPM/token admission",
@@ -141,7 +141,7 @@ def _render_llm_pool_metrics(
             if key.startswith("circuit_") and key.endswith("_total"):
                 event = key[len("circuit_") : -len("_total")]
                 _emit(
-                    "topiceye_llm_pool_circuit_events_total",
+                    "creative_workbench_llm_pool_circuit_events_total",
                     "counter",
                     count,
                     "LLM pool circuit-breaker events (cumulative)",
@@ -172,52 +172,52 @@ async def prometheus_metrics():
 
         # ── Sources by status ──
         for status, count in await repo.count_sources_by_status():
-            gauge("topiceye_sources_total", count, "Sources by status", {"status": status})
+            gauge("creative_workbench_sources_total", count, "Sources by status", {"status": status})
 
         # ── Content by status ──
         for status, count in await repo.count_content_by_status():
-            gauge("topiceye_content_total", count, "Content items by status", {"status": status})
+            gauge("creative_workbench_content_total", count, "Content items by status", {"status": status})
 
         # ── Recent content (24h) ──
         cutoff = now - timedelta(hours=24)
         recent = await repo.count_recent_content(cutoff)
-        gauge("topiceye_content_recent_24h", recent, "Content items crawled in last 24h")
+        gauge("creative_workbench_content_recent_24h", recent, "Content items crawled in last 24h")
 
         # ── Analyses total ──
         analyses = await repo.count_analyses()
-        gauge("topiceye_analyses_total", analyses, "Total AI analyses")
+        gauge("creative_workbench_analyses_total", analyses, "Total AI analyses")
 
         # ── Job runs by status (last 24h) ──
         for status, count in await repo.count_job_runs_by_status_since(cutoff):
-            gauge("topiceye_job_runs_total", count, "Job runs in last 24h by status", {"status": status})
+            gauge("creative_workbench_job_runs_total", count, "Job runs in last 24h by status", {"status": status})
 
         # ── Notifications unread ──
         unread = await repo.count_notifications()
-        gauge("topiceye_notifications_total", unread, "Total notifications")
+        gauge("creative_workbench_notifications_total", unread, "Total notifications")
 
         # ── Analysis backlog depth（模型池积压：仍可被领取的待分析内容数）──
         # 复用 list_pending_for_analysis / claim_pending_analysis_jobs 同一资格谓词。
         pending = await ContentRepo(db).count_pending_for_analysis()
         gauge(
-            "topiceye_analysis_pending_total",
+            "creative_workbench_analysis_pending_total",
             pending,
             "Content items still claimable by the analysis queue (backlog depth)",
         )
 
     # ── Uptime ──
     uptime = time.monotonic() - _START_TIME
-    gauge("topiceye_uptime_seconds", int(uptime), "Process uptime in seconds")
+    gauge("creative_workbench_uptime_seconds", int(uptime), "Process uptime in seconds")
 
     # ── Slow queries (cumulative since startup) ──
     from app.core.slow_query import get_slow_count
 
-    gauge("topiceye_slow_queries_total", get_slow_count(), "SQL queries exceeding slow query threshold (cumulative)")
+    gauge("creative_workbench_slow_queries_total", get_slow_count(), "SQL queries exceeding slow query threshold (cumulative)")
 
     # ── LLM pre-filter low-signal counter (cumulative since startup) ──
     from app.services.llm_pre_filter import get_skip_count
 
     gauge(
-        "topiceye_low_signal_total",
+        "creative_workbench_low_signal_total",
         get_skip_count(),
         "Content items skipped from LLM queue by rule-based pre-filter (cumulative)",
     )
@@ -249,12 +249,12 @@ async def prometheus_metrics():
         size = pool.size()
         checked_out = pool.checkedout()
         overflow = pool.overflow()
-        gauge("topiceye_db_pool_size", size, "DB connection pool configured size", {"pool": "primary"})
-        gauge("topiceye_db_pool_checked_out", checked_out, "DB connections currently checked out", {"pool": "primary"})
-        gauge("topiceye_db_pool_overflow", overflow, "DB connections currently in overflow", {"pool": "primary"})
+        gauge("creative_workbench_db_pool_size", size, "DB connection pool configured size", {"pool": "primary"})
+        gauge("creative_workbench_db_pool_checked_out", checked_out, "DB connections currently checked out", {"pool": "primary"})
+        gauge("creative_workbench_db_pool_overflow", overflow, "DB connections currently in overflow", {"pool": "primary"})
         collector.update_db_pool_snapshot(checked_out, size)
     except Exception as exc:
-        gauge("topiceye_db_pool_error", 1, "DB pool metrics collection error", {"pool": "primary"})
+        gauge("creative_workbench_db_pool_error", 1, "DB pool metrics collection error", {"pool": "primary"})
         # 不阻断 /metrics 输出
         import logging
 

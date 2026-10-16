@@ -135,7 +135,7 @@ cd ../backend
 uv run python -m pytest tests/test_scoring_engine.py tests/test_studio_lrc.py -q --noconftest -o addopts=''
 ```
 
-集成测试的 `DATABASE_URL` 指向独立的 `topiceye_test*` 数据库。
+集成测试的 `DATABASE_URL` 指向独立的 `creative_workbench_test*` 数据库。
 
 ## 来源与许可
 

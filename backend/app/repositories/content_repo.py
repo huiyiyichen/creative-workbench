@@ -193,7 +193,7 @@ class ContentRepo(BaseRepository[ContentItem]):
 
         与 :meth:`list_pending_for_analysis` / :meth:`claim_pending_analysis_jobs`
         使用完全相同的资格谓词（同一 candidate condition + ``skip_analysis=False``），
-        只计数不取行，供 ``/metrics`` 导出 ``topiceye_analysis_pending_total``。
+        只计数不取行，供 ``/metrics`` 导出 ``creative_workbench_analysis_pending_total``。
         保持谓词同步是 MP-P0-T4 的正确性不变量，不得在此另写一套条件。
         """
         now = naive_utc_now()

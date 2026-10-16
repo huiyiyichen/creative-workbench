@@ -33,7 +33,7 @@ def create_ignored_items_table(conn):
 
 
 def test_duckdb_status_redacts_database_password_on_connection_failure(monkeypatch):
-    url = "postgresql+asyncpg://topiceye:s3 cr'et@localhost:5432/topiceye"
+    url = "postgresql+asyncpg://creative_workbench:s3 cr'et@localhost:5432/creative_workbench"
     monkeypatch.setattr(duckdb_service.settings, "DATABASE_URL", url)
 
     analytics = duckdb_service.DuckDBAnalytics()
@@ -51,7 +51,7 @@ def test_duckdb_status_redacts_database_password_on_connection_failure(monkeypat
     assert "s3 cr'et" not in status["error"]
     assert "s3 cr\\'et" not in status["error"]
     assert "password=***" in status["error"]
-    assert "postgresql+asyncpg://topiceye:***@localhost:5432/topiceye" in status["error"]
+    assert "postgresql+asyncpg://creative_workbench:***@localhost:5432/creative_workbench" in status["error"]
 
 
 def test_stats_queries_use_latest_analysis_only(monkeypatch):

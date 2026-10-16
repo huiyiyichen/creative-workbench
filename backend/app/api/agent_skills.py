@@ -8,12 +8,12 @@ discovery-rfc) so external agents can install the read-skill via:
 The CLI fetches ``/.well-known/agent-skills/index.json`` to discover skills,
 then downloads each skill's ``SKILL.md``. All endpoints here are PUBLIC (no
 Bearer token) because the discovery + skill download must precede auth — the
-skill itself instructs the agent to set ``$TOPICEYE_API_TOKEN`` before calling
+skill itself instructs the agent to set ``$CREATIVE_WORKBENCH_API_TOKEN`` before calling
 the protected ``/api/v1/skill/*`` read endpoints.
 
 Three public endpoints:
   GET /.well-known/agent-skills/index.json
-  GET /.well-known/agent-skills/topiceye-reader/SKILL.md
+  GET /.well-known/agent-skills/creative-workbench-reader/SKILL.md
   GET /skill/install  (human-readable install instructions for the profile UI)
 """
 
@@ -26,18 +26,18 @@ from fastapi.responses import PlainTextResponse
 
 router = APIRouter(prefix="", tags=["agent-skills"])
 
-SKILL_NAME = "topiceye-reader"
+SKILL_NAME = "creative-workbench-reader"
 SKILL_DESCRIPTION = (
     "读取创意工作台选题数据（今日精选 / 日报 / 趋势）。当用户询问"
     "「今天有什么值得写的选题」「最近有什么热点」「给我看看选题日报」时调用。"
-    "需要先设置环境变量 TOPICEYE_API_URL 和 TOPICEYE_API_TOKEN。"
+    "需要先设置环境变量 CREATIVE_WORKBENCH_API_URL 和 CREATIVE_WORKBENCH_API_TOKEN。"
 )
 
 
 def _skill_markdown(base_url: str) -> str:
     """Render the SKILL.md body with the instance's base URL baked in.
 
-    The agent reads ``$TOPICEYE_API_URL`` / ``$ TOPICEYE_API_TOKEN`` at runtime,
+    The agent reads ``$CREATIVE_WORKBENCH_API_URL`` / ``$ CREATIVE_WORKBENCH_API_TOKEN`` at runtime,
     but we surface the discovered base URL in the docs so the user knows what
     to export. The skill is the same across instances; only the doc hint changes.
     """
@@ -57,21 +57,21 @@ version: 1.0.0
 调用前必须设置两个环境变量：
 
 ```bash
-export TOPICEYE_API_URL="{base_url}"      # 当前创意工作台实例地址
-export TOPICEYE_API_TOKEN="<你的 API Token>" # 在创意工作台「个人中心 → Agent 接入」创建
+export CREATIVE_WORKBENCH_API_URL="{base_url}"      # 当前创意工作台实例地址
+export CREATIVE_WORKBENCH_API_TOKEN="<你的 API Token>" # 在创意工作台「个人中心 → Agent 接入」创建
 ```
 
 所有请求带鉴权头：
 
 ```
-Authorization: Bearer $TOPICEYE_API_TOKEN
+Authorization: Bearer $CREATIVE_WORKBENCH_API_TOKEN
 ```
 
 > 若环境变量未设置，提示用户按上面格式 export 后重试，不要臆造地址或 token。
 
 ## 端点
 
-### 1. `GET $TOPICEYE_API_URL/api/v1/skill/today-picks` — 今日精选选题
+### 1. `GET $CREATIVE_WORKBENCH_API_URL/api/v1/skill/today-picks` — 今日精选选题
 
 返回最近 N 小时内创意工作台的精选选题。**回答"今天有什么值得写的"的首选端点。**
 
@@ -84,11 +84,11 @@ Authorization: Bearer $TOPICEYE_API_TOKEN
 - `items[*].analysis.score_breakdown` — 完整评分明细
 
 ```bash
-curl "$TOPICEYE_API_URL/api/v1/skill/today-picks?hours=48&limit=10" \\
-  -H "Authorization: Bearer $TOPICEYE_API_TOKEN"
+curl "$CREATIVE_WORKBENCH_API_URL/api/v1/skill/today-picks?hours=48&limit=10" \\
+  -H "Authorization: Bearer $CREATIVE_WORKBENCH_API_TOKEN"
 ```
 
-### 2. `GET $TOPICEYE_API_URL/api/v1/skill/daily-report` — 日报
+### 2. `GET $CREATIVE_WORKBENCH_API_URL/api/v1/skill/daily-report` — 日报
 
 返回创意工作台生成的日报（已编辑的选题综述）。参数：`date`（YYYY-MM-DD，缺省=今天）。
 
@@ -96,17 +96,17 @@ curl "$TOPICEYE_API_URL/api/v1/skill/today-picks?hours=48&limit=10" \\
 `keywords` / `trends`。
 
 ```bash
-curl "$TOPICEYE_API_URL/api/v1/skill/daily-report?date=2026-07-17" \\
-  -H "Authorization: Bearer $TOPICEYE_API_TOKEN"
+curl "$CREATIVE_WORKBENCH_API_URL/api/v1/skill/daily-report?date=2026-07-17" \\
+  -H "Authorization: Bearer $CREATIVE_WORKBENCH_API_TOKEN"
 ```
 
-### 3. `GET $TOPICEYE_API_URL/api/v1/skill/trends` — 话题趋势 + 关键词
+### 3. `GET $CREATIVE_WORKBENCH_API_URL/api/v1/skill/trends` — 话题趋势 + 关键词
 
 合并返回话题趋势和关键词词频。参数：`days`（1–30，默认 7）、`limit`（10–200，默认 50）。
 
 ```bash
-curl "$TOPICEYE_API_URL/api/v1/skill/trends?days=7" \\
-  -H "Authorization: Bearer $TOPICEYE_API_TOKEN"
+curl "$CREATIVE_WORKBENCH_API_URL/api/v1/skill/trends?days=7" \\
+  -H "Authorization: Bearer $CREATIVE_WORKBENCH_API_TOKEN"
 ```
 
 ## 典型用法
@@ -167,7 +167,7 @@ async def agent_skills_index(request: Request):
 
 
 @router.get(
-    "/.well-known/agent-skills/topiceye-reader/SKILL.md",
+    "/.well-known/agent-skills/creative-workbench-reader/SKILL.md",
     summary="Creative Workbench reader skill (SKILL.md)",
 )
 async def agent_skill_markdown(request: Request) -> PlainTextResponse:

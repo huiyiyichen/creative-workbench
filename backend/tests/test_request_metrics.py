@@ -212,27 +212,27 @@ class TestRequestMetricsCollector:
         text = "\n".join(lines)
 
         # 验证 Prometheus text format 关键标记
-        assert "# HELP topiceye_http_requests_total" in text
-        assert "# TYPE topiceye_http_requests_total counter" in text
-        assert "# HELP topiceye_http_request_duration_seconds" in text
-        assert "# TYPE topiceye_http_request_duration_seconds histogram" in text
-        assert "# HELP topiceye_llm_calls_total" in text
-        assert "# HELP topiceye_llm_call_duration_seconds" in text
-        assert "topiceye_http_requests_in_progress" in text
+        assert "# HELP creative_workbench_http_requests_total" in text
+        assert "# TYPE creative_workbench_http_requests_total counter" in text
+        assert "# HELP creative_workbench_http_request_duration_seconds" in text
+        assert "# TYPE creative_workbench_http_request_duration_seconds histogram" in text
+        assert "# HELP creative_workbench_llm_calls_total" in text
+        assert "# HELP creative_workbench_llm_call_duration_seconds" in text
+        assert "creative_workbench_http_requests_in_progress" in text
 
         # 验证 histogram 有 +Inf 桶
         assert 'le="+Inf"' in text
 
         # 验证有实际数据行
-        assert any("topiceye_http_requests_total{" in line for line in lines)
-        assert any("topiceye_llm_calls_total{" in line for line in lines)
+        assert any("creative_workbench_http_requests_total{" in line for line in lines)
+        assert any("creative_workbench_llm_calls_total{" in line for line in lines)
 
     def test_render_prometheus_empty(self):
         """空 collector 不应崩溃。"""
         c = self._fresh_collector()
         lines = c.render_prometheus()
         assert len(lines) > 0  # 仍有 HELP/TYPE 头
-        assert any("topiceye_http_requests_in_progress" in line for line in lines)
+        assert any("creative_workbench_http_requests_in_progress" in line for line in lines)
 
     def test_db_pool_snapshot(self):
         c = self._fresh_collector()

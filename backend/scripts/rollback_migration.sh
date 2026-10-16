@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# TopicEye 数据库迁移回滚脚本
+# Creative Workbench 数据库迁移回滚脚本
 #
 # 用法：
 #   ./scripts/rollback_migration.sh [target_revision]

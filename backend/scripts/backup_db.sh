@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# TopicEye 数据库备份脚本
+# Creative Workbench 数据库备份脚本
 #
 # 用法：
 #   ./scripts/backup_db.sh [backup_dir]
@@ -33,7 +33,7 @@ echo "[$(date)] Backup started → $BACKUP_DIR"
 
 if [[ "$DATABASE_URL" == postgresql* ]]; then
     # ── PostgreSQL backup ──
-    BACKUP_FILE="$BACKUP_DIR/topiceye_${TIMESTAMP}.dump"
+    BACKUP_FILE="$BACKUP_DIR/creative_workbench_${TIMESTAMP}.dump"
 
     # 从 URL 解析连接参数
     PG_URL="${DATABASE_URL#postgresql+asyncpg://}"
@@ -59,7 +59,7 @@ fi
 if [[ "$KEEP_COUNT" -gt 0 ]]; then
     # 按修改时间倒序，删除超出的
     cd "$BACKUP_DIR" || exit 1
-    ls -t topiceye_* 2>/dev/null | tail -n +"$((KEEP_COUNT + 1))" | while read -r old_file; do
+    ls -t creative_workbench_* 2>/dev/null | tail -n +"$((KEEP_COUNT + 1))" | while read -r old_file; do
         rm -f "$old_file"
         echo "[$(date)] Pruned old backup: $old_file"
     done

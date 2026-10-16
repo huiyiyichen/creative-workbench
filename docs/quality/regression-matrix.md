@@ -4,7 +4,7 @@
 
 ## 一、测试运行
 
-后端 conftest 会对 `DATABASE_URL` 指向的库执行 `TRUNCATE ... CASCADE` 并终止其他连接，`DATABASE_URL` 必须指向独立的 `topiceye_test*` 库。
+后端 conftest 会对 `DATABASE_URL` 指向的库执行 `TRUNCATE ... CASCADE` 并终止其他连接，`DATABASE_URL` 必须指向独立的 `creative_workbench_test*` 库。
 
 | 场景 | 命令 |
 |---|---|

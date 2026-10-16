@@ -3,7 +3,7 @@
 覆盖：
 - ``_render_llm_pool_metrics``：纯函数，把 LlmPoolMetrics.snapshot() 渲染为
   Prometheus text format，含标签转义、空快照、熔断事件、scope 排序稳定性。
-- ``/metrics`` 端点：导出 ``topiceye_llm_pool_*`` 与 ``topiceye_analysis_pending_total``。
+- ``/metrics`` 端点：导出 ``creative_workbench_llm_pool_*`` 与 ``creative_workbench_analysis_pending_total``。
 - ``/metrics/snapshot`` 端点：JSON 含 ``llm_pool`` 与 ``analysis_pending`` 键。
 
 不发起真实 LLM 请求、不触碰密钥、不依赖真实时钟。
@@ -39,16 +39,16 @@ class TestRenderLlmPoolMetrics:
             }
         }
         text = "\n".join(_render_llm_pool_metrics(snapshot))
-        assert "# HELP topiceye_llm_pool_inflight" in text
-        assert "# TYPE topiceye_llm_pool_inflight gauge" in text
-        assert "# HELP topiceye_llm_pool_admitted_total" in text
-        assert "# TYPE topiceye_llm_pool_admitted_total counter" in text
-        assert "# HELP topiceye_llm_pool_queue_wait_seconds_total" in text
-        assert "# HELP topiceye_llm_pool_rate_limit_wait_seconds_total" in text
-        assert "# HELP topiceye_llm_pool_max_active" in text
+        assert "# HELP creative_workbench_llm_pool_inflight" in text
+        assert "# TYPE creative_workbench_llm_pool_inflight gauge" in text
+        assert "# HELP creative_workbench_llm_pool_admitted_total" in text
+        assert "# TYPE creative_workbench_llm_pool_admitted_total counter" in text
+        assert "# HELP creative_workbench_llm_pool_queue_wait_seconds_total" in text
+        assert "# HELP creative_workbench_llm_pool_rate_limit_wait_seconds_total" in text
+        assert "# HELP creative_workbench_llm_pool_max_active" in text
         # 实际数据行携带 scope 标签
-        assert 'topiceye_llm_pool_inflight{scope="route:default|channel:official|scene:daily_report"} 2' in text
-        assert 'topiceye_llm_pool_admitted_total{scope="route:default|channel:official|scene:daily_report"} 10' in text
+        assert 'creative_workbench_llm_pool_inflight{scope="route:default|channel:official|scene:daily_report"} 2' in text
+        assert 'creative_workbench_llm_pool_admitted_total{scope="route:default|channel:official|scene:daily_report"} 10' in text
 
     def test_renders_circuit_events(self):
         snapshot = {
@@ -60,11 +60,11 @@ class TestRenderLlmPoolMetrics:
         }
         text = "\n".join(_render_llm_pool_metrics(snapshot))
         assert (
-            'topiceye_llm_pool_circuit_events_total{scope="route:default|channel:official|scene:classification",event="open"} 1'
+            'creative_workbench_llm_pool_circuit_events_total{scope="route:default|channel:official|scene:classification",event="open"} 1'
             in text
         )
         assert (
-            'topiceye_llm_pool_circuit_events_total{scope="route:default|channel:official|scene:classification",event="half_open"} 2'
+            'creative_workbench_llm_pool_circuit_events_total{scope="route:default|channel:official|scene:classification",event="half_open"} 2'
             in text
         )
 
@@ -84,7 +84,7 @@ class TestRenderLlmPoolMetrics:
         }
         lines = _render_llm_pool_metrics(snapshot)
         # 第一个数据行（HELP/TYPE 之后的样本行）应来自 aaa scope
-        sample_lines = [line for line in lines if line.startswith("topiceye_llm_pool_inflight{")]
+        sample_lines = [line for line in lines if line.startswith("creative_workbench_llm_pool_inflight{")]
         assert "route:aaa" in sample_lines[0]
 
 
@@ -155,12 +155,12 @@ async def test_metrics_endpoint_exports_pool_and_pending(_pool_metrics_with_data
 
     assert resp.status_code == 200
     text = resp.text
-    assert "topiceye_llm_pool_inflight" in text
-    assert "topiceye_llm_pool_admitted_total" in text
-    assert "topiceye_analysis_pending_total" in text
+    assert "creative_workbench_llm_pool_inflight" in text
+    assert "creative_workbench_llm_pool_admitted_total" in text
+    assert "creative_workbench_analysis_pending_total" in text
     # 积压行有非零计数值
     assert any(
-        line.startswith("topiceye_analysis_pending_total ") and not line.endswith(" 0") for line in text.splitlines()
+        line.startswith("creative_workbench_analysis_pending_total ") and not line.endswith(" 0") for line in text.splitlines()
     )
 
 

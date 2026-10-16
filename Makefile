@@ -20,7 +20,7 @@ setup:  ## 安装后端(dev)与前端依赖
 
 test: test-backend test-frontend  ## 跑后端 + 前端测试
 
-test-backend:  ## 后端全量 pytest（DATABASE_URL 指向独立的 topiceye_test* 库）
+test-backend:  ## 后端全量 pytest（DATABASE_URL 指向独立的 creative_workbench_test* 库）
 	cd backend && uv run python -m pytest
 
 test-frontend:  ## 前端 vitest + 覆盖率门禁（对应 CI frontend-tests）

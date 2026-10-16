@@ -1,7 +1,7 @@
 from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
-DEFAULT_LOCAL_SECRET_KEY = "topiceye-local-dev-secret-change-me"
+DEFAULT_LOCAL_SECRET_KEY = "creative-workbench-local-dev-secret-change-me"
 
 
 class Settings(BaseSettings):

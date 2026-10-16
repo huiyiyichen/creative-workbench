@@ -1,5 +1,5 @@
 # =============================================================================
-# TopicEye pre-commit hooks
+# Creative Workbench pre-commit hooks
 #
 # 安装：pip install pre-commit && pre-commit install
 # 跑全部：pre-commit run --all-files

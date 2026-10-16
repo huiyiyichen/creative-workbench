@@ -6,7 +6,7 @@
  *
  * 设计要点：
  * - 所有 fetch 均设 3s 超时 + 错误兜底，后端不可达时返回 null，不阻塞渲染。
- * - auth cookie（topiceye_auth）是 HttpOnly，JS 不可读，但 Server Component
+ * - auth cookie（creative_workbench_auth）是 HttpOnly，JS 不可读，但 Server Component
  *   通过 next/headers 的 cookies() 可读取，直接转发给后端。
  * - cache: 'no-store' 确保用户敏感数据不被 CDN/边缘缓存。
  */

@@ -63,7 +63,7 @@
 按变更范围运行：
 
 - 后端 lint：`cd backend && uv run ruff check app tests`
-- 后端测试：`cd backend && uv run python -m pytest tests/<相关测试> -q`（`DATABASE_URL` 指向独立的 `topiceye_test*` 库）
+- 后端测试：`cd backend && uv run python -m pytest tests/<相关测试> -q`（`DATABASE_URL` 指向独立的 `creative_workbench_test*` 库）
 - 分层：`cd backend && uv run python scripts/check_layering.py`
 - 前端类型：`cd frontend && npx tsc --noEmit`
 - 前端单测：`cd frontend && npm test`

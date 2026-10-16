@@ -10,22 +10,22 @@
 暴露的指标（通过 /metrics 端点以 Prometheus text format 输出）：
 
 HTTP 请求：
-- topiceye_http_requests_total{method, path, status}      counter
-- topiceye_http_request_duration_seconds{method, path}    histogram
-- topiceye_http_requests_in_progress                      gauge
-- topiceye_http_rate_limit_hits_total{path}               counter
-- topiceye_http_errors_total{method, path, status_class}  counter (5xx only)
+- creative_workbench_http_requests_total{method, path, status}      counter
+- creative_workbench_http_request_duration_seconds{method, path}    histogram
+- creative_workbench_http_requests_in_progress                      gauge
+- creative_workbench_http_rate_limit_hits_total{path}               counter
+- creative_workbench_http_errors_total{method, path, status_class}  counter (5xx only)
 
 LLM 调用聚合：
-- topiceye_llm_calls_total{scene, status}                 counter
-- topiceye_llm_call_duration_seconds{scene}               histogram
-- topiceye_llm_tokens_total{scene, direction}             counter (input/output)
-- topiceye_llm_cost_total{scene}                          counter (USD)
+- creative_workbench_llm_calls_total{scene, status}                 counter
+- creative_workbench_llm_call_duration_seconds{scene}               histogram
+- creative_workbench_llm_tokens_total{scene, direction}             counter (input/output)
+- creative_workbench_llm_cost_total{scene}                          counter (USD)
 
 数据库连接池：
-- topiceye_db_pool_size{pool}                             gauge
-- topiceye_db_pool_checked_out{pool}                      gauge
-- topiceye_db_pool_overflow{pool}                         gauge
+- creative_workbench_db_pool_size{pool}                             gauge
+- creative_workbench_db_pool_checked_out{pool}                      gauge
+- creative_workbench_db_pool_overflow{pool}                         gauge
 """
 
 from __future__ import annotations
@@ -321,65 +321,65 @@ class RequestMetricsCollector:
 
         with self._lock:
             # ── HTTP 请求总数 ──
-            lines.append("# HELP topiceye_http_requests_total Total HTTP requests by method, path, status")
-            lines.append("# TYPE topiceye_http_requests_total counter")
+            lines.append("# HELP creative_workbench_http_requests_total Total HTTP requests by method, path, status")
+            lines.append("# TYPE creative_workbench_http_requests_total counter")
             for (method, path, status), count in sorted(self._request_counts.items()):
                 lines.append(
-                    f'topiceye_http_requests_total{{method="{method}",path="{path}",status="{status}"}} {count}'
+                    f'creative_workbench_http_requests_total{{method="{method}",path="{path}",status="{status}"}} {count}'
                 )
 
             # ── HTTP 请求延迟 histogram ──
             _render_histogram(
-                "topiceye_http_request_duration_seconds",
+                "creative_workbench_http_request_duration_seconds",
                 "HTTP request latency distribution",
                 self._request_durations,
                 ["method", "path"],
             )
 
             # ── 在途请求数 ──
-            lines.append("# HELP topiceye_http_requests_in_progress Current in-flight HTTP requests")
-            lines.append("# TYPE topiceye_http_requests_in_progress gauge")
-            lines.append(f"topiceye_http_requests_in_progress {self._in_progress}")
+            lines.append("# HELP creative_workbench_http_requests_in_progress Current in-flight HTTP requests")
+            lines.append("# TYPE creative_workbench_http_requests_in_progress gauge")
+            lines.append(f"creative_workbench_http_requests_in_progress {self._in_progress}")
 
             # ── 限流命中 ──
-            lines.append("# HELP topiceye_http_rate_limit_hits_total Requests rejected by rate limiter")
-            lines.append("# TYPE topiceye_http_rate_limit_hits_total counter")
+            lines.append("# HELP creative_workbench_http_rate_limit_hits_total Requests rejected by rate limiter")
+            lines.append("# TYPE creative_workbench_http_rate_limit_hits_total counter")
             for path, count in sorted(self._rate_limit_hits.items()):
-                lines.append(f'topiceye_http_rate_limit_hits_total{{path="{path}"}} {count}')
+                lines.append(f'creative_workbench_http_rate_limit_hits_total{{path="{path}"}} {count}')
 
             # ── 5xx 错误 ──
-            lines.append("# HELP topiceye_http_errors_total HTTP 5xx errors by method, path, status_class")
-            lines.append("# TYPE topiceye_http_errors_total counter")
+            lines.append("# HELP creative_workbench_http_errors_total HTTP 5xx errors by method, path, status_class")
+            lines.append("# TYPE creative_workbench_http_errors_total counter")
             for (method, path, status_class), count in sorted(self._error_counts.items()):
                 lines.append(
-                    f'topiceye_http_errors_total{{method="{method}",path="{path}",status_class="{status_class}"}} {count}'
+                    f'creative_workbench_http_errors_total{{method="{method}",path="{path}",status_class="{status_class}"}} {count}'
                 )
 
             # ── LLM 调用总数 ──
-            lines.append("# HELP topiceye_llm_calls_total LLM API calls by scene and status")
-            lines.append("# TYPE topiceye_llm_calls_total counter")
+            lines.append("# HELP creative_workbench_llm_calls_total LLM API calls by scene and status")
+            lines.append("# TYPE creative_workbench_llm_calls_total counter")
             for (scene, status), count in sorted(self._llm_call_counts.items()):
-                lines.append(f'topiceye_llm_calls_total{{scene="{scene}",status="{status}"}} {count}')
+                lines.append(f'creative_workbench_llm_calls_total{{scene="{scene}",status="{status}"}} {count}')
 
             # ── LLM 调用延迟 histogram ──
             _render_histogram(
-                "topiceye_llm_call_duration_seconds",
+                "creative_workbench_llm_call_duration_seconds",
                 "LLM call latency distribution",
                 self._llm_durations,
                 ["scene"],
             )
 
             # ── LLM token 用量 ──
-            lines.append("# HELP topiceye_llm_tokens_total LLM token usage by scene and direction")
-            lines.append("# TYPE topiceye_llm_tokens_total counter")
+            lines.append("# HELP creative_workbench_llm_tokens_total LLM token usage by scene and direction")
+            lines.append("# TYPE creative_workbench_llm_tokens_total counter")
             for (scene, direction), count in sorted(self._llm_token_counts.items()):
-                lines.append(f'topiceye_llm_tokens_total{{scene="{scene}",direction="{direction}"}} {count}')
+                lines.append(f'creative_workbench_llm_tokens_total{{scene="{scene}",direction="{direction}"}} {count}')
 
             # ── LLM 成本 ──
-            lines.append("# HELP topiceye_llm_cost_total LLM cumulative cost in USD by scene")
-            lines.append("# TYPE topiceye_llm_cost_total counter")
+            lines.append("# HELP creative_workbench_llm_cost_total LLM cumulative cost in USD by scene")
+            lines.append("# TYPE creative_workbench_llm_cost_total counter")
             for scene, cost in sorted(self._llm_cost_total.items()):
-                lines.append(f'topiceye_llm_cost_total{{scene="{scene}"}} {cost:.6f}')
+                lines.append(f'creative_workbench_llm_cost_total{{scene="{scene}"}} {cost:.6f}')
 
         return lines
 

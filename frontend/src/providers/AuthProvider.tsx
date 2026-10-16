@@ -10,7 +10,7 @@ import { createAuthStore, type AuthStore, type AuthState, type AuthContextType }
 const AuthStoreContext = createContext<AuthStore | null>(null);
 const FALLBACK_LOCAL_USER: AuthUser = {
   id: 0,
-  email: 'local@topiceye.local',
+  email: 'local@creative-workbench.local',
   display_name: '本地创作者',
   plan: 'local',
   role: 'admin',

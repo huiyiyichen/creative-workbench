@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User, UserRole
 
-LOCAL_USER_EMAIL = "local@topiceye.local"
+LOCAL_USER_EMAIL = "local@creative-workbench.local"
 LOCAL_USER_NAME = "本地创作者"
 
 
