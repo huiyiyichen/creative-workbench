@@ -27,7 +27,7 @@ from app.services.llm._failover import _candidate_from_db_model
 from app.services.secret_store import decrypt_secret, encrypt_secret, is_encrypted_secret
 
 # 测试用占位 Key，非真实凭据。
-_PLAINTEXT_KEY = "sk-test-key-not-real-123456"
+_PLAINTEXT_KEY = "test-key-not-real-123456"
 
 
 # ── 写入加密 ──
