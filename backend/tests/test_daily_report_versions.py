@@ -1,5 +1,5 @@
 import json
-from datetime import date, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -14,6 +14,16 @@ from app.services.daily_report import (
     _local_window_to_utc_naive,
     _normalize_edition,
 )
+
+
+def _stored_window(start: datetime, end: datetime) -> tuple[datetime, datetime]:
+    """Report rows store the local display window as UTC."""
+    utc_start, utc_end = _local_window_to_utc_naive(start, end)
+    return utc_start.replace(tzinfo=UTC), utc_end.replace(tzinfo=UTC)
+
+
+async def _model_enabled(_self) -> bool:
+    return True
 
 
 def test_snapshot_window_uses_start_of_target_day_to_cutoff():
@@ -62,7 +72,7 @@ async def test_generate_daily_report_returns_active_generating_without_llm(monke
         raise AssertionError("active GENERATING report should not generate again")
 
     monkeypatch.setattr(daily_report, "_fetch_report_inputs", fail_fetch_inputs)
-    start, end = _day_window(date(2026, 5, 27), now, "noon")
+    start, end = _stored_window(*_day_window(date(2026, 5, 27), now, "noon"))
     async with session_factory() as db:
         existing = DailyReport(
             report_date="2026-05-27",
@@ -104,7 +114,8 @@ async def test_generate_daily_report_reclaims_stale_generating(monkeypatch):
         return [], []
 
     monkeypatch.setattr(daily_report, "_fetch_report_inputs", fake_fetch_inputs)
-    start, end = _day_window(date(2026, 5, 27), now, "noon")
+    monkeypatch.setattr(daily_report.LlmModelRepository, "has_enabled_model", _model_enabled)
+    start, end = _stored_window(*_day_window(date(2026, 5, 27), now, "noon"))
     async with session_factory() as db:
         existing = DailyReport(
             report_date="2026-05-27",
@@ -156,7 +167,7 @@ async def test_generate_daily_report_locks_existing_row_for_postgresql(monkeypat
     monkeypatch.setattr(Select, "with_for_update", with_for_update_spy)
     monkeypatch.setattr(daily_report, "_fetch_report_inputs", fake_fetch_inputs)
 
-    start, end = _day_window(date(2026, 5, 27), now, "noon")
+    start, end = _stored_window(*_day_window(date(2026, 5, 27), now, "noon"))
     async with session_factory() as db:
         db.add(
             DailyReport(
@@ -218,6 +229,7 @@ async def test_invalid_llm_daily_report_uses_editorial_fallback(monkeypatch):
     monkeypatch.setattr(daily_report, "_local_now", lambda: now)
     monkeypatch.setattr(daily_report, "_fetch_report_inputs", fake_inputs)
     monkeypatch.setattr(daily_report, "call_llm_json", invalid_llm)
+    monkeypatch.setattr(daily_report.LlmModelRepository, "has_enabled_model", _model_enabled)
 
     async with session_factory() as db:
         report = await daily_report.generate_daily_report(

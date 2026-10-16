@@ -7,12 +7,12 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.api.v1 import auth as auth_api, stats
 from app.core.database import Base
-from app.services.auth_service import create_session, create_user
+from app.services.auth_service import get_local_user
 from app.services.json_cache import get_cached_json, invalidate_json_cache
 
 
 @pytest.mark.asyncio
-async def test_stats_routes_require_login(monkeypatch):
+async def test_stats_routes_serve_local_workspace(monkeypatch):
     invalidate_json_cache()
     monkeypatch.setattr(stats.settings, "READ_CACHE_TTL_SECONDS", 60)
     monkeypatch.setattr(stats, "query_stats_source_distribution", lambda days=7: {"sources": []})
@@ -23,8 +23,7 @@ async def test_stats_routes_require_login(monkeypatch):
         await conn.run_sync(Base.metadata.create_all)
 
     async with session_factory() as db:
-        user = await create_user(db, email="stats-user@example.com", password="Password123", role="user")
-        token, _session = await create_session(db, user)
+        await get_local_user(db)
         await db.commit()
 
     app = FastAPI()
@@ -43,15 +42,9 @@ async def test_stats_routes_require_login(monkeypatch):
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        anonymous = await client.get("/stats/source-distribution?days=7")
-        assert anonymous.status_code == 401
-
-        authorized = await client.get(
-            "/stats/source-distribution?days=7",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert authorized.status_code == 200
-        assert authorized.headers["X-Analytics-Backend"] == "duckdb"
+        response = await client.get("/stats/source-distribution?days=7")
+        assert response.status_code == 200
+        assert response.headers["X-Analytics-Backend"] == "duckdb"
 
     invalidate_json_cache()
     await engine.dispose()

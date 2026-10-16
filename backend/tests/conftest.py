@@ -122,6 +122,13 @@ def stub_public_dns_resolution(monkeypatch):
     monkeypatch.setattr(url_safety, "_resolve_host", _public_resolve)
 
 
+@pytest.fixture(autouse=True)
+def clear_outbound_proxy(monkeypatch):
+    """开发机代理变量会让 httpx 改走代理挂载，绕过测试注入的 MockTransport。"""
+    for name in ("HTTPS_PROXY", "https_proxy", "HTTP_PROXY", "http_proxy", "ALL_PROXY", "all_proxy"):
+        monkeypatch.delenv(name, raising=False)
+
+
 # ── Function-scoped cleanup: 每个测试后清表(防止脏数据跨测试)──
 # autouse=True 让所有测试在执行前先清表,避免 test 间的 state pollution。
 @pytest_asyncio.fixture(autouse=True)

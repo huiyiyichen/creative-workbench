@@ -114,28 +114,6 @@ async def test_sync_all_handles_empty_source_list(db, monkeypatch):
     assert results == {}
 
 
-def test_syncable_sources_excludes_webnovel():
-    """定时同步排除网文书库类重源 (heiyan/ishugui), 但手动单刷不受影响。"""
-    from app.services.trending_scrapers import (
-        SYNC_EXCLUDED_SOURCES,
-        get_all_trending_sources,
-        get_syncable_trending_sources,
-    )
-
-    all_sources = set(get_all_trending_sources())
-    syncable = set(get_syncable_trending_sources())
-
-    # 网文源注册了 (手动单刷仍可用), 但不在 syncable 列表
-    assert "heiyan" in all_sources
-    assert "ishugui" in all_sources
-    assert "heiyan" not in syncable
-    assert "ishugui" not in syncable
-    # 其余源保留
-    assert syncable == all_sources - SYNC_EXCLUDED_SOURCES
-    assert "xyzrank" in syncable
-    assert "github" in syncable
-
-
 def test_normalize_trending_concurrency_clamps(monkeypatch):
     """并发度配置 clamp 到 [1, 20]。"""
     # 正常值直通

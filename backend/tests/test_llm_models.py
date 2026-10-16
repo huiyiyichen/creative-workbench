@@ -25,26 +25,20 @@ from app.api.v1.llm_models import (
 )
 from app.core.database import Base
 from app.models.llm_model import LlmModel, ModelEvaluation
-from app.services.auth_service import create_session, create_user
+from app.services.auth_service import get_local_user
 from app.services.llm.model_resolver import normalize_api_base, resolve_litellm_model
 from app.services.llm.presets import apply_model_preset, list_model_presets
 
 
 @pytest_asyncio.fixture
-async def llm_model_client() -> AsyncGenerator[tuple[httpx.AsyncClient, str, str, async_sessionmaker], None]:
+async def llm_model_client() -> AsyncGenerator[tuple[httpx.AsyncClient, async_sessionmaker], None]:
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
     async with session_factory() as db:
-        free_user = await create_user(db, email="free-model@example.com", password="Password123", role="user")
-        pro_user = await create_user(db, email="pro-model@example.com", password="Password123", role="user")
-        admin = await create_user(db, email="admin-model@example.com", password="Password123", role="admin")
-        pro_user.plan = "pro"
-        free_token, _ = await create_session(db, free_user)
-        pro_token, _ = await create_session(db, pro_user)
-        admin_token, _ = await create_session(db, admin)
+        await get_local_user(db)
         system_model = LlmModel(
             name="System Model",
             provider="openai",
@@ -74,7 +68,7 @@ async def llm_model_client() -> AsyncGenerator[tuple[httpx.AsyncClient, str, str
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        yield client, free_token, pro_token, admin_token, session_factory
+        yield client, session_factory
 
     await engine.dispose()
 
@@ -401,7 +395,7 @@ def test_auto_score_accepts_fenced_json_and_json_lists():
 
 @pytest.mark.asyncio
 async def test_evaluation_run_executes_models_with_bounded_concurrency(llm_model_client, monkeypatch):
-    client, _free_token, _pro_token, admin_token, session_factory = llm_model_client
+    client, session_factory = llm_model_client
     monkeypatch.setattr(llm_models_api, "async_session", session_factory)
     monkeypatch.setattr(llm_evaluations_api, "async_session", session_factory)
     monkeypatch.setattr(llm_models_api.settings, "LLM_WORKER_CONCURRENCY", 2)
@@ -448,7 +442,6 @@ async def test_evaluation_run_executes_models_with_bounded_concurrency(llm_model
 
     response = await client.post(
         "/models/evaluations/run",
-        headers={"Authorization": f"Bearer {admin_token}"},
         json={"model_ids": model_ids, "prompt_type": "analysis"},
     )
 

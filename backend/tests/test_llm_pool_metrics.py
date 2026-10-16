@@ -66,7 +66,7 @@ async def test_pool_configuration_caps_one_channel_and_exposes_queue_wait(monkey
     first_task = asyncio.create_task(first())
     await first_entered.wait()
     second_task = asyncio.create_task(second())
-    await asyncio.sleep(0.01)
+    await asyncio.sleep(0.05)
     assert not second_entered.is_set()
 
     release.set()

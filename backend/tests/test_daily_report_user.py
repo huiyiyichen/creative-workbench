@@ -297,43 +297,6 @@ def _build_test_app():
 
 
 @pytest.mark.asyncio
-async def test_me_today_requires_pro_plan(tmp_path, monkeypatch):
-    db_path = str(tmp_path / "me.db")
-    engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}")
-    sf = async_sessionmaker(engine, expire_on_commit=False)
-    async with engine.begin() as c:
-        await c.run_sync(Base.metadata.create_all)
-    async with sf() as db:
-        await _make_user(db, id=10, plan="free")
-
-    app = _build_test_app()
-    user = User(id=10, email="a@x", password_hash="x", plan="free", role="user", is_active=True, display_name="A")
-    from app.api.v1.auth import get_current_user
-
-    app.dependency_overrides[get_current_user] = lambda: user
-
-    async def override_db():
-        async with sf() as s:
-            try:
-                yield s
-                await s.commit()
-            except Exception:
-                await s.rollback()
-                raise
-
-    from app.core.database import get_db
-
-    app.dependency_overrides[get_db] = override_db
-
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as client:
-        resp = await client.get("/daily-reports/me/today")
-    assert resp.status_code == 403
-    assert "Pro" in resp.text
-    await engine.dispose()
-
-
-@pytest.mark.asyncio
 async def test_me_today_generates_user_owned_report(tmp_path):
     db_path = str(tmp_path / "me2.db")
     engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}")

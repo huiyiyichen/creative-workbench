@@ -1,15 +1,9 @@
 # =============================================================================
-# TopicEye 统一命令入口
+# 创意工作台命令入口
 #
-# 以前 setup/run/test/lint 命令散落在 AGENTS.md、docker-compose.yml、CI、
-# .env.example 多处；.pre-commit-config.yaml 还承诺了一个并不存在的 `make lint`。
-# 本 Makefile 把这些真实命令收拢成一个可发现的入口，`make lint` 现在真实可用。
-#
-# 常用：
 #   make setup          安装后端 + 前端依赖
-#   make dev            docker compose 起全栈
 #   make test           跑后端 + 前端测试
-#   make lint           完整质量门（ruff + 分层 + 前端类型检查）
+#   make lint           ruff + 分层 + 前端类型检查
 # =============================================================================
 
 .DEFAULT_GOAL := help
@@ -32,8 +26,8 @@ dev-db:  ## 仅启动 PostgreSQL（本地开发用）
 
 test: test-backend test-frontend  ## 跑后端 + 前端测试
 
-test-backend:  ## 后端全量 pytest（自动起一次性 PG 容器，跑完即删）
-	bash backend/scripts/test_full_local.sh
+test-backend:  ## 后端全量 pytest（DATABASE_URL 指向独立的 topiceye_test* 库）
+	cd backend && uv run python -m pytest
 
 test-frontend:  ## 前端 vitest + 覆盖率门禁（对应 CI frontend-tests）
 	cd frontend && npm run test:coverage
@@ -43,7 +37,7 @@ lint: lint-backend layering lint-frontend  ## 完整质量门（ruff + 分层 + 
 lint-backend:  ## 后端 ruff 全量检查 + 格式检查（手动质量门）
 	cd backend && uv run ruff check . && uv run ruff format --check .
 
-layering:  ## 分层纪律检查：api/v1 禁止直接 ORM 查询 / 禁用 import
+layering:  ## 分层检查：api/v1 经 service / repository 访问数据
 	cd backend && uv run python scripts/check_layering.py
 
 lint-frontend:  ## 前端类型检查（AGENTS.md 首选，比 npm run lint 稳）

@@ -10,10 +10,10 @@ $Destination = [IO.Path]::GetFullPath($Destination)
 $null = New-Item -ItemType Directory -Path $Destination
 $folders = @(
   'backend/app', 'backend/alembic', 'backend/scripts', 'backend/tests',
-  'backend/media_runtime/template', 'frontend/src', 'frontend/public', 'frontend/scripts', 'docs/assets'
+  'backend/media_runtime/template', 'frontend/src', 'frontend/public', 'docs/assets'
 )
 $paths = @(
-  '.gitignore', '.gitattributes', 'LICENSE', 'README.md', 'README.zh-CN.md',
+  '.gitignore', '.gitattributes', 'LICENSE', 'README.md',
   'start.cmd', 'start-local.ps1', 'docker-compose.yml',
   'backend/.dockerignore', 'backend/.env.example', 'backend/alembic.ini',
   'backend/Dockerfile', 'backend/pyproject.toml', 'backend/pytest.ini', 'backend/uv.lock',

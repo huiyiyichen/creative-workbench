@@ -21,7 +21,7 @@ from app.core.database import Base
 from app.models.analysis import AiAnalysis
 from app.models.content import ContentItem
 from app.models.source import Source
-from app.services.auth_service import create_session, create_user
+from app.services.auth_service import get_local_user
 from app.services.recommendation_level import classify_recommendation_level
 
 
@@ -45,8 +45,7 @@ async def filter_setup() -> AsyncGenerator[tuple[httpx.AsyncClient, str, dict[st
         await conn.run_sync(Base.metadata.create_all)
 
     async with session_factory() as db:
-        user = await create_user(db, email="filter@example.com", password="Password123", role="user")
-        token, _ = await create_session(db, user)
+        await get_local_user(db)
         source = Source(name="Test", url="https://example.com", source_type="RSS", status="active")
         db.add(source)
         await db.flush()
@@ -140,7 +139,7 @@ async def filter_setup() -> AsyncGenerator[tuple[httpx.AsyncClient, str, dict[st
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        yield client, token, ids
+        yield client, ids
 
     await engine.dispose()
 
@@ -151,25 +150,23 @@ def _ids(resp: httpx.Response) -> set[int]:
 
 @pytest.mark.asyncio
 async def test_recommend_level_filter_uses_persisted_level(filter_setup):
-    client, token, ids = filter_setup
-    headers = {"Authorization": f"Bearer {token}"}
+    client, ids = filter_setup
 
-    resp = await client.get("/contents?recommend_level=强烈建议写", headers=headers)
+    resp = await client.get("/contents?recommend_level=强烈建议写")
     assert resp.status_code == 200
     assert resp.json()["total"] == 1
     assert _ids(resp) == {ids["item1"]}
 
-    resp = await client.get("/contents?recommend_level=不建议追", headers=headers)
+    resp = await client.get("/contents?recommend_level=不建议追")
     assert resp.status_code == 200
     assert _ids(resp) == {ids["item3"]}
 
 
 @pytest.mark.asyncio
 async def test_recommend_level_invalid_value_rejected(filter_setup):
-    client, token, _ids_map = filter_setup
+    client, _ids_map = filter_setup
     resp = await client.get(
         "/contents?recommend_level=不存在等级",
-        headers={"Authorization": f"Bearer {token}"},
     )
     assert resp.status_code == 422
 
@@ -182,43 +179,40 @@ async def test_tag_filter_matches_normalized_keys(filter_setup):
     回填（scripts/normalize_tags.py）；未回填的复合元素不会被查询期
     拆分——这是已知边界，由回填解决。
     """
-    client, token, ids = filter_setup
-    headers = {"Authorization": f"Bearer {token}"}
+    client, ids = filter_setup
 
-    resp = await client.get("/contents?tag=AI", headers=headers)
+    resp = await client.get("/contents?tag=AI")
     assert resp.status_code == 200
     assert _ids(resp) == {ids["item1"]}
 
     # item2 的分析 tags 存的是未回填的复合元素 "ai安全, 联合国"（整体），
     # 整键精确匹配可以命中：
-    resp = await client.get("/contents?tag=ai安全, 联合国", headers=headers)
+    resp = await client.get("/contents?tag=ai安全, 联合国")
     assert resp.status_code == 200
     assert _ids(resp) == {ids["item2"]}
 
-    resp = await client.get("/contents?tag=不存在", headers=headers)
+    resp = await client.get("/contents?tag=不存在")
     assert resp.status_code == 200
     assert resp.json()["total"] == 0
 
 
 @pytest.mark.asyncio
 async def test_level_and_tag_filters_rejected_for_scoring_sort(filter_setup):
-    client, token, _ids_map = filter_setup
-    headers = {"Authorization": f"Bearer {token}"}
+    client, _ids_map = filter_setup
 
-    resp = await client.get("/contents?recommend_level=信号不足&sort_by=curation_score", headers=headers)
+    resp = await client.get("/contents?recommend_level=信号不足&sort_by=curation_score")
     assert resp.status_code == 400
 
-    resp = await client.get("/contents?sort_by=low_follower_viral", headers=headers)
+    resp = await client.get("/contents?sort_by=low_follower_viral")
     assert resp.status_code == 422
 
 
 @pytest.mark.asyncio
 async def test_tag_facets_counts_whole_scope_with_normalized_keys(filter_setup):
     """facets 覆盖口径内全部内容，键做规范化合并（ai/AI 同键）。"""
-    client, token, _ids_map = filter_setup
-    headers = {"Authorization": f"Bearer {token}"}
+    client, _ids_map = filter_setup
 
-    resp = await client.get("/contents/tag-facets?limit=10", headers=headers)
+    resp = await client.get("/contents/tag-facets?limit=10")
     assert resp.status_code == 200
     data = resp.json()
     tags = {entry["tag"]: entry["count"] for entry in data["tags"]}
@@ -236,8 +230,8 @@ async def test_tag_facets_counts_whole_scope_with_normalized_keys(filter_setup):
 @pytest.mark.asyncio
 async def test_list_analysis_payload_carries_recommend_level(filter_setup):
     """列表返回的 analysis 带持久化等级，前端可直接使用。"""
-    client, token, ids = filter_setup
-    resp = await client.get("/contents", headers={"Authorization": f"Bearer {token}"})
+    client, ids = filter_setup
+    resp = await client.get("/contents")
     assert resp.status_code == 200
     levels = {item["id"]: (item.get("analysis") or {}).get("recommend_level") for item in resp.json()["items"]}
     assert levels.get(ids["item1"]) == "强烈建议写"

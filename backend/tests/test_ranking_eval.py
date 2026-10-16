@@ -28,15 +28,14 @@ from app.models.content_label import ContentLabel
 from app.models.creation import CreationPlan
 from app.models.pick_mark import PickMark
 from app.models.source import Source
-from app.models.user import User
-from app.services.auth_service import create_session, create_user
+from app.services.auth_service import get_local_user
 from app.services.content_labeling import rebuild_behavioral_labels
 from app.services.ranking_eval import evaluate_ranking_window
 
 
 @pytest_asyncio.fixture
 async def eval_env() -> (
-    AsyncGenerator[tuple[httpx.AsyncClient, dict[str, str], async_sessionmaker[AsyncSession], dict[str, int]], None]
+    AsyncGenerator[tuple[httpx.AsyncClient, async_sessionmaker[AsyncSession], dict[str, int]], None]
 ):
     """PG + 管理员/普通用户 + 5 条窗口内分析内容（3 个来源）+ 1 个事件组。
 
@@ -56,10 +55,7 @@ async def eval_env() -> (
 
     ids: dict[str, int] = {}
     async with session_factory() as db:
-        admin = await create_user(db, email="eval-admin@example.com", password="Password123", role="admin")
-        user = await create_user(db, email="eval-user@example.com", password="Password123", role="user")
-        admin_token, _ = await create_session(db, admin)
-        user_token, _ = await create_session(db, user)
+        user = await get_local_user(db)
 
         source_a = Source(name="SrcA", url="https://a.example.com", source_type="RSS", status="active")
         source_b = Source(name="SrcB", url="https://b.example.com", source_type="RSS", status="active")
@@ -159,14 +155,14 @@ async def eval_env() -> (
 
     transport = httpx.ASGITransport(app=app)
     async with httpx.AsyncClient(transport=transport, base_url="http://test") as client:
-        yield client, {"admin": admin_token, "user": user_token}, session_factory, ids
+        yield client, session_factory, ids
 
     await engine.dispose()
 
 
 @pytest.mark.asyncio
 async def test_evaluate_window_metrics(eval_env):
-    client, _tokens, session_factory, ids = eval_env
+    client, session_factory, ids = eval_env
 
     async with session_factory() as db:
         payload = await evaluate_ranking_window(db, hours=168, top_n=4)
@@ -194,7 +190,7 @@ async def test_evaluate_window_metrics(eval_env):
 
 @pytest.mark.asyncio
 async def test_behavioral_rebuild_and_authoritative_protection(eval_env):
-    client, _tokens, session_factory, ids = eval_env
+    client, session_factory, ids = eval_env
 
     async with session_factory() as db:
         # item1: 收藏 1 次 → 3 分 → worth_writing
@@ -202,7 +198,7 @@ async def test_behavioral_rebuild_and_authoritative_protection(eval_env):
 
         from app.models.favorite import FavoriteItem, FavoriteTargetType
 
-        user_id = (await db.execute(select(User.id).where(User.email == "eval-user@example.com"))).scalar_one()
+        user_id = (await get_local_user(db)).id
         db.add(
             FavoriteItem(
                 user_id=user_id,
@@ -252,7 +248,7 @@ async def test_behavioral_rebuild_and_authoritative_protection(eval_env):
 
 @pytest.mark.asyncio
 async def test_pick_mark_write_imported_as_authoritative(eval_env):
-    _client, _tokens, session_factory, ids = eval_env
+    _client, session_factory, ids = eval_env
 
     async with session_factory() as db:
         from sqlalchemy import select
@@ -260,7 +256,7 @@ async def test_pick_mark_write_imported_as_authoritative(eval_env):
         url = (await db.execute(select(ContentItem.url).where(ContentItem.id == ids["item1"]))).scalar_one()
         db.add(
             PickMark(
-                user_id=(await db.execute(select(User.id).where(User.email == "eval-admin@example.com"))).scalar_one(),
+                user_id=(await get_local_user(db)).id,
                 report_date=dt.date(2026, 9, 24),
                 pick_title="Eval item1",
                 action="write",
@@ -281,22 +277,12 @@ async def test_pick_mark_write_imported_as_authoritative(eval_env):
 
 @pytest.mark.asyncio
 async def test_admin_api_label_and_evaluate_flow(eval_env):
-    client, tokens, session_factory, ids = eval_env
-    admin_headers = {"Authorization": f"Bearer {tokens['admin']}"}
-
-    # 非管理员 403
-    resp = await client.put(
-        f"/api/v1/admin/ranking-eval/labels/{ids['item1']}",
-        json={"label": "worth_writing"},
-        headers={"Authorization": f"Bearer {tokens['user']}"},
-    )
-    assert resp.status_code == 403
+    client, session_factory, ids = eval_env
 
     # 人工标注
     resp = await client.put(
         f"/api/v1/admin/ranking-eval/labels/{ids['item1']}",
         json={"label": "worth_writing"},
-        headers=admin_headers,
     )
     assert resp.status_code == 200
     assert resp.json()["source"] == "human"
@@ -305,13 +291,12 @@ async def test_admin_api_label_and_evaluate_flow(eval_env):
     resp = await client.put(
         f"/api/v1/admin/ranking-eval/labels/{ids['item1']}",
         json={"label": "不合法"},
-        headers=admin_headers,
     )
     assert resp.status_code == 422
 
     # 触发评测
     resp = await client.post(
-        "/api/v1/admin/ranking-eval/evaluate", json={"hours": 168, "top_n": 4}, headers=admin_headers
+        "/api/v1/admin/ranking-eval/evaluate", json={"hours": 168, "top_n": 4}
     )
     assert resp.status_code == 200
     metrics = resp.json()["metrics"]
@@ -319,13 +304,13 @@ async def test_admin_api_label_and_evaluate_flow(eval_env):
     assert metrics["top10_worth_ratio"] > 0  # item1 已标 worth_writing 且应进 top
 
     # 快照可查
-    resp = await client.get("/api/v1/admin/ranking-eval/snapshots", headers=admin_headers)
+    resp = await client.get("/api/v1/admin/ranking-eval/snapshots")
     assert resp.status_code == 200
     items = resp.json()["items"]
     assert len(items) == 1
     assert items[0]["scoring_config"]["risk_threshold"] == 82
 
     # 标注列表
-    resp = await client.get("/api/v1/admin/ranking-eval/labels?source=human", headers=admin_headers)
+    resp = await client.get("/api/v1/admin/ranking-eval/labels?source=human")
     assert resp.status_code == 200
     assert any(entry["content_id"] == ids["item1"] for entry in resp.json()["items"])

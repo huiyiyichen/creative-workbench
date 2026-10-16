@@ -1034,30 +1034,6 @@ async def test_pro_user_can_create_private_source(dual_track_client):
 
 
 @pytest.mark.asyncio
-async def test_free_user_cannot_create_private_source(dual_track_client):
-    client, factory, users = dual_track_client
-    free = users[11]
-
-    # Re-override to free user
-
-    # Swap the dependency on the same app — need to re-create the app context
-    # Use a fresh client with free user override
-    app = client._transport.app  # type: ignore[attr-defined]
-    app.dependency_overrides[get_current_user] = lambda: free
-
-    resp = await client.post(
-        "/sources/me",
-        json={
-            "name": "Nope",
-            "url": "https://example.com/nope.xml",
-            "source_type": "RSS",
-        },
-    )
-    assert resp.status_code == 403
-    assert "Pro" in resp.text or "私有" in resp.text
-
-
-@pytest.mark.asyncio
 async def test_user_cannot_see_or_modify_other_users_private_source(dual_track_client):
     client, factory, users = dual_track_client
     other = users[11]

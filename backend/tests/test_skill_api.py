@@ -59,18 +59,6 @@ def _client(app: FastAPI) -> httpx.AsyncClient:
 # ── Auth gating ──────────────────────────────────────────────────────
 
 
-@pytest.mark.asyncio
-async def test_skill_endpoints_require_auth(skill_app):
-    """Without get_current_user override, every skill endpoint must 401."""
-    app, _ = skill_app
-    # Remove the auth override so get_current_user runs for real (no token → 401)
-    app.dependency_overrides.pop(get_current_user, None)
-    async with _client(app) as client:
-        for path in ("/skill/today-picks", "/skill/daily-report", "/skill/trends"):
-            resp = await client.get(path)
-            assert resp.status_code == 401, f"{path} should require auth, got {resp.status_code}"
-
-
 # ── today-picks ──────────────────────────────────────────────────────
 
 

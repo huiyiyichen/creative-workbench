@@ -11,7 +11,7 @@ from app.models.content import ContentItem, ContentStatus
 from app.models.topic import TopicGroup
 from app.models.trend import TopicTrend
 from app.repositories.analysis_repo import AnalysisRepository
-from app.services import creation, topic_clustering
+from app.services import topic_clustering
 from app.services.trends import snapshot_daily_trends
 
 
@@ -315,61 +315,6 @@ async def test_pending_enrichment_claim_uses_skip_locked_for_postgresql(monkeypa
 
     assert calls["skip_locked"] == 1
     assert claimed_ids == [1]
-    await engine.dispose()
-
-
-@pytest.mark.asyncio
-async def test_creation_plan_uses_latest_analysis_prompt_material(monkeypatch):
-    captured_messages = []
-
-    async def fake_call_llm_json(messages, scene, **_kwargs):
-        captured_messages.extend(messages)
-        return {
-            "titles": ["新分析选题"],
-            "structure": {"hook": "新 hook", "points": ["新观点"], "cta": "互动"},
-        }
-
-    monkeypatch.setattr(creation, "call_llm_json", fake_call_llm_json)
-    engine, session_factory = await _session_factory()
-    now = datetime.now(UTC)
-    async with session_factory() as db:
-        db.add(
-            ContentItem(
-                id=1,
-                title="Runway 更新",
-                url="https://example.com/runway",
-                source_name="测试信源",
-                status=ContentStatus.ANALYZED,
-            )
-        )
-        db.add_all(
-            [
-                AiAnalysis(
-                    id=2,
-                    content_id=1,
-                    summary="旧分析摘要",
-                    tags=["旧标签"],
-                    created_at=now,
-                ),
-                AiAnalysis(
-                    id=1,
-                    content_id=1,
-                    summary="新分析摘要",
-                    tags=["新标签"],
-                    created_at=now + timedelta(minutes=1),
-                ),
-            ]
-        )
-        await db.commit()
-
-        plan = await creation.generate_creation_plan(db, 1, "xiaohongshu")
-
-        prompt_text = "\n".join(str(message["content"]) for message in captured_messages)
-        assert plan["titles"] == ["新分析选题"]
-        assert "新分析摘要" in prompt_text
-        assert "新标签" in prompt_text
-        assert "旧分析摘要" not in prompt_text
-
     await engine.dispose()
 
 

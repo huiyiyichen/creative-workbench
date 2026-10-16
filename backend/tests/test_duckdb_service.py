@@ -196,17 +196,6 @@ created_at TIMESTAMP
         )
     """)
     create_ignored_items_table(conn)
-    for table_name, timestamp_column in (
-        ("fanqie_books", "crawled_at"),
-        ("qimao_books", "crawled_at"),
-        ("zhihu_albums", "updated_at"),
-    ):
-        conn.execute(f"""
-            CREATE TABLE oltp_db.{table_name} (
-                id INTEGER,
-                {timestamp_column} TIMESTAMP
-            )
-        """)
 
     now = datetime.now(UTC).replace(tzinfo=None)
     conn.execute("INSERT INTO oltp_db.sources VALUES (1, '测试信源', 'RSS', 3)")
@@ -285,17 +274,6 @@ def test_stats_queries_exclude_ignored_content(monkeypatch):
         )
     """)
     create_ignored_items_table(conn)
-    for table_name, timestamp_column in (
-        ("fanqie_books", "crawled_at"),
-        ("qimao_books", "crawled_at"),
-        ("zhihu_albums", "updated_at"),
-    ):
-        conn.execute(f"""
-            CREATE TABLE oltp_db.{table_name} (
-                id INTEGER,
-                {timestamp_column} TIMESTAMP
-            )
-        """)
 
     now = datetime.now(UTC).replace(tzinfo=None)
     conn.execute("INSERT INTO oltp_db.sources VALUES (1, '测试信源', 'RSS', 3)")

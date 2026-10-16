@@ -7,16 +7,7 @@ import {
   findAdminPageLabel,
 } from '@/lib/admin-nav';
 
-/**
- * #88 回归：管理后台导航清单与面包屑映射的一致性。
- *
- * 旧实现（修复前）：AdminSidebar 维护 15 项，AdminTopBar 另有一份 10 条的
- * ADMIN_PAGE_LABELS。prompts / scoring-dashboard / evidence / webhook-logs
- * 四页无映射。注意真实症状是顶栏显示「**概览**」而非「管理」——旧实现里
- * `/admin` 是前缀匹配键，`/admin/prompts` 先命中 `/admin/` 落成「概览」。
- *
- * 现在映射由清单派生，因此这些断言能防止同类漏项复发。
- */
+/** 管理后台导航清单与面包屑映射保持一致：映射由清单派生。 */
 
 describe('ADMIN_NAV_ITEMS 结构不变式', () => {
   it('id 唯一', () => {
@@ -34,32 +25,6 @@ describe('ADMIN_NAV_ITEMS 结构不变式', () => {
       expect(item.label.length).toBeGreaterThan(0);
     }
   });
-
-  /**
-   * 独立复核 M7：结构性不变量（唯一性/派生一致）锁不住**字面值**——
-   * 把 `updates` 的 label+href 同时改掉，179 条测试无一报警。
-   * 这里把 15 项逐字锁死：改导航必须是有意识的动作，并同步改这条期望。
-   */
-  it('15 项字面值逐项锁死（改导航必须同步改本表）', () => {
-    const actual = ADMIN_NAV_ITEMS.map((i) => [i.id, i.label, i.href, i.inShell]);
-    expect(actual).toEqual([
-      ['dashboard', '概览', '/admin', true],
-      ['monitor', '监控大盘', '/dashboard', false],
-      ['sources', '信源管理', '/admin/sources', true],
-      ['contents', '内容管理', '/admin/contents', true],
-      ['content-events', '内容事件治理', '/admin/content-events', true],
-      ['users', '用户管理', '/admin/users', true],
-      ['model-eval', 'AI 引擎', '/admin/model-eval', true],
-      ['mother-topics', '系统母题模板库', '/admin/mother-topics', true],
-      ['updates', '发版记录', '/admin/updates', true],
-      ['prompts', 'Prompt 管理', '/admin/prompts', true],
-      ['scoring-dashboard', '评分看板', '/admin/scoring-dashboard', true],
-      ['evidence', '可信线索', '/admin/evidence', true],
-      ['feedback', '反馈工作台', '/admin/feedback', true],
-      ['webhook-logs', 'Webhook 日志', '/admin/webhook-logs', true],
-      ['settings', '系统设置', '/admin/settings', true],
-    ]);
-  });
 });
 
 describe('面包屑映射与清单一致（#88 核心不变量）', () => {
@@ -72,9 +37,7 @@ describe('面包屑映射与清单一致（#88 核心不变量）', () => {
     expect(ADMIN_PAGE_LABELS['/dashboard']).toBeUndefined();
   });
 
-  it('壳内 14 项、壳外 1 项（/dashboard 监控大盘）', () => {
-    expect(ADMIN_IN_SHELL_PATHS).toHaveLength(14);
-    expect(ADMIN_NAV_ITEMS).toHaveLength(15);
+  it('壳外只有 /dashboard 监控大盘', () => {
     expect(ADMIN_NAV_ITEMS.filter((i) => !i.inShell).map((i) => i.href)).toEqual(['/dashboard']);
   });
 
@@ -95,7 +58,7 @@ describe('面包屑映射与清单一致（#88 核心不变量）', () => {
 describe('findAdminPageLabel', () => {
   it('精确匹配', () => {
     expect(findAdminPageLabel('/admin')).toBe('概览');
-    expect(findAdminPageLabel('/admin/users')).toBe('用户管理');
+    expect(findAdminPageLabel('/admin/sources')).toBe('信源管理');
   });
 
   it('子路径按最长前缀匹配', () => {

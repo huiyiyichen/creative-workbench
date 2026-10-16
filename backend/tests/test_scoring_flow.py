@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from app.api.v1 import auth as auth_api, contents as contents_api
 from app.core.database import Base
-from app.services.auth_service import create_session, create_user
+from app.services.auth_service import get_local_user
 from app.services.scoring_engine import ScoreBreakdown, ScoringInput
 from app.services.scoring_flow import (
     _cache_and_return,
@@ -314,8 +314,7 @@ async def test_scoring_flow_api_cache_headers_and_503(monkeypatch):
         await conn.run_sync(Base.metadata.create_all)
 
     async with session_factory() as db:
-        user = await create_user(db, email="algorithm-user@example.com", password="Password123", role="user")
-        token, _session = await create_session(db, user)
+        await get_local_user(db)
         await db.commit()
 
     app = FastAPI()
@@ -355,17 +354,9 @@ async def test_scoring_flow_api_cache_headers_and_503(monkeypatch):
     monkeypatch.setattr(contents_api, "build_scoring_flow_payload", fake_build_scoring_flow_payload)
 
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        anonymous = await client.get("/contents/scoring-flow?hours=24&limit=160")
-        first = await client.get(
-            "/contents/scoring-flow?hours=24&limit=160",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        second = await client.get(
-            "/contents/scoring-flow?hours=24&limit=160",
-            headers={"Authorization": f"Bearer {token}"},
-        )
+        first = await client.get("/contents/scoring-flow?hours=24&limit=160")
+        second = await client.get("/contents/scoring-flow?hours=24&limit=160")
 
-    assert anonymous.status_code == 401
     assert first.status_code == 200
     assert first.headers["x-scoring-flow-cache"] == "MISS"
     assert first.json()["cache"]["hit"] is False
@@ -382,10 +373,7 @@ async def test_scoring_flow_api_cache_headers_and_503(monkeypatch):
     monkeypatch.setattr(contents_api, "build_scoring_flow_payload", fail_build_scoring_flow_payload)
 
     async with httpx.AsyncClient(transport=transport, base_url="http://testserver") as client:
-        failed = await client.get(
-            "/contents/scoring-flow?hours=24&limit=160",
-            headers={"Authorization": f"Bearer {token}"},
-        )
+        failed = await client.get("/contents/scoring-flow?hours=24&limit=160")
 
     assert failed.status_code == 503
     assert failed.json()["detail"] == "Scoring flow unavailable"

@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 import app.main  # noqa: F401 - import all models for Base.metadata
 from app.core.database import Base
 from app.repositories.interest_vector_repo import InterestVectorRepository
-from app.services.auth_service import create_user
+from app.services.auth_service import get_local_user
 from app.services.interest_vector_service import (
     BOOST_MAX,
     compute_personalization_boosts_for_rows,
@@ -26,8 +26,7 @@ async def boost_env() -> AsyncGenerator[tuple[async_sessionmaker[AsyncSession], 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     async with session_factory() as db:
-        user = await create_user(db, email="boost@example.com", password="Password123")
-        await db.commit()
+        user = await get_local_user(db)
         user_id = user.id
     yield session_factory, user_id
     await engine.dispose()
@@ -60,19 +59,9 @@ async def test_boosts_computed_from_user_vector(boost_env):
 
 
 @pytest.mark.asyncio
-async def test_boosts_empty_for_user_without_vector(boost_env):
-    session_factory, _user_id = boost_env
+async def test_boosts_empty_before_vector_is_built(boost_env):
+    session_factory, user_id = boost_env
 
     async with session_factory() as db:
-        other = await create_user(db, email="boost-novector@example.com", password="Password123")
-        await db.commit()
-        boosts = await compute_personalization_boosts_for_rows(db, other.id, [(1, ["ai"], None)])
-    assert boosts == {}
-
-
-@pytest.mark.asyncio
-async def test_boosts_empty_for_anonymous(boost_env):
-    session_factory, _user_id = boost_env
-    async with session_factory() as db:
-        boosts = await compute_personalization_boosts_for_rows(db, None, [(1, ["ai"], None)])
+        boosts = await compute_personalization_boosts_for_rows(db, user_id, [(1, ["ai"], None)])
     assert boosts == {}

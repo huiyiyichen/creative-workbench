@@ -1,6 +1,4 @@
-"""路由级健康端点语义回归（#71 / D-8）。
-
-钉死 /health/live 与 /health/ready 的四态契约（DEPLOYMENT.md §3.1 / §1.4）：
+"""/health/live 与 /health/ready 的四态契约：
 - 正常：ready 200；
 - 调度器禁用：仍 ready（scheduler.running=false 是受支持形态）；
 - DuckDB 降级：仍 ready（duckdb.available=false 是受支持形态）；
