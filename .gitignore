@@ -68,10 +68,8 @@ Thumbs.db
 *.db
 *.sqlite
 
-# Docs (PRD, prototypes, internal plans) — tracked exceptions: screenshots / images (README 用) 与 quality（回归矩阵需入库）
+# Docs: only README images and the regression matrix are tracked
 docs/*
-!docs/screenshots/
-!docs/images/
 !docs/quality/
 !docs/assets/
 

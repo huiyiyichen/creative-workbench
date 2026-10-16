@@ -594,8 +594,8 @@ async def health_ready():
     except Exception:
         scheduler_running = False
 
-    # 判定：OLTP 可达即 ready（DuckDB 有 fallback，scheduler 可能被配置禁用，
-    # 两者是受支持部署形态，见 DEPLOYMENT.md §1.4）；OLTP 不可达 → not_ready。
+    # 判定：OLTP 可达即 ready（DuckDB 有 fallback，scheduler 可按配置禁用）；
+    # OLTP 不可达 → not_ready。
     overall = "ready" if oltp_error is None else "not_ready"
     payload = {
         "status": overall,

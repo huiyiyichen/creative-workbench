@@ -36,7 +36,7 @@
 
 ### 素材、模板与风格
 
-收藏夹集中管理资料与创作参考，内容模板和视觉风格独立分类，以可视化卡片选择和复用。
+收藏夹集中管理资料与创作参考，内容模板和视觉风格独立分类，以可视化卡片选择和复用。内置风格包：包豪斯、构成主义、瑞士国际主义、粗野主义、解构、写实、新表现主义。
 
 ![收藏夹与内容模板](docs/assets/library.png)
 
@@ -47,8 +47,6 @@
 填写自己的创作思路，编辑正文，提出改稿要求并对比版本。文章成稿可作为独立输出。
 
 ![文章编辑、创作思路与修改要求](docs/assets/writing.png)
-
-文章截图使用手工示例，展示编辑界面与修改入口。
 
 ### 视频与多媒介输出
 
@@ -80,7 +78,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\start-local.ps1 -Developme
 
 ## AI 与视频配置
 
-在管理后台配置自己的模型、服务地址和 API Key；配音在创作页管理。完整视频制作还需 **FFmpeg / ffprobe** 和已配置的 **DeepSeek Harness**（`dsh`）。
+在管理后台配置自己的模型、服务地址和 API Key；配音在创作页管理。未配置模型时可用规则草稿成稿。完整视频制作还需 **FFmpeg / ffprobe** 和已配置的 **DeepSeek Harness**（`dsh`）。
 
 | 环节 | 实现 |
 | --- | --- |
@@ -91,7 +89,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\start-local.ps1 -Developme
 | 字幕与合成 | 字幕时间线、Remotion、FFmpeg |
 | 数据与界面 | PostgreSQL、FastAPI、Next.js、Ant Design |
 
-模型配置、密钥和作品数据保存在本地，仓库提供源码、通用配置样例和配图。
+模型配置、密钥和作品数据保存在本地。
 
 ## 手动启动
 
@@ -137,7 +135,7 @@ cd ../backend
 uv run python -m pytest tests/test_scoring_engine.py tests/test_studio_lrc.py -q --noconftest -o addopts=''
 ```
 
-集成测试使用独立的 `topiceye_test*` 数据库。普通开发库保存作品和模型配置。
+集成测试的 `DATABASE_URL` 指向独立的 `topiceye_test*` 数据库。
 
 ## 来源与许可
 
