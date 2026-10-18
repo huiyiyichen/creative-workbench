@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
 import { useStore } from 'zustand';
 import type { AuthUser } from '@/types';
 import { createAuthStore, type AuthStore, type AuthState, type AuthContextType } from '@/stores/authStore';
@@ -68,14 +68,13 @@ export function AuthProvider({
   const localUser = initialUser ?? FALLBACK_LOCAL_USER;
 
   // per-instance store（useRef 保证 SSR 安全：每个请求/组件实例独立 store）
-  const storeRef = useRef<AuthStore | null>(null);
-  if (!storeRef.current) {
-    storeRef.current = createAuthStore({
+  // useState 惰性初始化：每个 Provider 实例一份 store，且不在渲染中读写 ref
+  const [store] = useState<AuthStore>(() =>
+    createAuthStore({
       user: localUser,
       featureFlags: initialFeatureFlags,
-    });
-  }
-  const store = storeRef.current;
+    }),
+  );
 
   // 读取响应式 state（用于路由守卫 effect）
   const authLoading = useStore(store, (s) => s.authLoading);

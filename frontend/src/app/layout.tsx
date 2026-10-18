@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
-import { DM_Sans, DM_Mono, Noto_Serif_SC } from 'next/font/google';
+import { Barlow_Semi_Condensed, DM_Sans, DM_Mono, Noto_Sans_SC, Noto_Serif_SC } from 'next/font/google';
 import './globals.css';
+import '@/design/tokens.css';
+import '@/design/cw.css';
 import ClientLayout from '@/components/ClientLayout';
 import SkipToContent from '@/components/SkipToContent';
 import { prefetchInitialData } from '@/lib/server-prefetch';
@@ -28,6 +30,23 @@ const notoSerif = Noto_Serif_SC({
   variable: '--font-display',
 });
 
+// 调色台界面字体（12.2）：正文 Noto Sans SC，数字 Barlow Semi Condensed（OFL，随构建自托管）；
+// Windows 上数字优先用系统 Bahnschrift（见 design/tokens.css 的 --cw-num）。
+const notoSans = Noto_Sans_SC({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  display: 'swap',
+  preload: false,
+  variable: '--font-noto-sans-sc',
+});
+
+const barlow = Barlow_Semi_Condensed({
+  subsets: ['latin'],
+  weight: ['400', '500', '600'],
+  display: 'swap',
+  variable: '--font-barlow-sc',
+});
+
 export const metadata: Metadata = {
   title: '创意工作台 · AI 创作空间',
   description: '面向创作者的选题、成稿与成片工作台',
@@ -44,7 +63,7 @@ export default async function RootLayout({
   const initialData = await prefetchInitialData();
 
   return (
-    <html lang="zh-CN" className={`${dmSans.variable} ${dmMono.variable} ${notoSerif.variable}`} suppressHydrationWarning>
+    <html lang="zh-CN" className={`${dmSans.variable} ${dmMono.variable} ${notoSerif.variable} ${notoSans.variable} ${barlow.variable}`} suppressHydrationWarning>
       <body>
         <SkipToContent />
         <ClientLayout initialData={initialData}>{children}</ClientLayout>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useStore } from 'zustand';
 import {
@@ -75,15 +75,13 @@ export function FavoritesProvider({
   const authStore = useAuthStoreApi();
 
   // per-instance store
-  const storeRef = useRef<FavoritesStore | null>(null);
-  if (!storeRef.current) {
-    storeRef.current = createFavoritesStore({
+  const [store] = useState<FavoritesStore>(() =>
+    createFavoritesStore({
       authStore,
       router,
       initialCounts,
-    });
-  }
-  const store = storeRef.current;
+    }),
+  );
 
   // 读取 authLoading（用于控制初始化时机）
   const authLoading = useStore(authStore, (s) => s.authLoading);

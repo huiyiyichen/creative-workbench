@@ -26,7 +26,7 @@ const PAGE_SIZE = 50;
 
 function exportContentsAsCSV(items: ContentItem[]): void {
   // CSV 安全转义：双引号包裹 + 内部双引号转义
-  const esc = (v: any) => {
+  const esc = (v: unknown) => {
     if (v === null || v === undefined) return '';
     const s = String(v);
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;

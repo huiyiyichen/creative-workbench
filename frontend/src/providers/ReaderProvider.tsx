@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useRef } from 'react';
+import React, { createContext, useContext, useState } from 'react';
 import { useStore } from 'zustand';
 import { ReaderDrawer } from '@/components/ReaderDrawer';
 import {
@@ -40,11 +40,7 @@ export function useReaderContext(): ReaderContextType {
 
 export function ReaderProvider({ children }: { children: React.ReactNode }) {
   // per-instance store
-  const storeRef = useRef<ReaderStore | null>(null);
-  if (!storeRef.current) {
-    storeRef.current = createReaderStore();
-  }
-  const store = storeRef.current;
+  const [store] = useState<ReaderStore>(() => createReaderStore());
 
   // ReaderDrawer 只需要 readerContentId 和 closeReader
   const readerContentId = useStore(store, (s) => s.readerContentId);

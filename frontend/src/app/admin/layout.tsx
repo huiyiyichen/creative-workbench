@@ -17,7 +17,7 @@ export default function AdminLayout({
   // 加载中：显示骨架
   if (authLoading) {
     return (
-      <div className="flex h-dvh items-center justify-center bg-page">
+      <div className="flex h-full items-center justify-center bg-page">
         <div className="inline-flex items-center gap-2 text-sm font-bold text-gray-500">
           <Loader2 size={16} className="animate-spin" />
           正在加载管理后台
@@ -29,7 +29,7 @@ export default function AdminLayout({
   // 非管理员：显示权限提示（Phase 4 替换为专属 403 页）
   if (currentUser && currentUser.role !== 'admin') {
     return (
-      <div className="flex h-dvh items-center justify-center bg-page p-6">
+      <div className="flex h-full items-center justify-center bg-page p-6">
         <Panel className="max-w-md p-8 text-center">
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-amber-50">
             <ShieldCheck size={24} className="text-amber-500" strokeWidth={2} />
@@ -52,7 +52,7 @@ export default function AdminLayout({
 
   // 管理员：渲染 admin 专属壳
   return (
-    <div className="flex h-dvh overflow-hidden">
+    <div className="flex h-full overflow-hidden">
       <AdminSidebar />
       <main className="flex min-w-0 flex-1 flex-col overflow-hidden bg-page">
         <AdminTopBar />

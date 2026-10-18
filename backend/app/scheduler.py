@@ -724,6 +724,8 @@ def start_scheduler() -> None:
         id="sync_trending",
         name="Sync all trending sources",
         replace_existing=True,
+        # 启动后先同步一次热榜，不等第一个 30 分钟（问题清单 C1：热榜长期不更新）
+        next_run_time=datetime.now(scheduler.timezone) + timedelta(seconds=30),
     )
 
     # API request tasks are only an acceleration path.  The database-backed

@@ -1,0 +1,37 @@
+/*
+ * 方向 A「调色台」CSS 变量（与 tokens.ts 同值，tokens.test.ts 校验）。
+ * 新界面只用 --cw-*；旧页面的浅色变量在 globals.css 保留到阶段 2 替换完毕。
+ */
+:root {
+  --cw-base: #15181d;
+  --cw-panel: #1a1e25;
+  --cw-raise: #222731;
+  --cw-grat: #262c36;
+  --cw-line: #333b48;
+  --cw-text: #e8eaed;
+  --cw-dim: #8d96a3;
+  --cw-faint: #5e6774;
+  --cw-nav-bg: #12151a;
+  --cw-deep: #0f1216;
+  --cw-yl: #e3cc4b;
+  --cw-mg: #df5bd5;
+  --cw-bl: #6f8bff;
+  --cw-cy: #4fd2e2;
+  --cw-gr: #6ccf68;
+  --cw-rd: #ff6159;
+  --cw-wh: #f4f5f7;
+  --cw-paper: #f6f3ec;
+  --cw-ink: #1d1f23;
+
+  --cw-sans: var(--font-noto-sans-sc), "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
+  --cw-num: "Bahnschrift", var(--font-barlow-sc), "Segoe UI", sans-serif;
+  --cw-serif: var(--font-display), "Noto Serif SC", "Songti SC", serif;
+
+  --cw-nav-w: 84px;
+}
+
+@media (max-width: 1279px) {
+  :root {
+    --cw-nav-w: 64px;
+  }
+}

@@ -72,7 +72,7 @@ export default function AdminSidebar() {
   };
 
   return (
-    <div className="relative flex h-screen shrink-0 select-none flex-col bg-slate-900 text-slate-300" style={{ width: 220 }}>
+    <div className="relative flex h-full shrink-0 select-none flex-col bg-slate-900 text-slate-300" style={{ width: 220 }}>
       {/* Brand */}
       <div className="px-6 pb-6 pt-7">
         <div className="flex items-center gap-2.5">

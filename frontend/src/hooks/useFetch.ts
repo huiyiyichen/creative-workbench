@@ -44,7 +44,10 @@ export function useFetch<T>(
   // 竞态保护：每次请求递增 seq，回调里比对，丢弃过期结果。
   const seqRef = useRef(0);
   const fetcherRef = useRef(fetcher);
-  fetcherRef.current = fetcher;
+  // 渲染后再同步最新的 fetcher，避免在渲染期间写 ref
+  useEffect(() => {
+    fetcherRef.current = fetcher;
+  });
 
   const run = useCallback(async (): Promise<T | null> => {
     const seq = ++seqRef.current;
