@@ -21,6 +21,14 @@ from app.models.content_event_run import (
 )
 from app.models.content_evidence import ContentEvidenceLink, ContentEvidenceMark, CrossSourceLevel, EvidenceType
 from app.models.content_label import ContentLabel, ContentLabelSource, ContentLabelValue
+from app.models.content_observation import (
+    ContentJourney,
+    ContentMetricObservation,
+    JourneyStage,
+    MediaAsset,
+    MediaAssetStatus,
+    MetricName,
+)
 from app.models.content_relation import ContentRelation, RelationType
 from app.models.creation import CreationPlan
 from app.models.evidence_interaction import EvidenceInteraction
@@ -60,6 +68,12 @@ __all__ = [
     "SourceEvidenceProfile",
     "PublisherKind",
     "ContentItem",
+    "ContentJourney",
+    "ContentMetricObservation",
+    "JourneyStage",
+    "MediaAsset",
+    "MediaAssetStatus",
+    "MetricName",
     "ContentEventGroup",
     "ContentEventMember",
     "EventStatus",

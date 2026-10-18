@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import enum
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, Boolean, Date, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -67,6 +67,31 @@ class ContentItem(Base):
     analysis_claim_token: Mapped[str | None] = mapped_column(String(64), nullable=True)
     analysis_lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
+    # ── 内容模型（改造方案 3.3） ──
+    # 形态：article / video / image / repo / prompt / post（content_type 继续存分类）
+    media_type: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    platform_item_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    author_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    author_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
+    # 时长（秒）、横竖屏（orientation）、视频地址、图片列表等
+    media: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
+    cover_asset_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("media_assets.id", ondelete="SET NULL"), nullable=True
+    )
+    # 评论：none / collected / unavailable / failed
+    comment_state: Mapped[str] = mapped_column(String(20), nullable=False, default="none", server_default="none")
+    comment_crawled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # ── 分析漏斗（4.1） ──
+    triage_score: Mapped[float | None] = mapped_column(Float, nullable=True)
+    triage_signals: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
+    # none / quick / full
+    analysis_level: Mapped[str] = mapped_column(String(10), nullable=False, default="none", server_default="none")
+    quick_result: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
+    # 快速判断结论：None=未判断，True=值得完整分析，False=不做完整分析
+    full_eligible: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+    # 归属日期（5.4 / 第 13 节 #17）：发布日期，缺发布时间按采集日期（Asia/Shanghai）
+    attributed_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+
     # Topic clustering fields
     topic_id: Mapped[int | None] = mapped_column(
         Integer, ForeignKey("topic_groups.id", ondelete="SET NULL"), nullable=True
@@ -91,6 +116,9 @@ class ContentItem(Base):
         # source_health_repo — WHERE source_id = ? / GROUP BY source_id
         Index("ix_content_items_source_id", "source_id"),
         UniqueConstraint("source_id", "content_hash", name="uq_content_items_source_hash"),
+        Index("ix_content_items_attributed_date", "attributed_date"),
+        Index("ix_content_items_platform_item", "platform", "platform_item_id"),
+        Index("ix_content_items_triage", "status", "triage_score"),
     )
 
     source: Mapped[Source | None] = relationship(back_populates="contents")

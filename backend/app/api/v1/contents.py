@@ -147,9 +147,7 @@ async def list_contents(
     tag: str | None = Query(None, description="按标签筛选（规范化键，大小写不敏感；命中 content 或任一分析的标签）"),
     include_trend_sources: bool = Query(False, description="Include榜单/趋势源 such as DouyinHot"),
     hours: int | None = Query(None, description="Time range in hours, e.g. 24, 48, 168"),
-    sort_by: str = Query(
-        "created_at", pattern=r"^(created_at|published_at|crawled_at|curation_score)$"
-    ),
+    sort_by: str = Query("created_at", pattern=r"^(created_at|published_at|crawled_at|curation_score)$"),
     sort_order: str = Query("desc", pattern=r"^(asc|desc)$"),
     admin_view: bool = Query(False, description="Return management fields; admin only"),
     current_user: User | None = Depends(get_optional_current_user),
@@ -364,12 +362,12 @@ async def today_count(current_user: User | None = Depends(get_optional_current_u
         ttl_seconds=settings.READ_CACHE_TTL_SECONDS,
     )
     if cached_picks:
-            try:
-                parsed = json.loads(cached_picks[0])
-                if isinstance(parsed, dict):
-                    cached_pick_payload = parsed
-            except (TypeError, ValueError):
-                logger.warning("today_count cached today-picks payload could not be decoded")
+        try:
+            parsed = json.loads(cached_picks[0])
+            if isinstance(parsed, dict):
+                cached_pick_payload = parsed
+        except (TypeError, ValueError):
+            logger.warning("today_count cached today-picks payload could not be decoded")
 
     if cached_pick_payload is not None:
         result["today_picks"] = cached_pick_payload.get("total", 0)
@@ -1005,3 +1003,27 @@ async def record_evidence_interaction(
     )
     await db.commit()
     return {"content_id": content_id, "recorded": True}
+
+
+@router.get("/{content_id}/journey")
+async def get_content_journey(content_id: int, db: AsyncSession = Depends(get_db)):
+    """内容经历（改造方案 2.3）：采集 → 预筛 → 初筛 → 快速判断 → 完整分析 → …"""
+    from app.services.content_journey import list_journey
+
+    return {"content_id": content_id, "items": await list_journey(db, content_id)}
+
+
+@router.get("/{content_id}/observations")
+async def get_content_observations(
+    content_id: int,
+    metric: str | None = Query(None, max_length=20),
+    db: AsyncSession = Depends(get_db),
+):
+    """指标观测序列（3.3）。没有观测时返回空列表，界面显示「暂无历史观测」。"""
+    from app.repositories.content_journey_repo import MetricObservationRepository
+
+    rows = await MetricObservationRepository(db).series(content_id, metric=metric)
+    series: dict[str, list[dict]] = {}
+    for row in rows:
+        series.setdefault(row.metric, []).append({"at": row.observed_at, "value": row.value})
+    return {"content_id": content_id, "series": series}

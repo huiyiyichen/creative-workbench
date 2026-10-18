@@ -4,7 +4,7 @@ import enum
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -29,6 +29,14 @@ class SourceType(enum.StrEnum):
     API = "API"
 
 
+class SourceKind(enum.StrEnum):
+    """三类信源（改造方案 3.1）。"""
+
+    SUBSCRIPTION = "subscription"  # 订阅：跟踪账号 / 频道 / 仓库 / RSS
+    KEYWORD = "keyword"  # 追踪词：一个词同时在多个平台搜索
+    LIST = "list"  # 榜单：平台热榜
+
+
 class SourceStatus(enum.StrEnum):
     ACTIVE = "active"
     SYNCING = "syncing"
@@ -44,6 +52,12 @@ class Source(Base):
         Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True
     )
     scope: Mapped[str] = mapped_column(String(20), nullable=False, default="system")
+    kind: Mapped[str] = mapped_column(
+        String(20), nullable=False, default=SourceKind.SUBSCRIPTION.value, server_default="subscription"
+    )
+    # 追踪词：搜索词与要搜的平台列表（如 ["bilibili", "youtube", "github", "hn"]）
+    query: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    platforms: Mapped[list | None] = mapped_column(JSON, nullable=True)
     name: Mapped[str] = mapped_column(String(255), nullable=False)
     source_type: Mapped[str] = mapped_column(value_enum(SourceType), nullable=False, default=SourceType.RSS)
     url: Mapped[str] = mapped_column(String(1024), nullable=False)

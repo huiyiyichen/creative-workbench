@@ -25,6 +25,12 @@ from app.models.source import Source, SourceStatus, SourceType
 # Error redaction extracted to _error_redaction.py (pure functions + constants)
 from app.services._error_redaction import redact_source_sync_error  # noqa: F401 — re-export
 from app.services.classifier import classify_async
+from app.services.content_enrichment import (
+    attributed_date_for,
+    legacy_metrics_record,
+    media_type_for,
+    metrics_from_entry,
+)
 from app.services.content_read_cache import invalidate_content_read_caches
 from app.services.content_summary import clean_content_summary
 from app.services.dedup import build_hash
@@ -294,6 +300,8 @@ async def _ingest_from_source_inner(source: Source, db: AsyncSession) -> dict[st
         new_items: list[ContentItem] = []
         metrics_records: list[dict | None] = []
         eligible_entries: list[dict[str, Any]] = []
+        observations: dict[str, dict[str, float]] = {}
+        triage_ctx = await _load_triage_context_safe(db) if candidate_entries else None
         for entry in candidate_entries:
             title = entry.get("title", "")
             # RSS/Atom descriptions are often HTML.  Normalise at the model
@@ -322,12 +330,16 @@ async def _ingest_from_source_inner(source: Source, db: AsyncSession) -> dict[st
                 else source.category,
                 content_type=_parse_source_content_type(source),
                 status=ContentStatus.PENDING,
+                **_enrichment_fields(entry, source=source, source_type=source_type_str, triage_ctx=triage_ctx),
             )
+            entry_metrics = metrics_from_entry(entry)
+            if entry_metrics:
+                observations[entry_hash] = entry_metrics
             # LLM 规则过滤层（参照 content-signal-radar lowSignalPenalty）：
             # 在分类前执行，避免低信号内容占用模型池和分类并发槽位。
             is_skipped = apply_pre_filter(item)
             new_items.append(item)
-            metrics_records.append(_build_metrics_record(entry))
+            metrics_records.append(_build_metrics_record(entry) or legacy_metrics_record(entry_metrics))
             if not is_skipped:
                 eligible_entries.append(entry)
             else:
@@ -344,6 +356,7 @@ async def _ingest_from_source_inner(source: Source, db: AsyncSession) -> dict[st
         if new_items:
             db_started_at = time.perf_counter()
             inserted_content_ids = await _persist_new_content_items(db, new_items, metrics_records, category_counts={})
+            await _record_ingest_trail(db, new_items, inserted_content_ids, observations)
             await db.commit()
             invalidate_content_read_caches()
             db_elapsed_ms = int((time.perf_counter() - db_started_at) * 1000)
@@ -454,6 +467,109 @@ async def _ingest_from_source_inner(source: Source, db: AsyncSession) -> dict[st
     return stats
 
 
+def _str_or_none(value: Any, limit: int) -> str | None:
+    if value is None or value == "":
+        return None
+    return str(value)[:limit]
+
+
+def _enrichment_fields(entry: dict[str, Any], *, source: Source, source_type: str, triage_ctx: Any) -> dict[str, Any]:
+    """改造方案 3.3 的内容模型字段 + 4.1 的免费初筛分。"""
+    published_at = _ensure_datetime(entry.get("published_at"))
+    fields: dict[str, Any] = {
+        "media_type": media_type_for(entry, source_type=source_type, platform=source.platform),
+        "platform_item_id": _str_or_none(entry.get("platform_item_id"), 128),
+        "author_id": _str_or_none(entry.get("author_id"), 128),
+        "author_url": _str_or_none(entry.get("author_url"), 1024),
+        "media": entry.get("media") if isinstance(entry.get("media"), dict) else None,
+        "attributed_date": attributed_date_for(published_at, datetime.now(UTC)),
+    }
+    if triage_ctx is not None:
+        from app.services.triage import triage_entry
+
+        score, signals = triage_entry(
+            title=entry.get("title", ""),
+            summary=entry.get("summary"),
+            metrics=metrics_from_entry(entry),
+            published_at=published_at,
+            source_id=source.id,
+            ctx=triage_ctx,
+        )
+        fields["triage_score"] = score
+        fields["triage_signals"] = signals or None
+    return fields
+
+
+async def _load_triage_context_safe(db: AsyncSession):
+    try:
+        from app.services.triage import load_triage_context
+
+        return await load_triage_context(db)
+    except Exception:
+        logger.warning("triage context unavailable; new items keep no triage score", exc_info=True)
+        return None
+
+
+async def _record_ingest_trail(
+    db: AsyncSession,
+    new_items: list[ContentItem],
+    inserted_ids: dict[str, int],
+    observations: dict[str, dict[str, float]],
+) -> None:
+    """指标观测 + 内容经历（采集 / 预筛 / 初筛）。失败只记日志，不影响入库。"""
+    from app.models.content_observation import ContentJourney, ContentMetricObservation
+    from app.services.source_sync_service import current_sync_run_id
+
+    run_id = current_sync_run_id()
+    now = datetime.now(UTC)
+    rows: list[Any] = []
+    for item in new_items:
+        content_id = inserted_ids.get(item.content_hash or "")
+        if content_id is None:
+            continue
+        for metric, value in (observations.get(item.content_hash or "") or {}).items():
+            rows.append(
+                ContentMetricObservation(
+                    content_id=content_id, metric=metric, value=value, observed_at=now, sync_run_id=run_id
+                )
+            )
+        rows.append(
+            ContentJourney(
+                content_id=content_id,
+                stage="collected",
+                summary=f"由「{item.source_name}」采集",
+                sync_run_id=run_id,
+                created_at=now,
+            )
+        )
+        if item.skip_analysis:
+            rows.append(
+                ContentJourney(
+                    content_id=content_id,
+                    stage="prefilter",
+                    summary=f"预筛跳过：{item.skip_reason}",
+                    created_at=now,
+                )
+            )
+        if item.triage_score is not None:
+            rows.append(
+                ContentJourney(
+                    content_id=content_id,
+                    stage="triage",
+                    summary=f"初筛分 {item.triage_score:.0f}",
+                    detail=item.triage_signals,
+                    created_at=now,
+                )
+            )
+    if not rows:
+        return
+    try:
+        async with db.begin_nested():
+            db.add_all(rows)
+    except Exception:
+        logger.warning("ingest trail not recorded", exc_info=True)
+
+
 async def _persist_new_content_items(
     db: AsyncSession,
     new_items: list[ContentItem],
@@ -483,6 +599,12 @@ async def _persist_new_content_items(
             item.is_favorited = False
         if item.analysis_attempts is None:
             item.analysis_attempts = 0
+        if item.comment_state is None:
+            item.comment_state = "none"
+        if item.analysis_level is None:
+            item.analysis_level = "none"
+        if item.attributed_date is None:
+            item.attributed_date = attributed_date_for(item.published_at, item.crawled_at)
     # Exclude autoincrement PK from explicit values: PG rejects
     # NULL on a SERIAL PK (NotNullViolationError) while SQLite silently
     # generates a rowid. Excluding makes both backends auto-generate.
@@ -644,17 +766,7 @@ def _build_metrics_record(entry: dict) -> dict | None:
         return _build_zhihu_metrics(entry["_zhihu_meta"])
     if entry.get("_douyin_hot_meta"):
         return _build_douyin_metrics(entry["_douyin_hot_meta"])
-    if entry.get("_twitter_rss_meta"):
-        # xgo.ing RSS 数据有限，暂只占位
-        return {
-            "likes": 0,
-            "comments": 0,
-            "shares": 0,
-            "favorites": 0,
-            "followers_count": 0,
-            "engagement_rate": 0.0,
-            "explosion_ratio": 0.0,
-        }
+    # xgo.ing RSS 没有指标：不写占位 0（缺失保持空值）
     return None
 
 

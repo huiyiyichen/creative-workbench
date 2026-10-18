@@ -14,6 +14,7 @@ from app.api.v1.contents import router as contents_router
 from app.api.v1.daily_reports import router as daily_reports_router
 from app.api.v1.favorites import router as favorites_router
 from app.api.v1.feedback import router as feedback_router
+from app.api.v1.llm_calls import router as llm_calls_router
 from app.api.v1.llm_evaluations import router as llm_evaluations_router
 from app.api.v1.llm_models import router as llm_models_router
 from app.api.v1.metrics import router as metrics_router
@@ -43,6 +44,7 @@ router.include_router(scoring_router)
 router.include_router(skill_router)
 router.include_router(sources_router)
 router.include_router(collection_router)
+router.include_router(llm_calls_router)
 router.include_router(content_events_router)
 router.include_router(contents_router)
 router.include_router(topics_router)

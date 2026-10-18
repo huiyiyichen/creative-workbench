@@ -18,6 +18,7 @@ import re
 import statistics
 import time
 from collections.abc import Awaitable, Callable
+from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -38,6 +39,14 @@ MAX_BACKOFF_MINUTES = 24 * 60
 STALE_FACTOR = 3
 STALE_LOOKBACK = timedelta(days=30)
 STALE_MIN_SAMPLES = 3
+
+
+_current_run_id: ContextVar[int | None] = ContextVar("source_sync_run_id", default=None)
+
+
+def current_sync_run_id() -> int | None:
+    """正在进行的同步记录 id，供入库时关联指标观测与内容经历。"""
+    return _current_run_id.get()
 
 
 # ── 错误分类 ──────────────────────────────────────────────────────────
@@ -159,6 +168,7 @@ async def run_source_sync(
     started = time.perf_counter()
     stats: dict[str, Any] = {"fetched": 0, "new": 0, "duplicates": 0}
     crash: str | None = None
+    token = _current_run_id.set(run_id)
     try:
         stats = await ingest(source, db)
         await db.commit()
@@ -166,6 +176,8 @@ async def run_source_sync(
         crash = str(exc) or exc.__class__.__name__
         logger.exception("source %d sync crashed", source_id)
         await db.rollback()
+    finally:
+        _current_run_id.reset(token)
 
     duration_ms = int((time.perf_counter() - started) * 1000)
     source = await repo.get_by_id(source_id)

@@ -198,6 +198,14 @@ async def _call_llm_single(
             status="DONE",
             duration_ms=duration_ms,
             usage=usage,
+            trace_payload={
+                "model": model,
+                "scene": scene,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+                "messages": messages,
+                "response": content,
+            },
         )
         # ── 内存指标采集（不阻塞、不重试、失败静默）──
         try:
@@ -229,6 +237,7 @@ async def _call_llm_single(
             status="FAILED",
             duration_ms=duration_ms,
             error_message=str(exc),
+            trace_payload={"model": model, "scene": scene, "messages": messages, "error": str(exc)},
         )
         # ── 失败也记录指标 ──
         try:

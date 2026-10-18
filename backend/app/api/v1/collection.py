@@ -110,9 +110,7 @@ class SourceScheduleUpdate(BaseModel):
 
 
 @router.patch("/sources/{source_id}")
-async def collection_update_source(
-    source_id: int, body: SourceScheduleUpdate, db: AsyncSession = Depends(get_db)
-):
+async def collection_update_source(source_id: int, body: SourceScheduleUpdate, db: AsyncSession = Depends(get_db)):
     repo = SourceRepository(db)
     source = await repo.get_by_id(source_id)
     if source is None:
@@ -124,3 +122,25 @@ async def collection_update_source(
         source.base_interval_minutes = None  # 手动改间隔即结束限流退避
     await db.commit()
     return {"id": source.id, "enabled": source.enabled, "interval_minutes": source.fetch_interval_minutes}
+
+
+class FunnelSettingsBody(BaseModel):
+    daily_budget: float | None = Field(None, ge=0, le=10000, description="分析每日预算（元）")
+    triage_threshold: float | None = Field(None, ge=0, le=100, description="初筛过线分")
+    quick_routing_group: str | None = Field(None, max_length=64, description="快速判断用的模型路由组")
+
+
+@router.get("/funnel/settings")
+async def get_funnel_settings(db: AsyncSession = Depends(get_db)):
+    from app.services.analysis_funnel import budget_status, load_funnel_settings
+
+    cfg = await load_funnel_settings(db)
+    return {**cfg.__dict__, "budget": await budget_status(db, cfg)}
+
+
+@router.put("/funnel/settings")
+async def put_funnel_settings(body: FunnelSettingsBody, db: AsyncSession = Depends(get_db)):
+    from app.services.analysis_funnel import budget_status, save_funnel_settings
+
+    cfg = await save_funnel_settings(db, **body.model_dump(exclude_none=True))
+    return {**cfg.__dict__, "budget": await budget_status(db, cfg)}

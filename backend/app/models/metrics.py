@@ -13,18 +13,20 @@ if TYPE_CHECKING:
 
 
 class ContentMetrics(Base):
+    """采集时的平台指标快照。缺失保持 NULL，不记 0（改造方案 3.3）。"""
+
     __tablename__ = "content_metrics"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     content_id: Mapped[int] = mapped_column(Integer, ForeignKey("content_items.id", ondelete="CASCADE"), nullable=False)
-    views: Mapped[int | None] = mapped_column(Integer, nullable=True, default=0)
-    likes: Mapped[int | None] = mapped_column(Integer, nullable=True, default=0)
-    comments: Mapped[int | None] = mapped_column(Integer, nullable=True, default=0)
-    shares: Mapped[int | None] = mapped_column(Integer, nullable=True, default=0)
-    favorites: Mapped[int | None] = mapped_column(Integer, nullable=True, default=0)
-    followers_count: Mapped[int | None] = mapped_column(Integer, nullable=True, default=0)
-    engagement_rate: Mapped[float | None] = mapped_column(Float, nullable=True, default=0.0)
-    explosion_ratio: Mapped[float | None] = mapped_column(Float, nullable=True, default=0.0)
+    views: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    likes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    comments: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    shares: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    favorites: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    followers_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    engagement_rate: Mapped[float | None] = mapped_column(Float, nullable=True)
+    explosion_ratio: Mapped[float | None] = mapped_column(Float, nullable=True)
     snapshot_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )

@@ -49,6 +49,35 @@ class CollectionStatsRepository:
         )
         return {str(getattr(k, "value", k)): int(v) for k, v in (await self.db.execute(stmt)).all()}
 
+    async def funnel_counts_since(self, since: datetime, *, triage_threshold: float) -> dict[str, int]:
+        """分析漏斗各层数量（改造方案 4.1）。精选 = 完整分析后推荐等级为强烈建议写 / 适合蹭热点 / 适合深挖。"""
+        from sqlalchemy import case
+
+        from app.models.analysis import AiAnalysis
+        from app.services.recommendation_level import LEVEL_DEEP_DIVE, LEVEL_HOT_RIDE, LEVEL_STRONG_WRITE
+
+        base = (ContentItem.crawled_at >= since) & (ContentItem.skip_analysis.is_(False))
+        stmt = select(
+            func.count(case((ContentItem.triage_score >= triage_threshold, 1))),
+            func.count(case((ContentItem.quick_result.is_not(None), 1))),
+            func.count(case((ContentItem.full_eligible.is_(True), 1))),
+            func.count(case((ContentItem.analysis_level == "full", 1))),
+        ).where(base)
+        triaged, quick, quick_pass, full = (await self.db.execute(stmt)).one()
+        picked_stmt = (
+            select(func.count(func.distinct(AiAnalysis.content_id)))
+            .join(ContentItem, ContentItem.id == AiAnalysis.content_id)
+            .where(base, AiAnalysis.recommend_level.in_([LEVEL_STRONG_WRITE, LEVEL_HOT_RIDE, LEVEL_DEEP_DIVE]))
+        )
+        picked = int((await self.db.execute(picked_stmt)).scalar() or 0)
+        return {
+            "triaged": int(triaged),
+            "quick": int(quick),
+            "quick_pass": int(quick_pass),
+            "full": int(full),
+            "picked": picked,
+        }
+
     async def skip_reason_counts_since(self, since: datetime) -> dict[str, int]:
         stmt = (
             select(ContentItem.skip_reason, func.count(ContentItem.id))

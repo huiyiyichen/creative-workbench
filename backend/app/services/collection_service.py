@@ -174,9 +174,7 @@ async def build_overview(db: AsyncSession, *, now: datetime | None = None) -> di
 
     def success_rate(start: datetime, end: datetime) -> float | None:
         window = [
-            r
-            for r in runs
-            if r.status != SyncRunStatus.RUNNING.value and start <= ensure_aware_utc(r.started_at) < end
+            r for r in runs if r.status != SyncRunStatus.RUNNING.value and start <= ensure_aware_utc(r.started_at) < end
         ]
         return _rate(sum(1 for r in window if r.status != SyncRunStatus.FAILED.value), len(window))
 
@@ -204,10 +202,9 @@ async def build_overview(db: AsyncSession, *, now: datetime | None = None) -> di
 
 
 async def build_funnel(db: AsyncSession, *, days: int = 7, now: datetime | None = None) -> dict[str, Any]:
-    """采到 → 去重 → 预筛（按原因）→ 快速判断 → 完整分析 → 精选。
+    """采到 → 去重 → 预筛（按原因）→ 初筛 → 快速判断 → 完整分析 → 精选（改造方案 3.8 / 4.1）。"""
+    from app.services.analysis_funnel import budget_status, load_funnel_settings
 
-    快速判断与精选环节在阶段 1（分析漏斗）落地，这里返回 None。
-    """
     now = now or datetime.now(UTC)
     since = now - timedelta(days=days)
     repo = CollectionStatsRepository(db)
@@ -217,27 +214,26 @@ async def build_funnel(db: AsyncSession, *, days: int = 7, now: datetime | None 
     new = sum(int(r.new or 0) for r in runs)
     skipped = await repo.skip_reason_counts_since(since)
     statuses = await repo.status_counts_since(since)
-    analyzed = statuses.get("analyzed", 0)
+    cfg = await load_funnel_settings(db)
+    levels = await repo.funnel_counts_since(since, triage_threshold=cfg.triage_threshold)
+    prefilter_pass = max(sum(statuses.values()) - sum(skipped.values()), 0)
     return {
         "days": days,
         "stages": [
             {"key": "fetched", "label": "采到", "value": fetched if runs else None},
             {"key": "deduped", "label": "去重后", "value": new if runs else None, "removed": duplicates},
-            {
-                "key": "prefilter",
-                "label": "预筛通过",
-                "value": max(sum(statuses.values()) - sum(skipped.values()), 0),
-                "removed_by_reason": skipped,
-            },
-            {"key": "quick", "label": "快速判断", "value": None},
-            {"key": "full", "label": "完整分析", "value": analyzed},
-            {"key": "picked", "label": "精选", "value": None},
+            {"key": "prefilter", "label": "预筛通过", "value": prefilter_pass, "removed_by_reason": skipped},
+            {"key": "triage", "label": "初筛过线", "value": levels["triaged"], "threshold": cfg.triage_threshold},
+            {"key": "quick", "label": "快速判断", "value": levels["quick"], "passed": levels["quick_pass"]},
+            {"key": "full", "label": "完整分析", "value": levels["full"]},
+            {"key": "picked", "label": "精选", "value": levels["picked"]},
         ],
         "backlog": {
             "pending": statuses.get("pending", 0),
             "analyzing": statuses.get("analyzing", 0),
             "error": statuses.get("error", 0),
         },
+        "budget": await budget_status(db, cfg),
     }
 
 
@@ -260,4 +256,3 @@ async def list_auto_actions(db: AsyncSession, *, limit: int = 50) -> list[dict[s
         }
         for a in actions
     ]
-

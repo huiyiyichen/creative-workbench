@@ -209,6 +209,7 @@ async def record_llm_call(
     usage: TokenUsage | None = None,
     error_message: str | None = None,
     request_id: str | None = None,
+    trace_payload: dict | None = None,
 ) -> LlmCallLog:
     usage = usage or TokenUsage()
     resolved_request_id = request_id or f"llm_{uuid.uuid4().hex}"
@@ -266,6 +267,7 @@ async def record_llm_call(
         "cost_per_1m_input_cache_hit": costs.cost_per_1m_input_cache_hit,
         "cost_per_1m_input_cache_create": costs.cost_per_1m_input_cache_create,
     }
+    payload.update(_trace_fields(resolved_request_id, trace_payload))
     existing = await db.scalar(select(LlmCallLog).where(LlmCallLog.request_id == resolved_request_id))
     if existing is not None:
         for key, value in payload.items():
@@ -289,6 +291,25 @@ async def record_llm_call(
         return existing
 
 
+def _trace_fields(request_id: str, trace_payload: dict | None) -> dict:
+    """溯源字段：调用上下文（内容 / 运行 / 步骤）+ 载荷引用与摘要（改造方案 2.3）。"""
+    from app.services.llm.call_context import current_llm_context
+    from app.services.trace_payloads import prompt_text, save_payload, summarize
+
+    ctx = current_llm_context()
+    fields: dict = {
+        "content_id": ctx.content_id,
+        "run_id": ctx.run_id,
+        "step_id": ctx.step_id,
+        "project_id": ctx.project_id,
+    }
+    if trace_payload:
+        fields["prompt_summary"] = summarize(prompt_text(trace_payload.get("messages")))
+        fields["response_summary"] = summarize(trace_payload.get("response"))
+        fields["payload_ref"] = save_payload(request_id, trace_payload)
+    return fields
+
+
 async def record_llm_call_in_new_session(
     *,
     model: LlmModel | None,
@@ -299,6 +320,7 @@ async def record_llm_call_in_new_session(
     usage: TokenUsage | None = None,
     error_message: str | None = None,
     request_id: str | None = None,
+    trace_payload: dict | None = None,
 ) -> None:
     from app.core.database import async_session
 
@@ -315,6 +337,7 @@ async def record_llm_call_in_new_session(
                 usage=usage,
                 error_message=error_message,
                 request_id=request_id,
+                trace_payload=trace_payload,
             )
             await db.commit()
 

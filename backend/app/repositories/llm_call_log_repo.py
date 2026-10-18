@@ -66,3 +66,29 @@ class LlmCallLogRepository:
 
         result = await self.db.execute(stmt)
         return result.all()
+
+
+class LlmCallTraceRepository:
+    """溯源查询：按内容 / 运行列调用、按 request_id 取一条（改造方案 2.3）。"""
+
+    def __init__(self, db):
+        self.db = db
+
+    async def list_calls(self, *, content_id: int | None = None, run_id: str | None = None, limit: int = 50):
+        from sqlalchemy import select
+
+        from app.models.llm_model import LlmCallLog
+
+        stmt = select(LlmCallLog).order_by(LlmCallLog.created_at.desc()).limit(limit)
+        if content_id is not None:
+            stmt = stmt.where(LlmCallLog.content_id == content_id)
+        if run_id:
+            stmt = stmt.where(LlmCallLog.run_id == run_id)
+        return (await self.db.execute(stmt)).scalars().all()
+
+    async def get_by_request_id(self, request_id: str):
+        from sqlalchemy import select
+
+        from app.models.llm_model import LlmCallLog
+
+        return await self.db.scalar(select(LlmCallLog).where(LlmCallLog.request_id == request_id))

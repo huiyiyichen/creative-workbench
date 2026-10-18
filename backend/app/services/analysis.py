@@ -440,6 +440,26 @@ async def _mark_content_error(
 
 
 async def analyze_content(content: ContentItem, db: AsyncSession) -> AiAnalysis:
+    """完整分析一条内容；模型调用带内容 id 溯源，并写入内容经历（改造方案 2.3 / 4.1）。"""
+    from app.services.content_journey import record_journey
+    from app.services.llm.call_context import llm_call_context
+
+    with llm_call_context(content_id=content.id):
+        analysis = await _analyze_content_impl(content, db)
+    content.analysis_level = "full"
+    content.full_eligible = True
+    await record_journey(
+        db,
+        content.id,
+        "full",
+        f"完整分析：选题分 {analysis.curation_score or 0:.0f}"
+        + ("（规则兜底）" if analysis.summary_source == "local_fallback" else ""),
+        detail={"analysis_id": analysis.id, "mode": analysis.analysis_mode},
+    )
+    return analysis
+
+
+async def _analyze_content_impl(content: ContentItem, db: AsyncSession) -> AiAnalysis:
     """Run full AI analysis on a single content item (single LLM call)."""
     logger.info("Analyzing content id=%d: %s", content.id, content.title[:50])
 

@@ -131,11 +131,21 @@ class LlmCallLog(Base):
     cost_per_1m_output: Mapped[float | None] = mapped_column(Float, nullable=True)
     cost_per_1m_input_cache_hit: Mapped[float | None] = mapped_column(Float, nullable=True)
     cost_per_1m_input_cache_create: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # ── 溯源（改造方案 2.3）：调用属于哪次运行 / 步骤 / 哪条内容；完整载荷压缩存 data/traces/ ──
+    run_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    step_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    content_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    project_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    payload_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    prompt_summary: Mapped[str | None] = mapped_column(String(300), nullable=True)
+    response_summary: Mapped[str | None] = mapped_column(String(300), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC), index=True
     )
 
     __table_args__ = (
+        Index("ix_llm_call_logs_content", "content_id"),
+        Index("ix_llm_call_logs_run", "run_id"),
         Index("ix_llm_call_logs_model_created", "model_id", "created_at"),
         Index("ix_llm_call_logs_scene_created", "scene", "created_at"),
     )

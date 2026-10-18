@@ -44,6 +44,9 @@ from app.repositories._query_helpers import (
 from app.repositories.analysis_queries import latest_analysis_id_subquery
 from app.repositories.base import BaseRepository
 
+# 漏斗模式下排队超过 3 天的不再自动分析，保留初筛分（改造方案 4.2）
+FUNNEL_QUEUE_DAYS = 3
+
 logger = logging.getLogger(__name__)
 
 
@@ -117,6 +120,27 @@ class ContentRepo(BaseRepository[ContentItem]):
 
     # ── Status lifecycle ───────────────────────────────────────────
 
+    @classmethod
+    def _analysis_order(cls, funnel: bool) -> tuple:
+        """漏斗模式按初筛分从高到低（4.2）；其余沿用新采集优先。"""
+        if funnel:
+            return (
+                ContentItem.triage_score.desc().nulls_last(),
+                ContentItem.crawled_at.desc(),
+                ContentItem.created_at.desc(),
+            )
+        return (ContentItem.crawled_at.desc(), ContentItem.created_at.desc())
+
+    @staticmethod
+    def _funnel_condition(now: datetime):
+        """定时分析只做快速判断过线、且排队不超过 3 天的待分析内容（4.1 / 4.2）。
+
+        已领取过的（超时的分析中 / 可重试的失败）不受漏斗限制，继续完成。
+        """
+        return (ContentItem.status != ContentStatus.PENDING) | (
+            (ContentItem.full_eligible.is_(True)) & (ContentItem.crawled_at >= now - timedelta(days=FUNNEL_QUEUE_DAYS))
+        )
+
     @staticmethod
     def _analysis_candidate_condition(*, stale_cutoff: datetime, now: datetime):
         """Return rows that may be claimed by the durable analysis queue."""
@@ -170,6 +194,7 @@ class ContentRepo(BaseRepository[ContentItem]):
         *,
         limit: int = 20,
         hours: int | None = None,
+        funnel: bool = False,
     ) -> Sequence[ContentItem]:
         """Fetch eligible pending or stale items for analysis, newest collected first."""
         now = naive_utc_now()
@@ -180,9 +205,11 @@ class ContentRepo(BaseRepository[ContentItem]):
             # 与 claim_pending_analysis_ids 使用同一资格条件。该查询还承担
             # post-sync "是否仍有积压" 的判断，不能把显式跳过 LLM 的内容算入。
             .where(self.model.skip_analysis.is_(False))
-            .order_by(self.model.crawled_at.desc(), self.model.created_at.desc())
+            .order_by(*self._analysis_order(funnel))
             .limit(limit)
         )
+        if funnel:
+            stmt = stmt.where(self._funnel_condition(now))
         if hours is not None:
             stmt = stmt.where(self.model.crawled_at >= naive_utc_now() - timedelta(hours=hours))
         result = await self.db.execute(stmt)
@@ -211,6 +238,7 @@ class ContentRepo(BaseRepository[ContentItem]):
         *,
         limit: int = 20,
         hours: int | None = None,
+        funnel: bool = False,
     ) -> list[int]:
         """Compatibility wrapper returning IDs for legacy batch callers.
 
@@ -218,7 +246,7 @@ class ContentRepo(BaseRepository[ContentItem]):
         the returned fencing tokens through completion.  IDs alone cannot
         prove ownership after a lease expires.
         """
-        claims = await self.claim_pending_analysis_jobs(limit=limit, hours=hours)
+        claims = await self.claim_pending_analysis_jobs(limit=limit, hours=hours, funnel=funnel)
         return [claim.content_id for claim in claims]
 
     async def claim_pending_analysis_jobs(
@@ -226,6 +254,7 @@ class ContentRepo(BaseRepository[ContentItem]):
         *,
         limit: int = 20,
         hours: int | None = None,
+        funnel: bool = False,
     ) -> list[AnalysisClaim]:
         """Atomically claim eligible work and return durable ownership tokens."""
 
@@ -238,9 +267,11 @@ class ContentRepo(BaseRepository[ContentItem]):
                 .where(candidate_condition)
                 # LLM 规则过滤：skip_analysis=True 的内容（低信号/自吹/过短）不入队
                 .where(self.model.skip_analysis.is_(False))
-                .order_by(self.model.crawled_at.desc(), self.model.created_at.desc())
+                .order_by(*self._analysis_order(funnel))
                 .limit(limit)
             )
+            if funnel:
+                stmt = stmt.where(self._funnel_condition(claimed_at))
             if hours is not None:
                 stmt = stmt.where(self.model.crawled_at >= naive_utc_now() - timedelta(hours=hours))
             if database_profile.is_postgresql:

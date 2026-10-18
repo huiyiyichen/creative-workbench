@@ -77,7 +77,8 @@ async def test_funnel_sums_runs(db):
     funnel = await build_funnel(db)
     stages = {s["key"]: s for s in funnel["stages"]}
     assert stages["fetched"]["value"] == 2
-    assert stages["quick"]["value"] is None
+    assert stages["quick"]["value"] == 0 and stages["triage"]["threshold"] == 35.0
+    assert funnel["budget"] == {"budget": 5.0, "spent": 0.0, "remaining": 5.0}
 
 
 @pytest.mark.asyncio

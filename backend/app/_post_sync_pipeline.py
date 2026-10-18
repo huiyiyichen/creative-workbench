@@ -199,8 +199,12 @@ async def _drain_pending_analysis(
             break
 
         async with app.scheduler.async_session() as db:
+            funnel = await _prepare_funnel(db)
+            if funnel.get("budget_exhausted"):
+                stop_reason = "budget"
+                break
             content_repo = ContentRepo(db)
-            pending_ids = await content_repo.claim_pending_analysis_ids(limit=batch_size)
+            pending_ids = await content_repo.claim_pending_analysis_ids(limit=batch_size, funnel=True)
             await db.commit()
 
         if not pending_ids:
@@ -246,7 +250,7 @@ async def _drain_pending_analysis(
 
     async with app.scheduler.async_session() as db:
         content_repo = ContentRepo(db)
-        remaining = await content_repo.list_pending_for_analysis(limit=1)
+        remaining = await content_repo.list_pending_for_analysis(limit=1, funnel=True)
 
     return {
         "attempted": attempted,
@@ -255,6 +259,18 @@ async def _drain_pending_analysis(
         "remaining": bool(remaining),
         "stop_reason": stop_reason,
     }
+
+
+async def _prepare_funnel(db) -> dict:
+    """分析漏斗（改造方案 4.1）：先快速判断一批，并检查每日预算。失败时不阻断完整分析。"""
+    try:
+        from app.services.analysis_funnel import prepare_full_queue
+
+        return await prepare_full_queue(db)
+    except Exception:
+        logger.warning("Scheduler: analysis funnel preparation failed", exc_info=True)
+        await db.rollback()
+        return {}
 
 
 async def _release_inflight_analysis_claims(content_ids: list[int]) -> int:
