@@ -121,13 +121,16 @@ def triage_entry(
     published_at: datetime | None,
     source_id: int | None,
     ctx: TriageContext,
+    searched_keyword: str | None = None,
 ) -> tuple[float | None, dict[str, Any]]:
     hits = keyword_hits(f"{title} {summary or ''}", ctx.keywords)
+    if searched_keyword and searched_keyword not in hits:
+        hits.append(searched_keyword)  # 追踪词搜索得到的条目视为命中
     signals: dict[str, float | None] = {
         "engagement": engagement_signal(metrics),
         "rank": rank_signal(metrics),
         "source_value": ctx.source_value.get(source_id) if source_id is not None else None,
-        "keyword": (1.0 if hits else 0.0) if ctx.keywords else None,
+        "keyword": (1.0 if hits else 0.0) if (ctx.keywords or hits) else None,
         "freshness": freshness_signal(published_at, ctx.now),
         "coverage": None,
         "similarity": None,

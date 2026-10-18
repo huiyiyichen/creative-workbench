@@ -126,7 +126,8 @@ async def ingest_from_source(source: Source, db: AsyncSession) -> dict[str, int]
         # RSSHub stores a relative route and resolves it against its configured
         # public instances inside the scraper; validating the route as a host
         # would reject every creator feed before the scraper gets a chance.
-        if source.source_type != SourceType.RSSHub:
+        # 平台适配器 / 追踪词信源的 url 是内部标识（platform:// / keyword://），访问的是固定平台域名。
+        if source.source_type not in (SourceType.RSSHub, SourceType.PLATFORM, SourceType.KEYWORD):
             await ensure_public_hostname(source.url)
     except UnsafeUrlError as exc:
         message = redact_source_sync_error(str(exc))
@@ -212,6 +213,14 @@ async def _ingest_from_source_inner(source: Source, db: AsyncSession) -> dict[st
                 if source_type_str == "X":
                     source_config = {"search_query": source.keyword}
 
+        if source_type_str in (SourceType.PLATFORM.value, SourceType.KEYWORD.value):
+            source_config = {
+                **source_config,
+                "platform": source.platform,
+                "query": source.query,
+                "platforms": source.platforms,
+                "api_keys": await _platform_keys_safe(db),
+            }
         scraper = scraper_cls(source_url=source.url, source_config=source_config)
 
         # ── Step 2: Fetch ────────────────────────────────────────────
@@ -317,7 +326,7 @@ async def _ingest_from_source_inner(source: Source, db: AsyncSession) -> dict[st
                 source_id=source.id,
                 source_name=source.name,
                 source_type=source_type_str,
-                platform=source.platform,
+                platform=entry.get("platform") or source.platform,
                 owner_user_id=source.owner_user_id,
                 author=entry.get("author"),
                 published_at=_ensure_datetime(entry.get("published_at")),
@@ -467,6 +476,16 @@ async def _ingest_from_source_inner(source: Source, db: AsyncSession) -> dict[st
     return stats
 
 
+async def _platform_keys_safe(db: AsyncSession) -> dict[str, str]:
+    try:
+        from app.services.platform_keys import get_platform_keys
+
+        return await get_platform_keys(db)
+    except Exception:
+        logger.warning("platform keys unavailable", exc_info=True)
+        return {}
+
+
 def _str_or_none(value: Any, limit: int) -> str | None:
     if value is None or value == "":
         return None
@@ -477,7 +496,7 @@ def _enrichment_fields(entry: dict[str, Any], *, source: Source, source_type: st
     """改造方案 3.3 的内容模型字段 + 4.1 的免费初筛分。"""
     published_at = _ensure_datetime(entry.get("published_at"))
     fields: dict[str, Any] = {
-        "media_type": media_type_for(entry, source_type=source_type, platform=source.platform),
+        "media_type": media_type_for(entry, source_type=source_type, platform=entry.get("platform") or source.platform),
         "platform_item_id": _str_or_none(entry.get("platform_item_id"), 128),
         "author_id": _str_or_none(entry.get("author_id"), 128),
         "author_url": _str_or_none(entry.get("author_url"), 1024),
@@ -494,6 +513,7 @@ def _enrichment_fields(entry: dict[str, Any], *, source: Source, source_type: st
             published_at=published_at,
             source_id=source.id,
             ctx=triage_ctx,
+            searched_keyword=entry.get("_keyword"),
         )
         fields["triage_score"] = score
         fields["triage_signals"] = signals or None

@@ -165,6 +165,7 @@ from . import (  # noqa: E402
     api_source as _api_source_mod,  # noqa: E402, F401
     douyin_hot as _douyin_hot_mod,  # noqa: E402, F401
     newsletter as _newsletter_mod,  # noqa: E402, F401
+    platform as _platform_mod,  # noqa: E402, F401
     podcast as _podcast_mod,  # noqa: E402, F401
     reddit as _reddit_mod,  # noqa: E402, F401
     rss as _rss_mod,  # noqa: E402, F401

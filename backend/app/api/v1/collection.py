@@ -144,3 +144,78 @@ async def put_funnel_settings(body: FunnelSettingsBody, db: AsyncSession = Depen
 
     cfg = await save_funnel_settings(db, **body.model_dump(exclude_none=True))
     return {**cfg.__dict__, "budget": await budget_status(db, cfg)}
+
+
+# ── 统一添加信源 / 平台（改造方案 3.1 / 3.2） ─────────────────────────
+
+
+class RecognizeBody(BaseModel):
+    text: str = Field(..., min_length=1, max_length=1024)
+
+
+class CreateSourceBody(BaseModel):
+    kind: str = Field(..., pattern="^(subscription|keyword|list)$")
+    source_type: str
+    url: str = Field(..., min_length=1, max_length=1024)
+    name: str | None = Field(None, max_length=255)
+    platform: str | None = Field(None, max_length=100)
+    query: str | None = Field(None, max_length=255)
+    platforms: list[str] | None = None
+    keyword: str | None = None
+    interval_minutes: int | None = Field(None, ge=5, le=7 * 24 * 60)
+    sync_now: bool = True
+
+
+@router.post("/sources/recognize")
+async def collection_recognize_source(body: RecognizeBody):
+    from app.services.scrapers.recognizer import recognize_input
+    from app.services.source_registry import searchable_platforms
+
+    try:
+        result = recognize_input(body.text)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    if result["kind"] == "keyword" and not result.get("platforms"):
+        result["platforms"] = searchable_platforms()
+    return result
+
+
+@router.post("/sources", status_code=201)
+async def collection_create_source(body: CreateSourceBody, db: AsyncSession = Depends(get_db)):
+    from app.services.source_registry import SourceExistsError, create_source
+
+    try:
+        source = await create_source(db, body.model_dump())
+    except SourceExistsError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    await db.commit()
+    result: dict = {"id": source.id, "name": source.name, "kind": source.kind}
+    if body.sync_now:
+        result["sync"] = await collection_sync_source(source.id, db)
+    return result
+
+
+@router.get("/platforms")
+async def collection_platforms(db: AsyncSession = Depends(get_db)):
+    from app.services.platform_keys import key_status
+    from app.services.platforms import describe_platforms
+
+    keys = await key_status(db)
+    return {"items": [{**p, "has_key": keys.get(p["platform"], False)} for p in describe_platforms()]}
+
+
+class PlatformKeyBody(BaseModel):
+    value: str | None = Field(None, max_length=512)
+
+
+@router.put("/platforms/{platform}/key")
+async def collection_set_platform_key(platform: str, body: PlatformKeyBody, db: AsyncSession = Depends(get_db)):
+    from app.services.platform_keys import key_status, set_platform_key
+
+    try:
+        await set_platform_key(db, platform, (body.value or "").strip() or None)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    return {"platform": platform, "has_key": (await key_status(db)).get(platform, False)}

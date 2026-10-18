@@ -27,6 +27,9 @@ class SourceType(enum.StrEnum):
     ZHIHU = "Zhihu"
     DOUYIN_HOT = "DouyinHot"
     API = "API"
+    # 阶段 1 平台适配器（3.2）：订阅 / 榜单走 PLATFORM，追踪词走 KEYWORD
+    PLATFORM = "Platform"
+    KEYWORD = "Keyword"
 
 
 class SourceKind(enum.StrEnum):

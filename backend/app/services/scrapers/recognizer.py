@@ -179,3 +179,94 @@ def normalize_creator_source(payload: dict, current=None) -> dict:
         ),
     )
     return payload
+
+
+# ── 统一添加（改造方案 3.1）：粘贴链接或输入关键词，自动识别信源类型 ─────────────
+
+_GITHUB_RESERVED = {"trending", "topics", "explore", "search", "orgs", "settings", "marketplace", "sponsors"}
+
+
+def recognize_input(text: str) -> dict:
+    """返回 ``{kind, source_type, url, platform, query, name}``；识别结果可在界面上改。
+
+    B站 / GitHub / YouTube 频道 / Reddit / HN 走平台适配器；其他链接沿用旧识别；
+    不是链接的文字当作追踪词，在所有支持搜索的平台上搜索。
+    """
+    raw = (text or "").strip()
+    if not raw:
+        raise ValueError("请输入链接或关键词")
+    if not re.match(r"^(https?://|www\.|[\w.-]+\.(com|net|org|io|tv|me|fm|cn)(/|$))", raw, re.I):
+        return {
+            "kind": "keyword",
+            "source_type": SourceType.KEYWORD.value,
+            "url": f"keyword://{quote(raw, safe='')}",
+            "platform": None,
+            "query": raw,
+            "name": raw,
+        }
+    url = raw if raw.startswith("http") else f"https://{raw}"
+    parsed = urlparse(url)
+    host = (parsed.hostname or "").lower().removeprefix("www.").removeprefix("m.")
+    path = parsed.path.rstrip("/")
+
+    def platform(kind: str, name: str, plat: str, mode: str, target: str, query: str | None = None) -> dict:
+        return {
+            "kind": kind,
+            "source_type": SourceType.PLATFORM.value,
+            "url": f"platform://{plat}/{mode}/{target}",
+            "platform": plat,
+            "query": query,
+            "name": name,
+        }
+
+    if host in {"space.bilibili.com", "bilibili.com"}:
+        m = re.search(r"(?:space\.bilibili\.com/|/space/)(\d+)", url)
+        if m:
+            return platform("subscription", f"B站 UP 主 {m.group(1)}", "bilibili", "user", m.group(1))
+        if path in {"/hot", "/ranking", "/v/popular/all"} or path.startswith("/v/popular"):
+            return platform("list", "B站热门", "bilibili", "ranking", "popular")
+        m = re.match(r"^/v/popular/rank/(\w+)", path)
+        if m:
+            return platform("list", f"B站排行 {m.group(1)}", "bilibili", "ranking", "popular")
+    if host == "search.bilibili.com":
+        keyword = parse_qs(parsed.query).get("keyword", [""])[0].strip()
+        if keyword:
+            return {
+                "kind": "keyword",
+                "source_type": SourceType.KEYWORD.value,
+                "url": f"keyword://{quote(keyword, safe='')}",
+                "platform": "bilibili",
+                "platforms": ["bilibili"],
+                "query": keyword,
+                "name": keyword,
+            }
+    if host == "github.com":
+        parts = [p for p in path.split("/") if p]
+        if parts and parts[0] == "trending":
+            since = parse_qs(parsed.query).get("since", ["daily"])[0]
+            target = f"{parts[1]}:{since}" if len(parts) > 1 else since
+            return platform("list", "GitHub Trending", "github", "ranking", target)
+        if len(parts) >= 2 and parts[0] not in _GITHUB_RESERVED:
+            return platform("subscription", f"{parts[0]}/{parts[1]} 发布", "github", "repo", f"{parts[0]}/{parts[1]}")
+    if host == "youtube.com":
+        m = re.search(r"(UC[\w-]{22})", url)
+        if m:
+            return platform("subscription", f"YouTube 频道 {m.group(1)}", "youtube", "user", m.group(1))
+    if host == "reddit.com":
+        m = re.match(r"^/r/([\w]+)", path)
+        if m:
+            return platform("subscription", f"r/{m.group(1)}", "reddit", "user", m.group(1))
+    if host == "news.ycombinator.com" and path in {"", "/news", "/front"}:
+        return platform("list", "Hacker News 首页", "hn", "ranking", "front")
+
+    source_type, normalized, config = recognize_source_type(url)
+    kind = "list" if source_type in (SourceType.DOUYIN_HOT, SourceType.ZHIHU) else "subscription"
+    return {
+        "kind": kind,
+        "source_type": source_type.value,
+        "url": normalized,
+        "platform": (config or {}).get("platform"),
+        "query": (config or {}).get("query"),
+        "keyword": json.dumps(config, ensure_ascii=False) if config else None,
+        "name": parsed.hostname or normalized,
+    }
