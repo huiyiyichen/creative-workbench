@@ -7,7 +7,12 @@ param(
   [ValidateRange(1, 65515)]
   [int]$FrontendPort = 3000,
   [ValidateRange(5, 1800)]
-  [int]$StartupTimeoutSeconds = 600
+  [int]$StartupTimeoutSeconds = 600,
+  # 登录 Windows 时在后台自动启动（计划任务），关闭浏览器不影响采集
+  [switch]$RegisterAutostart,
+  [switch]$UnregisterAutostart,
+  # 不启动托盘图标
+  [switch]$NoTray
 )
 
 $ErrorActionPreference = 'Stop'
@@ -19,6 +24,25 @@ $python = Join-Path $backendRoot '.venv\Scripts\python.exe'
 $next = Join-Path $frontendRoot 'node_modules\next\dist\bin\next'
 $productionRoot = Join-Path $frontendRoot '.next-local'
 $Production = $Production -or -not $Development
+$autostartTaskName = 'CreativeWorkbench'
+
+if ($UnregisterAutostart) {
+  Unregister-ScheduledTask -TaskName $autostartTaskName -Confirm:$false -ErrorAction SilentlyContinue
+  Write-Output 'Autostart removed.'
+  exit 0
+}
+if ($RegisterAutostart) {
+  $taskArguments = "-NoLogo -NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$PSCommandPath`""
+  $action = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument $taskArguments -WorkingDirectory $projectRoot
+  $trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
+  $taskSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries `
+    -ExecutionTimeLimit ([TimeSpan]::Zero) -MultipleInstances IgnoreNew -StartWhenAvailable
+  Register-ScheduledTask -TaskName $autostartTaskName -Action $action -Trigger $trigger -Settings $taskSettings `
+    -Description 'Creative Workbench background service (collection keeps running after the browser is closed).' `
+    -Force | Out-Null
+  Write-Output "Autostart registered as scheduled task '$autostartTaskName'."
+  exit 0
+}
 
 function Invoke-InDirectory([string]$Directory, [string]$Command, [string[]]$Arguments) {
   Push-Location -LiteralPath $Directory
@@ -383,6 +407,16 @@ try {
   foreach ($asset in $manifest.rootMainFiles) {
     if ($asset -notlike 'static/*' -or $asset.Contains('..')) { throw 'Invalid frontend bootstrap asset path.' }
     Wait-Http "http://127.0.0.1:$FrontendPort/_next/$asset" (Join-Path $frontendRoot '.runtime-start-error.log')
+  }
+  # 托盘与其他本地工具读取的端口信息
+  @{ api = "http://127.0.0.1:$BackendPort"; ui = "http://127.0.0.1:$FrontendPort" } |
+    ConvertTo-Json | Set-Content -LiteralPath (Join-Path $dataRoot 'runtime.json') -Encoding UTF8
+  if (-not $NoTray) {
+    $pythonw = Join-Path $backendRoot '.venv\Scripts\pythonw.exe'
+    if (Test-Path -LiteralPath $pythonw) {
+      # 托盘自身用命名互斥量保证单实例，重复拉起会立即退出
+      Start-Process -FilePath $pythonw -ArgumentList @('-m', 'app.desktop.tray') -WorkingDirectory $backendRoot
+    }
   }
   Write-Output "Creative Workbench is ready: $studioUrl"
   if ($OpenBrowser) { Start-Process $studioUrl }

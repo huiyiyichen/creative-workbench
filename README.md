@@ -76,6 +76,13 @@
 powershell -NoProfile -ExecutionPolicy Bypass -File .\start-local.ps1 -Development -OpenBrowser
 ```
 
+后台运行与开机自启：启动后托盘出现工作台图标（绿：运行，黄：已暂停，红：有信源需要处理，灰：后台未运行），菜单可打开工作台、记一笔、暂停 / 恢复采集；自动处理和报告生成等通知会以 Windows 系统通知弹出。关闭浏览器不影响定时采集。登录 Windows 时自动在后台启动：
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\start-local.ps1 -RegisterAutostart   # 注册
+powershell -NoProfile -ExecutionPolicy Bypass -File .\start-local.ps1 -UnregisterAutostart # 取消
+```
+
 ## AI 与视频配置
 
 在管理后台配置自己的模型、服务地址和 API Key；配音在创作页管理。未配置模型时可用规则草稿成稿。完整视频制作还需 **FFmpeg / ffprobe** 和已配置的 **DeepSeek Harness**（`dsh`）。
