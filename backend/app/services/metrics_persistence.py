@@ -8,8 +8,6 @@ cleaned up after 7 days.  Enables historical trend analysis beyond the
 from __future__ import annotations
 
 import logging
-import platform
-import resource
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import delete, select
@@ -24,17 +22,26 @@ _RETENTION_DAYS = 7
 
 
 def _get_process_metrics() -> dict:
-    """Collect process-level metrics via ``resource.getrusage``.
+    """Collect process-level metrics via ``psutil``.
 
-    macOS reports ru_maxrss in bytes; Linux reports it in KB.
+    ``resource`` 只在 POSIX 上存在；Windows 本地运行时 ``import resource``
+    会让整个快照任务失败。psutil 跨平台，取当前常驻内存与累计 CPU 时间。
+    取不到时返回 None（缺失保持空值，不记 0）。
     """
-    rusage = resource.getrusage(resource.RUSAGE_SELF)
-    rss_mb = rusage.ru_maxrss / (1024 * 1024) if platform.system() == "Darwin" else rusage.ru_maxrss / 1024
-    return {
-        "process_rss_mb": round(rss_mb, 1),
-        "process_cpu_user_s": round(rusage.ru_utime, 2),
-        "process_cpu_sys_s": round(rusage.ru_stime, 2),
-    }
+    try:
+        import psutil
+
+        proc = psutil.Process()
+        mem = proc.memory_info()
+        cpu = proc.cpu_times()
+        return {
+            "process_rss_mb": round(mem.rss / (1024 * 1024), 1),
+            "process_cpu_user_s": round(cpu.user, 2),
+            "process_cpu_sys_s": round(cpu.system, 2),
+        }
+    except Exception:
+        logger.debug("process metrics unavailable", exc_info=True)
+        return {"process_rss_mb": None, "process_cpu_user_s": None, "process_cpu_sys_s": None}
 
 
 def _collect_snapshot_fields() -> dict:

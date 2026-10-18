@@ -11,7 +11,7 @@ from __future__ import annotations
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, or_, select, true
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.content import ContentItem
@@ -59,12 +59,8 @@ class ContentEventRepository:
 
     @staticmethod
     def _visible_owner_clause(visible_user_id: int | None):
-        if visible_user_id is None:
-            return ContentEventGroup.owner_user_id.is_(None)
-        return or_(
-            ContentEventGroup.owner_user_id.is_(None),
-            ContentEventGroup.owner_user_id == visible_user_id,
-        )
+        # 单用户：所有事件组都可见（问题清单 #14）
+        return true()
 
     async def get_content(
         self,
@@ -221,11 +217,7 @@ class ContentEventRepository:
         """Load one event with database pagination and fixed query count."""
 
         accepted_clause = ContentEventMember.review_status.in_([EventReviewStatus.AUTO, EventReviewStatus.CONFIRMED])
-        owner_clause = (
-            ContentItem.owner_user_id.is_(None)
-            if group.owner_user_id is None
-            else ContentItem.owner_user_id == group.owner_user_id
-        )
+        owner_clause = true() if group.owner_user_id is None else ContentItem.owner_user_id == group.owner_user_id
         canonical_result = await self.db.execute(
             select(ContentItem).where(
                 ContentItem.id == group.canonical_content_id,

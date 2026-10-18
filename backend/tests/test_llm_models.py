@@ -10,7 +10,6 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 import app.main  # noqa: F401 - import all models for Base.metadata
-import app.services.llm.model_resolver as model_resolver_module
 from app.api.v1 import auth as auth_api, llm_evaluations as llm_evaluations_api, llm_models as llm_models_api
 from app.api.v1.llm_models import (
     LLM_COMPLETION_TIMEOUT_SECONDS,
@@ -186,29 +185,14 @@ def test_shared_model_resolver_routes_bare_custom_provider_as_openai_compatible(
     assert resolve_litellm_model(model) == "openai/minicpm5-2b"
 
 
-def test_normalize_api_base_rewrites_loopback_hosts_inside_container(monkeypatch):
-    monkeypatch.setattr(model_resolver_module, "_container_env", True)
-    monkeypatch.setattr(model_resolver_module, "_rewrite_logged", set())
-
-    assert (
-        normalize_api_base("http://localhost:40114/olla/openai/v1")
-        == "http://host.docker.internal:40114/olla/openai/v1"
-    )
-    assert normalize_api_base("http://127.0.0.1:11434/v1") == "http://host.docker.internal:11434/v1"
-    # 远程主机与非容器场景原样返回
-    assert normalize_api_base("https://api.example.com/v1") == "https://api.example.com/v1"
+def test_normalize_api_base_keeps_loopback_hosts():
+    # 本机运行，不再改写为 host.docker.internal
+    assert normalize_api_base(" http://localhost:40114/v1 ") == "http://localhost:40114/v1"
+    assert normalize_api_base("http://127.0.0.1:11434/v1") == "http://127.0.0.1:11434/v1"
     assert normalize_api_base(None) is None
 
 
-def test_normalize_api_base_passthrough_outside_container(monkeypatch):
-    monkeypatch.setattr(model_resolver_module, "_container_env", False)
-
-    assert normalize_api_base("http://localhost:40114/v1") == "http://localhost:40114/v1"
-
-
-def test_completion_kwargs_normalizes_loopback_api_base(monkeypatch):
-    monkeypatch.setattr(model_resolver_module, "_container_env", True)
-    monkeypatch.setattr(model_resolver_module, "_rewrite_logged", set())
+def test_completion_kwargs_keeps_loopback_api_base():
     model = SimpleNamespace(
         api_key="test-key",
         api_base="http://localhost:40114/olla/openai/v1",
@@ -223,7 +207,7 @@ def test_completion_kwargs_normalizes_loopback_api_base(monkeypatch):
         max_tokens=200,
     )
 
-    assert kwargs["api_base"] == "http://host.docker.internal:40114/olla/openai/v1"
+    assert kwargs["api_base"] == "http://localhost:40114/olla/openai/v1"
 
 
 def test_summarize_llm_error_strips_traceback_and_adds_connection_hint():
@@ -236,7 +220,7 @@ def test_summarize_llm_error_strips_traceback_and_adds_connection_hint():
 
     assert "Traceback" not in summarized
     assert "Connection refused" in summarized
-    assert "host.docker.internal" in summarized
+    assert "localhost" in summarized
 
 
 def test_summarize_llm_error_adds_hint_for_not_found():

@@ -57,9 +57,9 @@ class MetricsSnapshotRecord(Base):
     db_pool_utilization: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
 
     # ── Process layer ──
-    process_rss_mb: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
-    process_cpu_user_s: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
-    process_cpu_sys_s: Mapped[float] = mapped_column(Float, nullable=False, default=0.0)
+    process_rss_mb: Mapped[float | None] = mapped_column(Float, nullable=True)
+    process_cpu_user_s: Mapped[float | None] = mapped_column(Float, nullable=True)
+    process_cpu_sys_s: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     # ── Slow queries ──
     slow_queries_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)

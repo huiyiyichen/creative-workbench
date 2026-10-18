@@ -45,7 +45,7 @@ class TrendingSource(enum.StrEnum):
     NETEASE = "netease"
     V2EX = "v2ex"
     SOHU = "sohu"
-    # 网文平台榜单（黑岩/点众，公开 API）
+    # 历史榜单源：已退出同步，枚举值保留以读取旧快照
     HEIYAN = "heiyan"
     ISHUGUI = "ishugui"
     # 中文播客榜（xyzrank，公开 API）

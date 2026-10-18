@@ -46,6 +46,14 @@ def recognize_source_type(
     if not url:
         return SourceType.RSS, url, None
 
+    # 已存储的 RSSHub 路由（无协议、无域名）：抖音账号曾被误识别成 DouyinHot 榜单类型
+    # （问题清单 C3），这里让路由本身也能被识别回账号订阅。
+    route_match = re.fullmatch(r"douyin/user/(MS4w[\w-]+)/?", url.strip())
+    if route_match:
+        return SourceType.RSSHub, f"douyin/user/{route_match.group(1)}", {
+            "platform": "douyin", "original_url": f"https://www.douyin.com/user/{route_match.group(1)}",
+        }
+
     parsed = urlparse(url)
     host = (parsed.hostname or "").lower()
     path = parsed.path or ""

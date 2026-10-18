@@ -499,20 +499,6 @@ class ContentRepo(BaseRepository[ContentItem]):
         result = await self.db.execute(stmt)
         return dict(result.all())
 
-    async def delete_old_pending(self, cutoff_days: int = 90) -> int:
-        """删除超过指定天数的 pending 状态内容。返回删除数量。"""
-        from sqlalchemy import delete as sa_delete
-
-        cutoff = naive_utc_now() - timedelta(days=cutoff_days)
-        stmt = (
-            sa_delete(self.model)
-            .where(self.model.status == ContentStatus.PENDING)
-            .where(self.model.created_at < cutoff)
-        )
-        result = await self.db.execute(stmt)
-        await self.db.flush()
-        return result.rowcount
-
     # ── Eager-loaded paginated listing ────────────────────────────
 
     async def list_paginated_with_analyses(

@@ -76,7 +76,7 @@ async def get_trending(
     source: str | None = Query(None, description="信源筛选: weibo/baidu/douyin/..."),
     exclude_sources: str | None = Query(
         None,
-        description="排除的信源，逗号分隔（如 'heiyan,ishugui' 排除网文平台）",
+        description="排除的信源，逗号分隔（如 'weibo,baidu'）",
     ),
     limit: int = Query(30, ge=1, le=500),
 ):

@@ -247,7 +247,7 @@ async def test_llm_failure_and_cap_create_pending_members(
 
 
 @pytest.mark.asyncio
-async def test_public_scope_never_reads_private_content(normalization_db):
+async def test_global_scope_reads_all_sources_content(normalization_db):
     async with normalization_db() as db:
         await _content(
             db,
@@ -273,7 +273,8 @@ async def test_public_scope_never_reads_private_content(normalization_db):
         )
         await db.commit()
 
-        assert result["scanned"] == 1
+        # 单用户：全局归并覆盖所有信源（第 13 节 #14）
+        assert result["scanned"] == 2
         run = await db.scalar(select(ContentEventNormalizationRun))
         assert run is not None
         assert run.scope_key == "public"

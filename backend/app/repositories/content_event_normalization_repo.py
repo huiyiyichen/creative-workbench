@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import exists, or_, select, update
+from sqlalchemy import exists, or_, select, true, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.content import ContentItem, ContentStatus
@@ -35,8 +35,9 @@ class ContentEventNormalizationRepository:
 
     @staticmethod
     def _owner_clause(owner_user_id: int | None):
+        # 单用户：全局归并（owner=None）覆盖所有信源的内容（问题清单 #14）
         if owner_user_id is None:
-            return ContentItem.owner_user_id.is_(None)
+            return true()
         return ContentItem.owner_user_id == owner_user_id
 
     @staticmethod

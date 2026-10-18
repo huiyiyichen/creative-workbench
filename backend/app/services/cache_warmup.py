@@ -187,10 +187,12 @@ async def warmup_content_list(db) -> None:
 
 
 async def warmup_today_picks(db) -> None:
+    from app.services.auth_service import get_local_user
     from app.services.today_picks import build_today_picks
 
-    params = default_today_picks_cache_params()
-    payload = await build_today_picks(db, hours=params.hours, limit=params.limit)
+    user = await get_local_user(db)
+    params = default_today_picks_cache_params(user.id)
+    payload = await build_today_picks(db, hours=params.hours, limit=params.limit, owner_user_id=user.id)
     set_cached_today_picks(params, payload)
 
 

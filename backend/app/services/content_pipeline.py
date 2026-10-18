@@ -166,6 +166,7 @@ async def _ingest_from_source_inner(source: Source, db: AsyncSession) -> dict[st
     fetched_count = 0
     new_count = 0
     duplicate_count = 0
+    skip_reasons: dict[str, int] = {}
     started_at = time.perf_counter()
 
     try:
@@ -329,6 +330,9 @@ async def _ingest_from_source_inner(source: Source, db: AsyncSession) -> dict[st
             metrics_records.append(_build_metrics_record(entry))
             if not is_skipped:
                 eligible_entries.append(entry)
+            else:
+                reason = item.skip_reason or "other"
+                skip_reasons[reason] = skip_reasons.get(reason, 0) + 1
 
         # Persist the crawl result before any remote LLM work.  Classification
         # may be slow, rate-limited, or unavailable; it must not be able to
@@ -443,7 +447,11 @@ async def _ingest_from_source_inner(source: Source, db: AsyncSession) -> dict[st
         _update_source_error(source, safe_message)
         await db.flush()
 
-    return {"fetched": fetched_count, "new": new_count, "duplicates": duplicate_count}
+    stats: dict[str, Any] = {"fetched": fetched_count, "new": new_count, "duplicates": duplicate_count}
+    if skip_reasons:
+        # 预筛跳过按原因计数，写入 source_sync_runs.skipped
+        stats["skipped"] = skip_reasons
+    return stats
 
 
 async def _persist_new_content_items(

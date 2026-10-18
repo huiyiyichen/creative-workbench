@@ -4,18 +4,10 @@ from __future__ import annotations
 
 import logging
 from functools import lru_cache
-from pathlib import Path
 from typing import Any, Protocol
-from urllib.parse import urlsplit, urlunsplit
 
 logger = logging.getLogger(__name__)
 
-# 容器内访问宿主机回环服务的网关名（Docker Desktop 内置；Linux 需 host-gateway）。
-_HOST_GATEWAY = "host.docker.internal"
-_LOOPBACK_HOSTS = {"localhost", "127.0.0.1", "0.0.0.0", "::1"}
-
-_container_env: bool | None = None
-_rewrite_logged: set[str] = set()
 
 
 @lru_cache(maxsize=1)
@@ -95,42 +87,10 @@ def resolve_litellm_model(model: ModelLike) -> str:
     return model_id
 
 
-def _running_in_container() -> bool:
-    global _container_env
-    if _container_env is None:
-        _container_env = Path("/.dockerenv").exists()
-    return _container_env
-
-
 def normalize_api_base(api_base: str | None) -> str | None:
-    """容器内把指向回环地址的 api_base 重写到宿主机网关。
+    """清理 api_base 的空白。
 
-    后端通常运行在 Docker 中，配置里的 localhost/127.0.0.1 指向容器自身，
-    连不上跑在宿主机上的本地推理服务（Ollama / LM Studio / MLX 网关等），
-    表现为 Connection refused。这里把回环主机名替换为 host.docker.internal
-    （端口、路径、userinfo 原样保留）；非容器环境原样返回。
+    应用直接跑在 Windows 本机（不再有 Docker），localhost 就是本机推理服务，
+    不做任何主机名改写（第 13 节 #9）。
     """
-    cleaned = _clean(api_base)
-    if not cleaned or not _running_in_container():
-        return cleaned
-
-    try:
-        parts = urlsplit(cleaned)
-        hostname = parts.hostname
-    except ValueError:
-        return cleaned
-    if not hostname or hostname.lower() not in _LOOPBACK_HOSTS:
-        return cleaned
-
-    new_host = f"[{_HOST_GATEWAY}]" if ":" in hostname else _HOST_GATEWAY
-    if parts.port is not None:
-        new_host += f":{parts.port}"
-    userinfo, sep, _ = parts.netloc.rpartition("@")
-    if sep:
-        new_host = f"{userinfo}@{new_host}"
-    rewritten = urlunsplit((parts.scheme, new_host, parts.path, parts.query, parts.fragment))
-
-    if rewritten not in _rewrite_logged:
-        _rewrite_logged.add(rewritten)
-        logger.warning("api_base %s 指向回环地址，后端运行在容器内，已重写为 %s", cleaned, rewritten)
-    return rewritten
+    return _clean(api_base)

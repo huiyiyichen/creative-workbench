@@ -48,10 +48,7 @@ async def refresh_trend_snapshots(
     else:
         result = await db.execute(
             select(ContentItem.created_at)
-            .where(
-                ContentItem.owner_user_id.is_(None),
-                ContentItem.status == ContentStatus.ANALYZED,
-            )
+            .where(ContentItem.status == ContentStatus.ANALYZED)
             .order_by(ContentItem.created_at.desc())
         )
         dates = sorted(
@@ -183,7 +180,6 @@ async def snapshot_daily_trends(db: AsyncSession, target_date: date | None = Non
         .outerjoin(TopicGroup, TopicGroup.id == ContentItem.topic_id)
         .where(
             and_(
-                ContentItem.owner_user_id.is_(None),
                 ContentItem.topic_id.isnot(None),
                 ~_accepted_event_member_exists(),
                 ContentItem.created_at >= start_dt,
@@ -244,7 +240,6 @@ async def snapshot_daily_trends(db: AsyncSession, target_date: date | None = Non
         .join(AiAnalysis, AiAnalysis.id == latest_analysis_id)
         .where(
             and_(
-                ContentItem.owner_user_id.is_(None),
                 AiAnalysis.tags.isnot(None),
                 ~_accepted_event_member_exists(),
                 ContentItem.created_at >= start_dt,

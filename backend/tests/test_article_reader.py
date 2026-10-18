@@ -18,7 +18,7 @@ from app.services import article_reader
 
 
 @pytest.mark.asyncio
-async def test_reader_creates_text_snapshot_and_keeps_private_content_hidden(monkeypatch):
+async def test_reader_creates_text_snapshot_for_any_source(monkeypatch):
     engine = create_async_engine("sqlite+aiosqlite:///:memory:")
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
     async with engine.begin() as conn:
@@ -81,7 +81,8 @@ async def test_reader_creates_text_snapshot_and_keeps_private_content_hidden(mon
     assert first.json()["cache_status"] == "miss"
     assert second.status_code == 200
     assert second.json()["cache_status"] == "hit"
-    assert private.status_code == 404
+    # 单用户：所有信源的内容一视同仁（第 13 节 #14）
+    assert private.status_code == 200
 
     async with session_factory() as db:
         snapshot = await db.scalar(select(ArticleSnapshot).where(ArticleSnapshot.content_id == 1))
@@ -89,7 +90,8 @@ async def test_reader_creates_text_snapshot_and_keeps_private_content_hidden(mon
         assert snapshot.content_blocks == [{"type": "paragraph", "text": public_text}]
         events = (await db.scalars(select(ArticleReaderEvent).order_by(ArticleReaderEvent.id))).all()
         # 事件序列：首读 miss 由服务层记 success、API 层记 ready；命中只记 cache_hit
-        assert [event.outcome for event in events] == ["success", "ready", "cache_hit"]
+        # 单用户下第 2 条内容同样可读，追加一次 success/ready
+        assert [event.outcome for event in events] == ["success", "ready", "cache_hit", "success", "ready"]
 
     await engine.dispose()
 

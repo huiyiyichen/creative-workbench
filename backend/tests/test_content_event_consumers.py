@@ -191,12 +191,8 @@ async def test_today_pick_event_projection_is_batched_scoped_and_stable():
             visible_user_id=None,
         )
         assert len(statements) == 2
-        assert set(public_assignments) == {
-            public[0].id,
-            public[1].id,
-            public[2].id,
-            public[3].id,
-        }
+        # 单用户：私有信源的内容同样参与（第 13 节 #14）
+        assert {public[0].id, public[1].id, public[2].id, public[3].id} <= set(public_assignments)
         assert public_assignments[public[0].id].is_canonical is True
         assert public_assignments[public[2].id].relation_type == "corroboration"
         assert public[4].id not in public_assignments

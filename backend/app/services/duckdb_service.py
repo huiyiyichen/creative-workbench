@@ -187,21 +187,8 @@ class DuckDBAnalytics(PicksMixin, TopicsMixin, StatsMixin, ReportsMixin):
         public_only: bool,
         visible_user_id: int | None,
     ) -> tuple[str, list[Any]]:
-        """Return a content-owner filter when the attached schema supports it.
-
-        Some historical/test databases predate ``content_items.owner_user_id``.
-        Keeping the feature-detection fallback lets those read-only analytical
-        fixtures stay compatible while production data gets the same visibility
-        contract as the OLTP path.
-        """
-        if not public_only and visible_user_id is None:
-            return "", []
-        if not self._oltp_column_exists(conn, "content_items", "owner_user_id"):
-            logger.debug("DuckDB attached content_items has no owner_user_id column; visibility filter disabled")
-            return "", []
-        if public_only:
-            return " AND c.owner_user_id IS NULL", []
-        return " AND (c.owner_user_id IS NULL OR c.owner_user_id = ?)", [visible_user_id]
+        """单用户：所有信源的内容一视同仁（问题清单 #14），不再按 owner 过滤。"""
+        return "", []
 
     def _ignored_content_cte(self, conn) -> str:
         """全局口径的 ignored_content CTE：只排除管理员全局屏蔽行。

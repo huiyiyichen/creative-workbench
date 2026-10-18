@@ -9,7 +9,7 @@ cleanup_old_snapshots 清理。
 注意：scheduler 的 cleanup job 描述写"15 天"，但实际用本模块的 7 天常量；
 模块头与 scheduler 描述存在历史漂移，以本模块常量为准。
 
-用途：持续热度分析、跨时间对比、趋势变化追踪（含网文平台黑岩/点众的周报排名变化）。
+用途：持续热度分析、跨时间对比、趋势变化追踪。
 """
 
 from __future__ import annotations
@@ -261,9 +261,7 @@ async def analyze_persistent_topics(
 
     for snap in snapshots:
         source_name = snap.source if isinstance(snap.source, str) else snap.source.value
-        # 网文书库源 (heiyan/ishugui) 已退出定时同步，快照数据可能陈旧，
-        # 且书名语义上不属于「热点话题」，排除出持续热度聚合（避免误判在榜）。
-        # 它们的快照仍保留，供 webnovel_report 周报排名变化使用。
+        # 已退出定时同步的历史榜单源，快照数据陈旧，排除出持续热度聚合。
         if source_name in SYNC_EXCLUDED_SOURCES:
             continue
         for item in snap.items:

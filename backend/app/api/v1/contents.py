@@ -359,12 +359,11 @@ async def today_count(current_user: User | None = Depends(get_optional_current_u
     # 同时各自完整重算一次。未命中时只物化一条卡片，评分仍覆盖全量候选，
     # 因而 total 与 /today-picks 保持一致。
     cached_pick_payload: dict | None = None
-    if current_user is None:
-        cached_picks = get_cached_today_picks(
-            default_today_picks_cache_params(),
-            ttl_seconds=settings.READ_CACHE_TTL_SECONDS,
-        )
-        if cached_picks:
+    cached_picks = get_cached_today_picks(
+        default_today_picks_cache_params(current_user.id if current_user is not None else None),
+        ttl_seconds=settings.READ_CACHE_TTL_SECONDS,
+    )
+    if cached_picks:
             try:
                 parsed = json.loads(cached_picks[0])
                 if isinstance(parsed, dict):

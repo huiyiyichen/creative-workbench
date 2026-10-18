@@ -158,8 +158,7 @@ def _summarize_llm_error(exc: Exception) -> str:
     hints: list[str] = []
     if "connection refused" in lowered or "connection error" in lowered or "timed out" in lowered:
         hints.append(
-            "无法连接到 API Base。若模型服务运行在本机：后端跑在 Docker 内，localhost 指向容器自身"
-            "（配置为 localhost 时系统会自动转换为 host.docker.internal），请确认服务已启动、端口正确。"
+            "无法连接到 API Base。若模型服务运行在本机，请确认服务已启动、地址填 localhost 或 127.0.0.1、端口正确。"
         )
     if "404" in lowered or "not found" in lowered:
         hints.append("端点返回 404：请检查 API Base 是否应以 /v1 结尾，以及模型名是否为服务端实际部署的名称。")

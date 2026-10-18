@@ -3,6 +3,7 @@ from app.models.analysis_job import AnalysisJobRecord
 from app.models.app_setting import AppSetting
 from app.models.article_reader_event import ArticleReaderEvent
 from app.models.article_snapshot import ArticleSnapshot
+from app.models.auto_action import AutoAction, AutoActionType
 from app.models.category import Category
 from app.models.content import ContentItem
 from app.models.content_event import (
@@ -35,6 +36,7 @@ from app.models.read_record import ReadRecord
 from app.models.scheduled_job import JobExecutionLog, ScheduledJob
 from app.models.source import Source
 from app.models.source_evidence_profile import PublisherKind, SourceEvidenceProfile
+from app.models.source_sync_run import SourceSyncRun, SyncErrorKind, SyncRunStatus, SyncTrigger
 from app.models.studio import StudioArtifact, StudioAsset, StudioProject, StudioRevision
 from app.models.topic import TopicGroup
 from app.models.trend import TopicTrend, TopicTrendMember
@@ -49,6 +51,12 @@ __all__ = [
     "StudioAsset",
     "StudioArtifact",
     "Source",
+    "SourceSyncRun",
+    "SyncRunStatus",
+    "SyncErrorKind",
+    "SyncTrigger",
+    "AutoAction",
+    "AutoActionType",
     "SourceEvidenceProfile",
     "PublisherKind",
     "ContentItem",

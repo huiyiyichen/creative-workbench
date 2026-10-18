@@ -322,10 +322,7 @@ class EvidenceRepository:
             & (ContentEvidenceMark.owner_user_id.is_(None))
             & (ContentEvidenceMark.cross_source_level != "none")
         )
-        base_content = (
-            ContentItem.owner_user_id.is_(None),
-            ContentItem.created_at >= cutoff,
-        )
+        base_content = (ContentItem.created_at >= cutoff,)
 
         marked_count_result = await self.db.execute(
             select(func.count(func.distinct(ContentItem.id)))

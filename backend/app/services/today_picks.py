@@ -6,7 +6,7 @@ import json
 import logging
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import or_, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -287,15 +287,7 @@ async def _build_today_picks_via_oltp(
         stmt = stmt.where(ContentItem.category == category)
     if content_type:
         stmt = stmt.where(ContentItem.content_type == content_type)
-    if owner_user_id is None:
-        stmt = stmt.where(ContentItem.owner_user_id.is_(None))
-    else:
-        stmt = stmt.where(
-            or_(
-                ContentItem.owner_user_id.is_(None),
-                ContentItem.owner_user_id == owner_user_id,
-            )
-        )
+    # 单用户：所有信源的内容一视同仁（问题清单 #14），不再按 owner 过滤
     if ignored_ids:
         stmt = stmt.where(ContentItem.id.notin_(ignored_ids))
 

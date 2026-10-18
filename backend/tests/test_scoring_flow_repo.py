@@ -645,9 +645,10 @@ async def test_scoring_flow_counts_respect_visible_user_id():
         collected_99 = await repo.count_collected_for_scoring_window(time_cutoff=cutoff, visible_user_id=99)
         rows_99 = await repo.list_scoring_rows(time_cutoff=cutoff, limit=10, visible_user_id=99)
 
-        assert count_99 == 2, f"用户99应只见 2 条（公共+自己），实际 {count_99}"
-        assert collected_99 == 2, f"collected 也应只计 2 条，实际 {collected_99}"
-        assert {row.id for row in rows_99} == {1, 2}
+        # 单用户：不再按 owner 过滤，所有信源一视同仁（第 13 节 #14）
+        assert count_99 == 3
+        assert collected_99 == 3
+        assert {row.id for row in rows_99} == {1, 2, 3}
 
         # 全局视角（visible_user_id=None）：计全部 3 条
         count_all = await repo.count_for_scoring(time_cutoff=cutoff)

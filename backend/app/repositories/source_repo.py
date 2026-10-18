@@ -22,7 +22,7 @@ class SourceRepository(BaseRepository[Source]):
     async def get_enabled_sources(self) -> Sequence[Source]:
         """Return syncable sources in the user-managed order.
 
-        Excludes hidden sources (e.g. WeRead auto-created virtual source)
+        Excludes hidden sources (system-created virtual sources)
         that are synced via their own integration path, not the batch scraper.
         """
         stmt = (
@@ -36,6 +36,14 @@ class SourceRepository(BaseRepository[Source]):
         )
         result = await self.db.execute(stmt)
         return result.scalars().all()
+
+    async def list_enabled_by_platform(self, platform: str) -> Sequence[Source]:
+        stmt = (
+            select(Source)
+            .where(Source.enabled.is_(True), Source.platform == platform)
+            .order_by(Source.id.asc())
+        )
+        return (await self.db.execute(stmt)).scalars().all()
 
     async def claim_sync(
         self,
@@ -63,7 +71,7 @@ class SourceRepository(BaseRepository[Source]):
     async def count_user_owned(self, user_id: int) -> int:
         """统计用户私有信源数量，供私有信源配额检查使用。
 
-        排除 hidden=True 的系统自动创建信源（如微信读书虚拟信源），
+        排除 hidden=True 的系统自动创建信源，
         因为它们不是用户创建的，不应占用用户的私有信源配额。
         """
         result = await self.db.execute(
@@ -133,7 +141,7 @@ class SourceRepository(BaseRepository[Source]):
     ) -> tuple[Sequence[Source], int]:
         """用户私有信源（owner_user_id=user_id）分页查询，返回 (items, total)。
 
-        排除 hidden=True 的系统自动创建信源（如微信读书虚拟信源）。
+        排除 hidden=True 的系统自动创建信源。
 
         keyword 模糊匹配 name/url/platform/category/keyword 字段（OR ILIKE）。
         排序：sort_order ASC。与 list_my_sources 端点历史行为等价。

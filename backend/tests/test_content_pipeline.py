@@ -412,7 +412,7 @@ async def test_ingest_from_source_pre_filters_before_llm_classification(monkeypa
             await db.commit()
             rows = (await db.execute(select(ContentItem).order_by(ContentItem.id))).scalars().all()
 
-        assert stats == {"fetched": 2, "new": 2, "duplicates": 0}
+        assert stats == {"fetched": 2, "new": 2, "duplicates": 0, "skipped": {"hard_low_signal": 1}}
         assert classified_titles == ["New LLM benchmark improves agent reliability"]
         assert rows[0].skip_analysis is True
         assert rows[0].category is None

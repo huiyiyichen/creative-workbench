@@ -5,7 +5,7 @@ Per-source scheduling:
     - Each enabled source gets its own IntervalTrigger job.
     - Interval is read from source.fetch_interval_minutes (default 60 min).
     - A rescan job runs every 10 minutes to pick up new / updated sources.
-    - cleanup_old_content: daily at 03:00.
+    - Pending content is never deleted (plan #12).
 
 All DB access goes through Repository layer — no raw SQL here.
 
@@ -35,7 +35,7 @@ from app._post_sync_pipeline import (
 )
 from app.core.config import settings
 from app.core.database import async_session
-from app.repositories.content_repo import ContentRepo
+from app.models.source_sync_run import SyncTrigger
 from app.repositories.source_repo import SourceRepository
 from app.services.analysis import (
     analyze_batch_concurrent,  # noqa: F401 — re-exported for _post_sync_pipeline runtime lookup
@@ -115,21 +115,6 @@ async def _recover_analysis_jobs_on_startup() -> None:
 
 
 @track_job(
-    "cleanup_old_content", name="清理90天前的待处理内容", timeout=120, description="删除 pending 状态超过90天的内容"
-)
-async def cleanup_old_content() -> None:
-    """Remove pending content older than 90 days."""
-    logger.info("Scheduler: cleanup_old_content started")
-
-    async with async_session() as db:
-        content_repo = ContentRepo(db)
-        removed = await content_repo.delete_old_pending(cutoff_days=90)
-        await db.commit()
-        logger.info("Scheduler: cleanup_old_content removed %d old pending items", removed)
-        return f"removed={removed}"
-
-
-@track_job(
     "cleanup_old_notifications",
     name="清理30天前的站内通知",
     timeout=60,
@@ -171,31 +156,32 @@ async def _sync_all_trending() -> None:
 async def _sync_single_source(source_id: int) -> None:
     """Job handler: sync one source by ID.
 
-    Keep this job narrow: one source fetch + one source status update. Global
-    analysis/clustering runs on its own throttled schedule so many source jobs
-    do not overwhelm the DB with heavy post-sync writes.
+    Keep this job narrow: one source fetch + one sync-run record + auto actions.
+    Global analysis/clustering runs on its own throttled schedule so many source
+    jobs do not overwhelm the DB with heavy post-sync writes.
     """
+    from app.services.source_sync_service import run_source_sync
+
     sem = _get_semaphore()
     async with sem, async_session() as db:
-        from app.repositories.source_repo import SourceRepository
-
-        source_repo = SourceRepository(db)
-        source = await source_repo.claim_sync(
-            source_id,
-            lease_seconds=int(settings.SOURCE_SYNC_TIMEOUT_SECONDS),
-        )
-        await db.commit()
-        if not source or not source.enabled:
-            logger.debug("Source id=%d skipped (not found, disabled, or sync lease active)", source_id)
-            return
         try:
-            stats = await ingest_from_source(source, db)
-            await db.commit()
-            logger.info("Scheduler: source '%s' synced — %s", source.name, stats)
-            _request_post_sync_pipeline(stats)
+            outcome = await run_source_sync(
+                db,
+                source_id,
+                trigger=SyncTrigger.SCHEDULE,
+                lease_seconds=int(settings.SOURCE_SYNC_TIMEOUT_SECONDS),
+                ingest=ingest_from_source,
+            )
         except Exception:
             logger.exception("Scheduler: failed to sync source id=%d", source_id)
             await db.rollback()
+            return
+        if outcome.run is None:
+            logger.debug("Source id=%d skipped (%s)", source_id, outcome.skipped_reason)
+            return
+        logger.info("Scheduler: source id=%d synced — %s", source_id, outcome.run.status)
+        if not outcome.failed:
+            _request_post_sync_pipeline(outcome.stats)
 
 
 async def _rescan_sources() -> None:
@@ -678,6 +664,20 @@ async def _normalize_content_events() -> dict:
             return {"status": "failed", "scanned": 0}
 
 
+@track_job(
+    "report_catchup",
+    name="补跑错过的报告",
+    timeout=1800,
+    description="启动后检查最近 7 天日报、4 周周刊、2 个月月刊，没有记录的补跑",
+)
+async def _catch_up_reports() -> str:
+    from app.services.report_catchup import catch_up_reports
+
+    async with async_session() as db:
+        done = await catch_up_reports(db)
+    return str(done)
+
+
 # ── Lifecycle helpers ─────────────────────────────────────────────────
 
 
@@ -696,14 +696,8 @@ def start_scheduler() -> None:
         replace_existing=True,
     )
 
-    # Daily cleanup at 03:00
-    scheduler.add_job(
-        cleanup_old_content,
-        trigger=CronTrigger(hour=3, minute=0),
-        id="cleanup_old_content",
-        name="Cleanup old pending content",
-        replace_existing=True,
-    )
+    # 不再删除旧的待分析内容（问题清单 #12）：积压按初筛分和预算处理，
+    # 原始采集数据一律保留。
 
     # Notifications cleanup at 03:30 (错开 03:00 content cleanup)
     scheduler.add_job(
@@ -914,12 +908,22 @@ def start_scheduler() -> None:
         replace_existing=True,
     )
 
-    # 模型目录刷新：每日 05:30（错开 05:00 WeRead 缓存；失败保留旧数据）
+    # 模型目录刷新：每日 05:30（失败保留旧数据）
     scheduler.add_job(
         _refresh_model_catalog,
         trigger=CronTrigger(hour=5, minute=30),
         id="refresh_model_catalog",
         name="模型目录每日刷新",
+        replace_existing=True,
+    )
+
+    # 启动 2 分钟后补跑错过的报告（第 13 节 #11），给信源补采留出时间
+    scheduler.add_job(
+        _catch_up_reports,
+        trigger="date",
+        run_date=datetime.now(scheduler.timezone) + timedelta(minutes=2),
+        id="report_catchup",
+        name="补跑错过的报告",
         replace_existing=True,
     )
 

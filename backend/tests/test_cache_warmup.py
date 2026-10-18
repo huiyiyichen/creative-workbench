@@ -153,7 +153,8 @@ async def test_warmup_read_caches_populates_hot_read_cache_keys(cache_warmup_ses
     ttl = settings.READ_CACHE_TTL_SECONDS
     assert get_cached_json(default_source_list_cache_params().key, ttl_seconds=ttl) is not None
     assert get_cached_json(home_content_list_cache_params().key, ttl_seconds=ttl) is not None
-    assert get_cached_json(default_today_picks_cache_params().key, ttl_seconds=ttl) is not None
+    # 预热按本地用户（id=1）缓存，与单用户请求的 key 一致
+    assert get_cached_json(default_today_picks_cache_params(1).key, ttl_seconds=ttl) is not None
     assert get_cached_json("contents:favorites:list:1:20", ttl_seconds=ttl) is not None
     for key in STATS_WORKSPACE_CACHE_KEYS:
         assert get_cached_json(key, ttl_seconds=ttl) is not None

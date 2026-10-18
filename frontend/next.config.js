@@ -9,7 +9,7 @@ const nextConfig = {
   reactStrictMode: true,
   compress: true,
   poweredByHeader: false,
-  allowedDevOrigins: ['localhost', '127.0.0.1', 'frontend.creative-workbench.orb.local'],
+  allowedDevOrigins: ['localhost', '127.0.0.1'],
   turbopack: {
     root: path.resolve(__dirname),
   },
@@ -17,14 +17,6 @@ const nextConfig = {
   experimental: {
     proxyTimeout: 120000,
     optimizePackageImports: ['antd', '@ant-design/icons', 'lucide-react'],
-  },
-  // macOS Docker bind mount 下 inotify 不穿透，强制 webpack 轮询以启用 HMR
-  webpack: (config) => {
-    config.watchOptions = {
-      poll: 1000,
-      aggregateTimeout: 300,
-    };
-    return config;
   },
   // 旧 admin 路径 301 重定向到 /admin/* 新址
   // 迁移历史：v0.7.0 路由收口，admin 页面统一到 /admin/* 前缀

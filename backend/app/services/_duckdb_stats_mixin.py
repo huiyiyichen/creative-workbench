@@ -193,7 +193,8 @@ class StatsMixin:
             SELECT
                 COALESCE(s.name, '未知') AS source_name,
                 LOWER(COALESCE(CAST(s.source_type AS VARCHAR), 'unknown')) AS source_type,
-                COUNT(c.id) AS content_count
+                COUNT(c.id) AS content_count,
+                COUNT(CASE WHEN a.id IS NOT NULL THEN c.id END) AS analyzed_count
             FROM oltp_db.content_items c
             LEFT JOIN oltp_db.sources s ON s.id = c.source_id
             LEFT JOIN latest_analysis a ON a.content_id = c.id
@@ -209,14 +210,17 @@ class StatsMixin:
         sources = []
         for row in rows:
             content_count = row[2] or 0
+            analyzed_count = row[3] or 0
             curated_count = selected_counts.get((row[0], row[1]), 0)
             sources.append(
                 {
                     "source_name": row[0],
                     "source_type": row[1],
                     "content_count": content_count,
+                    "analyzed_count": analyzed_count,
                     "curated_count": curated_count,
-                    "curation_rate": round(curated_count / content_count * 100, 1) if content_count else 0,
+                    # 精选率分母只算已分析（第 13 节 #16）；没有已分析内容时为空，不记 0
+                    "curation_rate": round(curated_count / analyzed_count * 100, 1) if analyzed_count else None,
                 }
             )
         return {"sources": sources}

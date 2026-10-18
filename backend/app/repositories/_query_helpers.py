@@ -15,7 +15,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import ColumnElement, or_
+from sqlalchemy import ColumnElement
 from sqlalchemy.sql import Select
 
 # ── Filter dict → WHERE clauses ─────────────────────────────────
@@ -60,21 +60,12 @@ def apply_visibility(
     visible_user_id: int | None = None,
     public_only: bool = False,
 ) -> Select:
-    """Apply ADR 0001 content visibility filter.
+    """单用户本地应用：所有信源的内容一视同仁（问题清单 #14）。
 
-    - ``public_only=True``    → ``owner_user_id IS NULL``
-    - ``visible_user_id`` set → ``OR(owner_user_id IS NULL, owner_user_id == visible_user_id)``
-    - neither set             → no filter (internal / batch callers)
+    以前 ``public_only`` 只取 ``owner_user_id IS NULL`` 的公共内容，导致用户
+    自己添加的信源（如抖音账号）不进入趋势、事件和精选。参数保留以兼容调用方，
+    不再产生过滤。
     """
-    if public_only:
-        return stmt.where(model.owner_user_id.is_(None))
-    if visible_user_id is not None:
-        return stmt.where(
-            or_(
-                model.owner_user_id.is_(None),
-                model.owner_user_id == visible_user_id,
-            )
-        )
     return stmt
 
 
@@ -84,21 +75,7 @@ def visibility_clauses(
     visible_user_id: int | None = None,
     public_only: bool = False,
 ) -> list[ColumnElement[bool]]:
-    """Return a list of WHERE clause(s) for visibility.
-
-    Convenience for callers that need the raw clauses (e.g. to apply
-    the same clause to multiple statements).  Prefer ``apply_visibility``
-    when operating on a single statement.
-    """
-    if public_only:
-        return [model.owner_user_id.is_(None)]
-    if visible_user_id is not None:
-        return [
-            or_(
-                model.owner_user_id.is_(None),
-                model.owner_user_id == visible_user_id,
-            )
-        ]
+    """见 :func:`apply_visibility`：单用户下没有可见性过滤。"""
     return []
 
 

@@ -38,8 +38,13 @@ class TodayPicksCacheParams:
         return TODAY_PICKS_CACHE_PREFIX + urlencode(params)
 
 
-def default_today_picks_cache_params() -> TodayPicksCacheParams:
-    return TodayPicksCacheParams(hours=24, limit=TODAY_PICKS_INITIAL_LIMIT)
+def default_today_picks_cache_params(user_id: int | None = None) -> TodayPicksCacheParams:
+    """首页默认请求的缓存参数。
+
+    单用户模式下请求总带本地用户，所以预热和侧栏计数都必须带同一个
+    user_id，否则永远命中不了（问题清单 A2 / 第 13 节 #2）。
+    """
+    return TodayPicksCacheParams(hours=24, limit=TODAY_PICKS_INITIAL_LIMIT, user_id=user_id)
 
 
 def get_cached_today_picks(params: TodayPicksCacheParams, *, ttl_seconds: float):

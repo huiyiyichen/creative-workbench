@@ -45,7 +45,7 @@ async def test_index_is_public_and_well_formed(client):
 
 @pytest.mark.asyncio
 async def test_skill_markdown_has_frontmatter_and_env_vars(client):
-    """SKILL.md must have YAML frontmatter and reference the two env vars."""
+    """SKILL.md must have YAML frontmatter and reference the base-url env var (no token)."""
     resp = await client.get("/.well-known/agent-skills/creative-workbench-reader/SKILL.md")
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith("text/markdown")
@@ -53,7 +53,7 @@ async def test_skill_markdown_has_frontmatter_and_env_vars(client):
     assert text.startswith("---\n")
     assert "name: creative-workbench-reader" in text
     assert "CREATIVE_WORKBENCH_API_URL" in text
-    assert "CREATIVE_WORKBENCH_API_TOKEN" in text
+    assert "CREATIVE_WORKBENCH_API_TOKEN" not in text
     # The discovered base URL should be baked into the docs
     assert "http://testserver" in text
     # All three read endpoints documented

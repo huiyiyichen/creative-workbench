@@ -8,7 +8,7 @@ discovery-rfc) so external agents can install the read-skill via:
 The CLI fetches ``/.well-known/agent-skills/index.json`` to discover skills,
 then downloads each skill's ``SKILL.md``. All endpoints here are PUBLIC (no
 Bearer token) because the discovery + skill download must precede auth — the
-skill itself instructs the agent to set ``$CREATIVE_WORKBENCH_API_TOKEN`` before calling
+skill itself tells the agent to read ``$CREATIVE_WORKBENCH_API_URL`` before calling
 the protected ``/api/v1/skill/*`` read endpoints.
 
 Three public endpoints:
@@ -30,14 +30,14 @@ SKILL_NAME = "creative-workbench-reader"
 SKILL_DESCRIPTION = (
     "读取创意工作台选题数据（今日精选 / 日报 / 趋势）。当用户询问"
     "「今天有什么值得写的选题」「最近有什么热点」「给我看看选题日报」时调用。"
-    "需要先设置环境变量 CREATIVE_WORKBENCH_API_URL 和 CREATIVE_WORKBENCH_API_TOKEN。"
+    "可设置环境变量 CREATIVE_WORKBENCH_API_URL 指向本机实例。"
 )
 
 
 def _skill_markdown(base_url: str) -> str:
     """Render the SKILL.md body with the instance's base URL baked in.
 
-    The agent reads ``$CREATIVE_WORKBENCH_API_URL`` / ``$ CREATIVE_WORKBENCH_API_TOKEN`` at runtime,
+    The agent reads ``$CREATIVE_WORKBENCH_API_URL`` at runtime,
     but we surface the discovered base URL in the docs so the user knows what
     to export. The skill is the same across instances; only the doc hint changes.
     """
@@ -52,22 +52,15 @@ version: 1.0.0
 通过 HTTP API 读取创意工作台已抓取、已分析、已精选的选题数据。创意工作台是一个内容
 选题雷达，持续抓取多个信源并用 6 维评分模型筛选高价值选题。
 
-## 环境变量（必需）
+## 环境变量
 
-调用前必须设置两个环境变量：
+创意工作台是本机单用户应用，接口只监听本机，不需要 Token：
 
 ```bash
-export CREATIVE_WORKBENCH_API_URL="{base_url}"      # 当前创意工作台实例地址
-export CREATIVE_WORKBENCH_API_TOKEN="<你的 API Token>" # 在创意工作台「个人中心 → Agent 接入」创建
+export CREATIVE_WORKBENCH_API_URL="{base_url}"      # 当前创意工作台实例地址（本机）
 ```
 
-所有请求带鉴权头：
-
-```
-Authorization: Bearer $CREATIVE_WORKBENCH_API_TOKEN
-```
-
-> 若环境变量未设置，提示用户按上面格式 export 后重试，不要臆造地址或 token。
+> 若环境变量未设置，使用上面的默认地址；不要臆造其他地址。
 
 ## 端点
 
@@ -84,8 +77,7 @@ Authorization: Bearer $CREATIVE_WORKBENCH_API_TOKEN
 - `items[*].analysis.score_breakdown` — 完整评分明细
 
 ```bash
-curl "$CREATIVE_WORKBENCH_API_URL/api/v1/skill/today-picks?hours=48&limit=10" \\
-  -H "Authorization: Bearer $CREATIVE_WORKBENCH_API_TOKEN"
+curl "$CREATIVE_WORKBENCH_API_URL/api/v1/skill/today-picks?hours=48&limit=10"
 ```
 
 ### 2. `GET $CREATIVE_WORKBENCH_API_URL/api/v1/skill/daily-report` — 日报
@@ -96,8 +88,7 @@ curl "$CREATIVE_WORKBENCH_API_URL/api/v1/skill/today-picks?hours=48&limit=10" \\
 `keywords` / `trends`。
 
 ```bash
-curl "$CREATIVE_WORKBENCH_API_URL/api/v1/skill/daily-report?date=2026-07-17" \\
-  -H "Authorization: Bearer $CREATIVE_WORKBENCH_API_TOKEN"
+curl "$CREATIVE_WORKBENCH_API_URL/api/v1/skill/daily-report?date=2026-07-17"
 ```
 
 ### 3. `GET $CREATIVE_WORKBENCH_API_URL/api/v1/skill/trends` — 话题趋势 + 关键词
@@ -105,8 +96,7 @@ curl "$CREATIVE_WORKBENCH_API_URL/api/v1/skill/daily-report?date=2026-07-17" \\
 合并返回话题趋势和关键词词频。参数：`days`（1–30，默认 7）、`limit`（10–200，默认 50）。
 
 ```bash
-curl "$CREATIVE_WORKBENCH_API_URL/api/v1/skill/trends?days=7" \\
-  -H "Authorization: Bearer $CREATIVE_WORKBENCH_API_TOKEN"
+curl "$CREATIVE_WORKBENCH_API_URL/api/v1/skill/trends?days=7"
 ```
 
 ## 典型用法

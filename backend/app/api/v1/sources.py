@@ -19,6 +19,7 @@ from app.core.config import settings
 from app.core.database import async_session, get_db
 from app.core.exceptions import NotFoundError
 from app.models.source import Source, SourceStatus, SourceType
+from app.models.source_sync_run import SyncTrigger
 from app.models.user import User
 from app.repositories.source_repo import SourceRepository
 from app.schemas.source import (
@@ -39,6 +40,7 @@ from app.services.source_cache import (
     set_cached_source_list,
 )
 from app.services.source_read_cache import invalidate_source_read_caches
+from app.services.source_sync_service import run_source_sync
 
 router = APIRouter(prefix="/sources", tags=["sources"])
 logger = logging.getLogger(__name__)
@@ -364,16 +366,17 @@ async def sync_my_source(
     if not existing.enabled or existing.status == SourceStatus.DISABLED:
         raise HTTPException(status_code=409, detail="信源已禁用，请启用后再同步") from None
 
-    source = await repo.claim_sync(
+    outcome = await run_source_sync(
+        db,
         source_id,
+        trigger=SyncTrigger.MANUAL,
         lease_seconds=int(settings.SOURCE_SYNC_TIMEOUT_SECONDS),
+        ingest=ingest_from_source,
     )
-    await db.commit()
-    if source is None:
+    source = outcome.source
+    if outcome.run is None or source is None:
         raise HTTPException(status_code=409, detail="信源正在同步中，请稍后再试")
-
-    stats = await ingest_from_source(source, db)
-    await db.refresh(source)
+    stats = outcome.stats
     _invalidate_source_cache()
     logger.info("Source synced: id=%d, fetched=%d, new=%d", source_id, stats["fetched"], stats["new"])
     if source.status == SourceStatus.ERROR or source.sync_error:
@@ -645,16 +648,17 @@ async def sync_source(source_id: int, db: AsyncSession = Depends(get_db)):
     if not existing.enabled or existing.status == SourceStatus.DISABLED:
         raise HTTPException(status_code=409, detail="信源已禁用，请启用后再同步")
 
-    source = await repo.claim_sync(
+    outcome = await run_source_sync(
+        db,
         source_id,
+        trigger=SyncTrigger.MANUAL,
         lease_seconds=int(settings.SOURCE_SYNC_TIMEOUT_SECONDS),
+        ingest=ingest_from_source,
     )
-    await db.commit()
-    if source is None:
+    source = outcome.source
+    if outcome.run is None or source is None:
         raise HTTPException(status_code=409, detail="信源正在同步中，请稍后再试")
-
-    stats = await ingest_from_source(source, db)
-    await db.refresh(source)
+    stats = outcome.stats
     _invalidate_source_cache()
     logger.info("Source synced: id=%d, fetched=%d, new=%d", source_id, stats["fetched"], stats["new"])
     if source.status == SourceStatus.ERROR or source.sync_error:

@@ -12,7 +12,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy import String, and_, cast, func, literal, or_, select, union_all
+from sqlalchemy import String, and_, cast, func, literal, or_, select, true, union_all
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
@@ -107,12 +107,8 @@ def _chunks(values: Iterable[int], size: int = _QUERY_BATCH_SIZE):
 
 
 def _visible_group_clause(visible_user_id: int | None):
-    if visible_user_id is None:
-        return ContentEventGroup.owner_user_id.is_(None)
-    return or_(
-        ContentEventGroup.owner_user_id.is_(None),
-        ContentEventGroup.owner_user_id == visible_user_id,
-    )
+    # 单用户：所有事件组都可见（问题清单 #14）
+    return true()
 
 
 def _exact_group_owner_clause(owner_user_id: int | None):
@@ -122,11 +118,9 @@ def _exact_group_owner_clause(owner_user_id: int | None):
 
 
 def _content_matches_group_owner(content_alias):
+    # 全局事件组（owner=None）可包含任何信源的内容（问题清单 #14）
     return or_(
-        and_(
-            ContentEventGroup.owner_user_id.is_(None),
-            content_alias.owner_user_id.is_(None),
-        ),
+        ContentEventGroup.owner_user_id.is_(None),
         and_(
             ContentEventGroup.owner_user_id.is_not(None),
             content_alias.owner_user_id == ContentEventGroup.owner_user_id,

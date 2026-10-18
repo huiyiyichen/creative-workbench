@@ -27,8 +27,10 @@ export interface StatsSourceItem {
   source_name: string;
   source_type: string;
   content_count: number;
+  analyzed_count?: number;
   curated_count: number;
-  curation_rate: number;
+  /** 分母只算已分析；没有已分析内容时为 null */
+  curation_rate: number | null;
 }
 
 export interface StatsCategoryItem {

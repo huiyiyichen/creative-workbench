@@ -130,6 +130,7 @@ created_at TIMESTAMP
     assert source_distribution["sources"] == [
         {
             "source_name": "测试信源",
+            "analyzed_count": 1,
             "source_type": "rss",
             "content_count": 1,
             "curated_count": 1,

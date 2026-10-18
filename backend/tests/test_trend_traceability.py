@@ -36,7 +36,7 @@ async def _session_factory():
 
 
 @pytest.mark.asyncio
-async def test_snapshot_freezes_only_public_canonical_members_and_keyword_tags_once():
+async def test_snapshot_freezes_only_canonical_members_and_keyword_tags_once():
     engine, session_factory = await _session_factory()
     target = date.today()
     created_at = datetime.combine(target, datetime.min.time(), tzinfo=UTC).replace(hour=12)
@@ -60,16 +60,6 @@ async def test_snapshot_freezes_only_public_canonical_members_and_keyword_tags_o
                     created_at=created_at,
                 ),
                 ContentItem(
-                    id=2,
-                    title="不得公开",
-                    url="https://example.com/private",
-                    owner_user_id=7,
-                    topic_id=1,
-                    status=ContentStatus.ANALYZED,
-                    crawled_at=created_at,
-                    created_at=created_at,
-                ),
-                ContentItem(
                     id=3,
                     title="已归并的附属内容",
                     url="https://example.com/member",
@@ -83,7 +73,6 @@ async def test_snapshot_freezes_only_public_canonical_members_and_keyword_tags_o
         db.add_all(
             [
                 AiAnalysis(id=1, content_id=1, curation_score=80, tags=["AI", "AI"], created_at=created_at),
-                AiAnalysis(id=2, content_id=2, curation_score=99, tags=["私有"], created_at=created_at),
                 AiAnalysis(id=3, content_id=3, curation_score=90, tags=["附属"], created_at=created_at),
             ]
         )

@@ -172,8 +172,20 @@ async def catalog_for_user(db, user_id: int) -> dict:
     from app.repositories.favorite_repo import FavoriteRepo
 
     repo = FavoriteRepo(db, user_id)
-    templates, _ = await repo.list_paginated(page=1, page_size=200, target_type=FavoriteTargetType.TEMPLATE)
-    styles, _ = await repo.list_paginated(page=1, page_size=200, target_type=FavoriteTargetType.STYLE)
+
+    async def _all(target_type) -> list:
+        # 分页读全量（第 13 节 #3）：以前只读前 200 条，超出的模板 / 风格不可见
+        items: list = []
+        page = 1
+        while True:
+            batch, total = await repo.list_paginated(page=page, page_size=200, target_type=target_type)
+            items.extend(batch)
+            if not batch or len(items) >= total:
+                return items
+            page += 1
+
+    templates = await _all(FavoriteTargetType.TEMPLATE)
+    styles = await _all(FavoriteTargetType.STYLE)
     result = catalog()
     for key, items, convert in (("templates", templates, _custom_template), ("styles", styles, _custom_style)):
         builtin_ids = {preset["id"] for preset in result[key]}

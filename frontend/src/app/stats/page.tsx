@@ -482,7 +482,7 @@ export default function StatsPage() {
   const categories = dashboard?.categories ?? [];
   const trend = dashboard?.trend ?? [];
 
-  const curatedRate = overview ? formatRatePercent(overview.curated, overview.total) : 0;
+  const curatedRate = overview ? formatRatePercent(overview.curated, overview.analyzed) : 0;
 
   return (
     <div className="flex-1 overflow-y-auto bg-page">
@@ -666,7 +666,7 @@ export default function StatsPage() {
                                 {src.curated_count}
                               </td>
                               <td className="p-1.5 font-mono text-[11px] text-teal">
-                                {src.curation_rate}%
+                                {src.curation_rate == null ? "—" : `${src.curation_rate}%`}
                               </td>
                             </tr>
                           );

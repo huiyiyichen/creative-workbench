@@ -59,6 +59,13 @@ class Source(Base):
     # ── Conditional request state (HTTP If-None-Match / If-Modified-Since) ──
     etag: Mapped[str | None] = mapped_column(String(255), nullable=True)
     last_modified: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # ── 自动处理（3.9）：与用户的 enabled 开关分开，撤销即清空 ──
+    auto_paused_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    auto_pause_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    consecutive_failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    # 限流退避前的原间隔；为空表示当前没有退避
+    base_interval_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    stale_flagged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     enabled: Mapped[bool] = mapped_column(default=True)
     hidden: Mapped[bool] = mapped_column(default=False, comment="True=系统自动创建的信源，对用户不可见且不计入配额")
     created_at: Mapped[datetime] = mapped_column(
