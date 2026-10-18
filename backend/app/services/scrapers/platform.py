@@ -10,11 +10,13 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import unquote
 
 import httpx
 
+from app.services.backfill_context import current_backfill
 from app.services.platforms import ADAPTERS, SEARCH, NotSupported, get_adapter
 
 from . import BaseScraper, register_scraper
@@ -36,6 +38,27 @@ def parse_platform_url(url: str) -> tuple[str, str, str]:
     return platform.lower(), mode, target
 
 
+MAX_BACKFILL_PAGES = 10
+
+
+async def _page_back(adapter, target: str, window) -> list[dict[str, Any]]:
+    """空档补采（3.7）：按发布时间往回翻页，直到早于上次成功时间，最多 200 条 / 10 页。"""
+    since = window.since if window.since.tzinfo else window.since.replace(tzinfo=UTC)
+    out: list[dict[str, Any]] = []
+    for page in range(1, MAX_BACKFILL_PAGES + 1):
+        batch = await adapter.list_posts(target, limit=30, page=page)
+        if not batch:
+            break
+        for entry in batch:
+            published = entry.get("published_at")
+            if isinstance(published, datetime) and published < since:
+                return out
+            out.append(entry)
+            if len(out) >= window.max_items:
+                return out
+    return out
+
+
 @register_scraper("Platform")
 class PlatformScraper(BaseScraper):
     async def fetch(self, client: httpx.AsyncClient) -> list[dict[str, Any]]:
@@ -43,7 +66,10 @@ class PlatformScraper(BaseScraper):
         adapter = get_adapter(platform, client, api_key=(self.config.get("api_keys") or {}).get(platform))
         if mode == "ranking":
             return await adapter.list_ranking(target)
-        return await adapter.list_posts(target)
+        window = current_backfill()
+        if window is None or not adapter.supports_paging:
+            return await adapter.list_posts(target)
+        return await _page_back(adapter, target, window)
 
 
 @register_scraper("Keyword")

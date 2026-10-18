@@ -46,7 +46,7 @@ class RedditAdapter(PlatformAdapter):
             c.get("data") or {} for c in ((data or {}).get("data") or {}).get("children") or [] if c.get("kind") == "t3"
         ]
 
-    async def list_posts(self, target: str, *, limit: int = 20) -> list[dict[str, Any]]:
+    async def list_posts(self, target: str, *, limit: int = 20, page: int = 1) -> list[dict[str, Any]]:
         sub = target.strip().removeprefix("r/").strip("/")
         data = await self._get_json(f"{BASE}/r/{sub}/new.json", params={"limit": min(limit, 50), "raw_json": 1})
         return [self.to_entry(d) for d in self._children(data)[:limit]]

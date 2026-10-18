@@ -5,7 +5,19 @@ from __future__ import annotations
 import enum
 from datetime import UTC, datetime
 
-from sqlalchemy import JSON, BigInteger, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    BigInteger,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    LargeBinary,
+    String,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -118,7 +130,25 @@ class ContentJourney(Base):
     __table_args__ = (Index("ix_content_journey_content_time", "content_id", "created_at"),)
 
 
+class ContentEmbedding(Base):
+    """本地向量（4.1 事件归并、初筛「与收藏的相似度」）。float32 L2 归一化。"""
+
+    __tablename__ = "content_embeddings"
+
+    content_id: Mapped[int] = mapped_column(
+        Integer, ForeignKey("content_items.id", ondelete="CASCADE"), primary_key=True
+    )
+    model: Mapped[str] = mapped_column(String(64), nullable=False)
+    vector: Mapped[bytes] = mapped_column(LargeBinary, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+    __table_args__ = (Index("ix_content_embeddings_created", "created_at"),)
+
+
 __all__ = [
+    "ContentEmbedding",
     "ContentJourney",
     "ContentMetricObservation",
     "JourneyStage",

@@ -678,6 +678,57 @@ async def _catch_up_reports() -> str:
     return str(done)
 
 
+async def _cache_covers() -> str:
+    """封面本地缓存（改造方案 3.4）。"""
+    from app.services.media_cache import cache_pending_covers
+
+    async with async_session() as db:
+        stats = await cache_pending_covers(db)
+    return str(stats)
+
+
+async def _startup_backfill_then_rescan() -> None:
+    """空档补采（改造方案 3.7）先于常规同步，避免常规同步抢先占用租约而只抓到最新一页。"""
+    from app.services.gap_backfill import run_gap_backfill
+    from app.services.source_sync_service import run_source_sync
+
+    async def _sync(db, source_id, **kwargs):
+        async with _get_semaphore():
+            outcome = await run_source_sync(
+                db,
+                source_id,
+                lease_seconds=int(settings.SOURCE_SYNC_TIMEOUT_SECONDS),
+                ingest=ingest_from_source,
+                **kwargs,
+            )
+        if outcome.run is not None and not outcome.failed:
+            _request_post_sync_pipeline(outcome.stats)
+        return outcome
+
+    try:
+        await asyncio.wait_for(run_gap_backfill(async_session, sync=_sync), timeout=20 * 60)
+    except Exception:
+        logger.warning("Scheduler: startup gap backfill did not finish cleanly", exc_info=True)
+    await _rescan_sources()
+
+
+async def _merge_events() -> str:
+    """本地向量事件归并（改造方案 4.1）。"""
+    from app.services.event_merge import merge_recent_events
+
+    async with async_session() as db:
+        stats = await merge_recent_events(db)
+    return str(stats)
+
+
+async def _evict_covers() -> str:
+    from app.services.media_cache import evict_over_limit
+
+    async with async_session() as db:
+        removed = await evict_over_limit(db)
+    return f"removed={removed}"
+
+
 # ── Lifecycle helpers ─────────────────────────────────────────────────
 
 
@@ -929,6 +980,32 @@ def start_scheduler() -> None:
         replace_existing=True,
     )
 
+    scheduler.add_job(
+        _cache_covers,
+        trigger=IntervalTrigger(minutes=10),
+        id="cover_cache",
+        name="封面本地缓存",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.add_job(
+        _merge_events,
+        trigger=IntervalTrigger(minutes=10),
+        id="event_merge_vector",
+        name="事件归并（本地向量）",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.add_job(
+        _evict_covers,
+        trigger=CronTrigger(hour=3, minute=40),
+        id="cover_cache_evict",
+        name="封面缓存超限清理",
+        replace_existing=True,
+    )
+
     scheduler.start()
 
     # Immediately register all enabled sources so they start syncing
@@ -939,7 +1016,7 @@ def start_scheduler() -> None:
 
     try:
         asyncio.get_running_loop()
-        track_background_task(_rescan_sources(), name="startup-source-rescan")
+        track_background_task(_startup_backfill_then_rescan(), name="startup-backfill-and-rescan")
         track_background_task(_recover_analysis_jobs_on_startup(), name="startup-analysis-recovery")
         logger.info("Scheduler: initial source rescan scheduled immediately")
     except RuntimeError:

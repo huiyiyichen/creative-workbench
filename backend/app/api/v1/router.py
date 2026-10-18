@@ -17,6 +17,7 @@ from app.api.v1.feedback import router as feedback_router
 from app.api.v1.llm_calls import router as llm_calls_router
 from app.api.v1.llm_evaluations import router as llm_evaluations_router
 from app.api.v1.llm_models import router as llm_models_router
+from app.api.v1.media import router as media_router
 from app.api.v1.metrics import router as metrics_router
 from app.api.v1.model_catalog import router as model_catalog_router
 from app.api.v1.monthly_digests import router as monthly_digests_router
@@ -45,6 +46,7 @@ router.include_router(skill_router)
 router.include_router(sources_router)
 router.include_router(collection_router)
 router.include_router(llm_calls_router)
+router.include_router(media_router)
 router.include_router(content_events_router)
 router.include_router(contents_router)
 router.include_router(topics_router)

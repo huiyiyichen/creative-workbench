@@ -28,7 +28,7 @@ class YoutubeAdapter(PlatformAdapter):
             raise NotSupported("YouTube 搜索需要在设置里填写 Data API Key")
         return self.api_key
 
-    async def list_posts(self, target: str, *, limit: int = 20) -> list[dict[str, Any]]:
+    async def list_posts(self, target: str, *, limit: int = 20, page: int = 1) -> list[dict[str, Any]]:
         match = _CHANNEL_RE.search(target)
         if not match:
             raise NotSupported("YouTube 订阅需要频道 ID（UC 开头）")

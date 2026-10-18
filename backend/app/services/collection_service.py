@@ -259,3 +259,46 @@ async def list_auto_actions(db: AsyncSession, *, limit: int = 50) -> list[dict[s
         }
         for a in actions
     ]
+
+
+# ── 最近采到（阶段 1：封面与观测曲线） ─────────────────────────────
+
+
+async def list_source_recent(db: AsyncSession, source_id: int, *, limit: int = 12) -> list[dict[str, Any]]:
+    from app.repositories.content_journey_repo import SourceRecentRepository
+
+    repo = SourceRecentRepository(db)
+    rows = await repo.recent(source_id, limit=limit)
+    ids = [item.id for item, _, _ in rows]
+    series: dict[int, dict[str, list[dict[str, Any]]]] = {}
+    for obs in await repo.series_for(ids):
+        series.setdefault(obs.content_id, {}).setdefault(obs.metric, []).append(
+            {"at": obs.observed_at, "value": obs.value}
+        )
+    out = []
+    for item, color, asset_status in rows:
+        media = item.media or {}
+        item_series = series.get(item.id, {})
+        out.append(
+            {
+                "id": item.id,
+                "title": item.title,
+                "url": item.url,
+                "platform": item.platform,
+                "media_type": item.media_type,
+                "author": item.author,
+                "published_at": item.published_at,
+                "crawled_at": item.crawled_at,
+                "cover_url": item.cover_url,
+                "cover_asset_id": item.cover_asset_id if asset_status == "ready" else None,
+                "cover_color": color,
+                "duration": media.get("duration"),
+                "orientation": media.get("orientation"),
+                "triage_score": item.triage_score,
+                "analysis_level": item.analysis_level,
+                "full_eligible": item.full_eligible,
+                "latest": {metric: points[-1]["value"] for metric, points in item_series.items()},
+                "series": item_series,
+            }
+        )
+    return out

@@ -219,3 +219,12 @@ async def collection_set_platform_key(platform: str, body: PlatformKeyBody, db: 
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return {"platform": platform, "has_key": (await key_status(db)).get(platform, False)}
+
+
+@router.get("/sources/{source_id}/recent")
+async def collection_source_recent(
+    source_id: int, limit: int = Query(12, ge=1, le=50), db: AsyncSession = Depends(get_db)
+):
+    from app.services.collection_service import list_source_recent
+
+    return {"items": await list_source_recent(db, source_id, limit=limit)}

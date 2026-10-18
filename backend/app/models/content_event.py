@@ -108,6 +108,11 @@ class ContentEventGroup(Base):
         server_default="1",
     )
     classifier_version: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    # 分析代表（改造方案 4.1）：正文最全、信源价值高、发布最早；只有它进入后续分析，其他条目继承结果。
+    # 与 canonical（最早出现的那条）分开，避免改动现有事件的规范条目语义。
+    representative_content_id: Mapped[int | None] = mapped_column(
+        Integer, ForeignKey("content_items.id", ondelete="SET NULL"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,

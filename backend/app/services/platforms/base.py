@@ -67,7 +67,10 @@ class PlatformAdapter:
     def supports(self, capability: str) -> bool:
         return capability in self.capabilities
 
-    async def list_posts(self, target: str, *, limit: int = 20) -> list[dict[str, Any]]:
+    # 订阅能否按页往回翻（空档补采用）
+    supports_paging: ClassVar[bool] = False
+
+    async def list_posts(self, target: str, *, limit: int = 20, page: int = 1) -> list[dict[str, Any]]:
         raise NotSupported(f"{self.label} 不支持订阅")
 
     async def search(self, query: str, *, limit: int = 10) -> list[dict[str, Any]]:

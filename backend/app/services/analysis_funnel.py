@@ -221,6 +221,7 @@ async def run_quick_batch(db: AsyncSession, cfg: FunnelSettings | None = None) -
 async def prepare_full_queue(db: AsyncSession, cfg: FunnelSettings | None = None) -> dict[str, Any]:
     """完整分析之前：预算没用完时先做一批快速判断；历史无初筛分的直接放行。"""
     cfg = cfg or await load_funnel_settings(db)
+    merge = await _merge_events_safe(db)
     since = datetime.now(UTC) - timedelta(days=FUNNEL_QUEUE_DAYS)
     released = await AnalysisFunnelRepository(db).mark_untriaged_eligible(since=since, limit=50)
     if released:
@@ -228,4 +229,16 @@ async def prepare_full_queue(db: AsyncSession, cfg: FunnelSettings | None = None
     if await budget_exhausted(db, cfg):
         return {"budget_exhausted": True, "released": released, "judged": 0}
     quick = await run_quick_batch(db, cfg)
-    return {"budget_exhausted": False, "released": released, **quick}
+    return {"budget_exhausted": False, "released": released, "merge": merge, **quick}
+
+
+async def _merge_events_safe(db: AsyncSession) -> dict[str, Any]:
+    """事件归并在快速判断之前（4.1）：同一事件只让代表进入分析。失败不阻断分析。"""
+    try:
+        from app.services.event_merge import merge_recent_events
+
+        return await merge_recent_events(db)
+    except Exception:
+        logger.warning("event merge before analysis failed", exc_info=True)
+        await db.rollback()
+        return {"error": True}

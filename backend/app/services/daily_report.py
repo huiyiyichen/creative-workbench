@@ -164,6 +164,7 @@ async def _fetch_report_inputs(
             window_end=query_end,
             visible_user_id=visible_user_id,
             exclude_ids=ignored_ids,
+            attributed_date=window_start.date(),
         )
     )
     scoring_inputs, item_map, _ = await build_scoring_inputs(db, items)

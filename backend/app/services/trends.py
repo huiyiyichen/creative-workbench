@@ -46,9 +46,11 @@ async def refresh_trend_snapshots(
     if target_date is not None:
         dates = [target_date]
     else:
+        # 只扫描最近的观测窗口（第 13 节 #10）：此前这里取全表已分析内容的时间再截取最近 N 天
+        window_start = datetime.now(UTC) - timedelta(days=days + 1)
         result = await db.execute(
             select(ContentItem.created_at)
-            .where(ContentItem.status == ContentStatus.ANALYZED)
+            .where(ContentItem.status == ContentStatus.ANALYZED, ContentItem.created_at >= window_start)
             .order_by(ContentItem.created_at.desc())
         )
         dates = sorted(

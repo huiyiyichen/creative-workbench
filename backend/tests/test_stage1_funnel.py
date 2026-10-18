@@ -321,3 +321,73 @@ async def test_ingest_trail_writes_observations_and_journey(db):
     assert stages == ["collected", "triage"]
     saved = (await db.execute(select(ContentItem))).scalar_one()
     assert saved.attributed_date is not None and saved.analysis_level == "none"
+
+
+@pytest.mark.asyncio
+async def test_report_window_uses_attributed_date(db):
+    from app.models.analysis import AiAnalysis
+
+    window_start = datetime(2026, 10, 17, 16, 0)  # 北京时间 10-18 00:00（UTC naive）
+    window_end = datetime(2026, 10, 18, 15, 59)
+    rows = [
+        # 10-18 发布、当天采到 → 进 10-18
+        _item(1, attributed_date=date(2026, 10, 18), crawled_at=datetime(2026, 10, 18, 10, 0, tzinfo=UTC)),
+        # 昨天发布、今天采到 → 归昨天，不进今天
+        _item(2, attributed_date=date(2026, 10, 17), crawled_at=datetime(2026, 10, 18, 1, 0, tzinfo=UTC)),
+        # 旧数据没有归属日期 → 按采集时间
+        _item(3, attributed_date=None, crawled_at=datetime(2026, 10, 18, 2, 0, tzinfo=UTC)),
+        # 10-18 发布、10-20 补采到 → 晚于窗口结束，不改写已生成的日报（进空档回看）
+        _item(4, attributed_date=date(2026, 10, 18), crawled_at=datetime(2026, 10, 20, 2, 0, tzinfo=UTC)),
+    ]
+    db.add_all(rows)
+    await db.flush()
+    for r in rows:
+        db.add(AiAnalysis(content_id=r.id, curation_score=60, risk_score=10, summary="s"))
+    await db.commit()
+    items = await ContentRepo(db).list_for_report_window(
+        window_start=window_start, window_end=window_end, attributed_date=date(2026, 10, 18)
+    )
+    assert sorted(i.title for i in items) == ["内容 1", "内容 3"]
+
+
+@pytest.mark.asyncio
+async def test_existing_content_gets_throttled_observations(db):
+    from app.models.content_observation import ContentMetricObservation
+    from app.services import content_pipeline as cp
+
+    db.add(_item(1))
+    await db.commit()
+    await cp._observe_existing(db, [(1, {"metrics": {"views": 10}})])
+    await cp._observe_existing(db, [(1, {"metrics": {"views": 20}})])  # 30 分钟内不重复记
+    await cp._observe_existing(db, [(1, {"metrics": {}})])
+    await db.commit()
+    values = (await db.execute(select(ContentMetricObservation.value))).scalars().all()
+    assert values == [10.0]
+
+
+@pytest.mark.asyncio
+async def test_source_recent_includes_series_and_ready_cover(db):
+    from app.models.content_observation import ContentMetricObservation, MediaAsset
+    from app.services.collection_service import list_source_recent
+
+    src = Source(name="kw", source_type="Keyword", url="keyword://x", kind="keyword")
+    db.add(src)
+    await db.flush()
+    asset = MediaAsset(source_url="u", url_hash="hh", status="ready", dominant_color="#112233", attempts=1)
+    db.add(asset)
+    await db.flush()
+    item = _item(1, source_id=src.id, cover_asset_id=asset.id, media={"duration": 61})
+    db.add(item)
+    await db.flush()
+    t0 = datetime.now(UTC) - timedelta(hours=2)
+    db.add_all(
+        [
+            ContentMetricObservation(content_id=item.id, metric="views", value=10, observed_at=t0),
+            ContentMetricObservation(content_id=item.id, metric="views", value=30, observed_at=t0 + timedelta(hours=1)),
+        ]
+    )
+    await db.commit()
+    rows = await list_source_recent(db, src.id)
+    assert rows[0]["cover_asset_id"] == asset.id and rows[0]["cover_color"] == "#112233"
+    assert [p["value"] for p in rows[0]["series"]["views"]] == [10, 30] and rows[0]["latest"] == {"views": 30}
+    assert rows[0]["duration"] == 61

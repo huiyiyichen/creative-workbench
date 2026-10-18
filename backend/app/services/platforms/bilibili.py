@@ -169,12 +169,14 @@ class BilibiliAdapter(PlatformAdapter):
 
     # ── 能力 ──
 
-    async def list_posts(self, target: str, *, limit: int = 20) -> list[dict[str, Any]]:
+    supports_paging: ClassVar[bool] = True
+
+    async def list_posts(self, target: str, *, limit: int = 20, page: int = 1) -> list[dict[str, Any]]:
         """UP 主投稿。主接口需要浏览器指纹参数（dm_*）；仍被风控时退到合集接口。"""
         params = {
             "mid": target,
             "ps": min(limit, 30),
-            "pn": 1,
+            "pn": page,
             "order": "pubdate",
             "platform": "web",
             "web_location": "1550101",

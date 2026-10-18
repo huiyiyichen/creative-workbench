@@ -60,13 +60,15 @@ class GithubAdapter(PlatformAdapter):
             "tags": (r.get("topics") or [])[:5],
         }
 
-    async def list_posts(self, target: str, *, limit: int = 20) -> list[dict[str, Any]]:
+    supports_paging: ClassVar[bool] = True
+
+    async def list_posts(self, target: str, *, limit: int = 20, page: int = 1) -> list[dict[str, Any]]:
         """订阅仓库发布：target = ``owner/repo``。"""
         full = target.strip().removeprefix("https://github.com/").strip("/")
         if full.count("/") != 1:
             raise PlatformError("GitHub 订阅需要 owner/repo 形式的仓库")
         releases = await self._get_json(
-            f"{API}/repos/{full}/releases", params={"per_page": min(limit, 30)}, headers=self._headers()
+            f"{API}/repos/{full}/releases", params={"per_page": min(limit, 30), "page": page}, headers=self._headers()
         )
         out = []
         for rel in releases[:limit]:

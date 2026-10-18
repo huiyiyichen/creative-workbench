@@ -60,3 +60,33 @@ class MetricObservationRepository:
         for row in (await self.db.execute(stmt)).scalars():
             out.setdefault(row.content_id, {})[row.metric] = row.value
         return out
+
+
+class SourceRecentRepository:
+    """采集页「最近采到」：某信源的最新内容 + 封面 + 观测序列。"""
+
+    def __init__(self, db: AsyncSession):
+        self.db = db
+
+    async def recent(self, source_id: int, *, limit: int):
+        from app.models.content import ContentItem
+        from app.models.content_observation import MediaAsset
+
+        stmt = (
+            select(ContentItem, MediaAsset.dominant_color, MediaAsset.status)
+            .outerjoin(MediaAsset, MediaAsset.id == ContentItem.cover_asset_id)
+            .where(ContentItem.source_id == source_id)
+            .order_by(ContentItem.crawled_at.desc(), ContentItem.id.desc())
+            .limit(limit)
+        )
+        return (await self.db.execute(stmt)).all()
+
+    async def series_for(self, content_ids: list[int]) -> Sequence[ContentMetricObservation]:
+        if not content_ids:
+            return []
+        stmt = (
+            select(ContentMetricObservation)
+            .where(ContentMetricObservation.content_id.in_(content_ids))
+            .order_by(ContentMetricObservation.observed_at.asc(), ContentMetricObservation.id.asc())
+        )
+        return (await self.db.execute(stmt)).scalars().all()

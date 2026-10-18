@@ -266,3 +266,12 @@ def throwaway_pg_database(monkeypatch):
         conn.execute(text(f"SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = '{db_name}'"))
         conn.execute(text(f'DROP DATABASE "{db_name}"'))
     admin.dispose()
+
+
+# ── 本地向量模型：测试默认不下载、不加载（需要的测试自行 monkeypatch embed / available）──
+@pytest.fixture(autouse=True)
+def disable_local_embeddings(monkeypatch):
+    from app.services import embeddings
+
+    monkeypatch.setattr(embeddings, "_session", None)
+    monkeypatch.setattr(embeddings, "_failed_reason", "disabled in tests")

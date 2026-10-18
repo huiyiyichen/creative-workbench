@@ -13,7 +13,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from uuid import uuid4
 
 from sqlalchemy import Text, cast, exists, func, or_, select, update
@@ -119,6 +119,14 @@ class ContentRepo(BaseRepository[ContentItem]):
         return result.scalar_one_or_none()
 
     # ── Status lifecycle ───────────────────────────────────────────
+
+    @staticmethod
+    def _report_window_condition(window_start: datetime, window_end: datetime, attributed_date: date | None):
+        by_crawl = (ContentItem.crawled_at >= window_start) & (ContentItem.crawled_at <= window_end)
+        if attributed_date is None:
+            return by_crawl
+        by_attr = (ContentItem.attributed_date == attributed_date) & (ContentItem.crawled_at <= window_end)
+        return by_attr | (ContentItem.attributed_date.is_(None) & by_crawl)
 
     @classmethod
     def _analysis_order(cls, funnel: bool) -> tuple:
@@ -842,8 +850,12 @@ class ContentRepo(BaseRepository[ContentItem]):
         category: str | None = None,
         visible_user_id: int | None = None,
         exclude_ids: set[int] | None = None,
+        attributed_date: date | None = None,
     ) -> Sequence[ContentItem]:
         """Fetch analyzed items in a precise report window for daily report snapshots.
+
+        ``attributed_date`` 给出时按归属日期取数（第 13 节 #17 / 5.4）：发布日期为该日的内容，
+        且采集时间不晚于窗口结束（午间版不含之后才采到的）；没有归属日期的旧数据仍按采集时间。
 
         When ``visible_user_id`` is provided, restrict to public content
         (``owner_user_id IS NULL``) or content owned by that user. ``None``
@@ -864,8 +876,7 @@ class ContentRepo(BaseRepository[ContentItem]):
                 selectinload(self.model.source),
             )
             .join(AiAnalysis, AiAnalysis.id == latest_analysis_id)
-            .where(self.model.crawled_at >= window_start)
-            .where(self.model.crawled_at <= window_end)
+            .where(self._report_window_condition(window_start, window_end, attributed_date))
             .where(AiAnalysis.risk_score <= risk_threshold)
             .where(AiAnalysis.curation_score.isnot(None))
             .where(~self._accepted_event_member_exists())

@@ -286,15 +286,22 @@ async def _ingest_from_source_inner(source: Source, db: AsyncSession) -> dict[st
         # arXiv 等聚合平台的论文会同时出现在多个分类源(cs.AI/cs.CL/cs.LG),
         # 之前按 source_id 隔离去重导致同一 URL 被每个源各入一次。
         # 改为按 platform 分组,同一平台下相同内容只入库一次,归属首个抓到的源。
+        # 追踪词信源跨平台（platform=multi）：同时按条目自身的平台去重，避免与订阅重复入库。
+        entry_platforms = {e.get("platform") for e in entries if e.get("platform")}
+        platform_match = Source.platform == source.platform
+        if entry_platforms:
+            platform_match = platform_match | ContentItem.platform.in_(entry_platforms)
         result = await db.execute(
-            select(ContentItem.content_hash)
+            select(ContentItem.content_hash, ContentItem.id)
             .join(Source, Source.id == ContentItem.source_id)
-            .where(
-                ContentItem.content_hash.in_(incoming_hashes),
-                Source.platform == source.platform,
-            )
+            .where(ContentItem.content_hash.in_(incoming_hashes), platform_match)
         )
-        existing_hashes = {row[0] for row in result.all()}
+        existing_ids = {row[0]: row[1] for row in result.all()}
+        existing_hashes = set(existing_ids)
+        # 已入库内容再次采到时记录一次指标观测，形成观测曲线（3.3）
+        await _observe_existing(
+            db, [(existing_ids[e["_content_hash"]], e) for e in entries if e["_content_hash"] in existing_ids]
+        )
 
         # ── Step 4+5: Pre-filter, classify eligible entries, persist ─
         candidate_entries: list[dict[str, Any]] = []
@@ -528,6 +535,51 @@ async def _load_triage_context_safe(db: AsyncSession):
     except Exception:
         logger.warning("triage context unavailable; new items keep no triage score", exc_info=True)
         return None
+
+
+OBSERVATION_MIN_GAP_MINUTES = 30
+
+
+async def _observe_existing(db: AsyncSession, pairs: list[tuple[int, dict[str, Any]]]) -> None:
+    """重复采到的内容：指标有值就追加观测；同一内容 30 分钟内只记一次。失败不影响同步。"""
+    pairs = [(cid, metrics_from_entry(e)) for cid, e in pairs]
+    pairs = [(cid, m) for cid, m in pairs if m]
+    if not pairs:
+        return
+    from datetime import timedelta
+
+    from sqlalchemy import func as sa_func
+
+    from app.models.content_observation import ContentMetricObservation
+    from app.services.source_sync_service import current_sync_run_id
+
+    try:
+        async with db.begin_nested():
+            ids = [cid for cid, _ in pairs]
+            latest = dict(
+                (
+                    await db.execute(
+                        select(ContentMetricObservation.content_id, sa_func.max(ContentMetricObservation.observed_at))
+                        .where(ContentMetricObservation.content_id.in_(ids))
+                        .group_by(ContentMetricObservation.content_id)
+                    )
+                ).all()
+            )
+            now = datetime.now(UTC)
+            gap = timedelta(minutes=OBSERVATION_MIN_GAP_MINUTES)
+            run_id = current_sync_run_id()
+            for cid, metrics in pairs:
+                last = latest.get(cid)
+                if last is not None and now - (last if last.tzinfo else last.replace(tzinfo=UTC)) < gap:
+                    continue
+                db.add_all(
+                    ContentMetricObservation(
+                        content_id=cid, metric=name, value=value, observed_at=now, sync_run_id=run_id
+                    )
+                    for name, value in metrics.items()
+                )
+    except Exception:
+        logger.warning("observations for existing content not recorded", exc_info=True)
 
 
 async def _record_ingest_trail(

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Literal
 
 from pydantic import BaseModel, field_serializer
@@ -32,6 +32,18 @@ class ContentResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     analysis: AiAnalysisResponse | None = None
+    # ── 阶段 1 内容模型（3.3 / 3.4 / 4.1） ──
+    media_type: str | None = None
+    platform_item_id: str | None = None
+    author_url: str | None = None
+    media: dict | None = None
+    cover_asset_id: int | None = None
+    comment_state: str | None = None
+    triage_score: float | None = None
+    triage_signals: dict | None = None
+    analysis_level: str | None = None
+    quick_result: dict | None = None
+    attributed_date: date | None = None
 
     model_config = {"from_attributes": True}
 
