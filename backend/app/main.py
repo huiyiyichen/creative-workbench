@@ -338,6 +338,18 @@ async def lifespan(app: FastAPI):
 
     await _run_seed_step("Default source", enabled=seed_enabled, run=_seed_default_sources)
 
+    # 风格与模板内置种子（6.6，按 key 幂等）；旧收藏夹迁移到灵感库（6.9，按 legacy_favorite_id 幂等）
+    async def _seed_styles_and_migrate() -> None:
+        from app.services.library_migration import migrate_favorites
+        from app.services.styles import seed_builtins
+
+        async with async_session() as seed_db:
+            seeded = await seed_builtins(seed_db)
+            migrated = await migrate_favorites(seed_db)
+            logger.info("Styles seeded %s; favorites migrated %s", seeded, migrated)
+
+    await _run_seed_step("Library", enabled=seed_enabled, run=_seed_styles_and_migrate)
+
     # Bootstrap model catalog from bundled models.dev snapshot (no-op if table non-empty)
     async def _seed_model_catalog() -> None:
         from app.services.model_catalog_service import seed_catalog_from_snapshot
@@ -449,6 +461,8 @@ app = FastAPI(
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
+    # 灵感库浏览器扩展（Edge / Chrome）只调用本机工作台接口（6.2）
+    allow_origin_regex=r"^(chrome|edge|moz)-extension://[a-z0-9-]+$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

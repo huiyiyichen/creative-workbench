@@ -36,6 +36,7 @@ from app.models.dossier import PeriodReport, TopicDossier, VerdictMark
 from app.models.evidence_interaction import EvidenceInteraction
 from app.models.favorite import FavoriteItem
 from app.models.ignored import IgnoredItem
+from app.models.library import LibraryBoard, LibraryBoardItem, LibraryItem, LibraryLink, Note
 from app.models.metrics import ContentMetrics
 from app.models.metrics_snapshot import MetricsSnapshotRecord
 from app.models.pick_mark import PickMark
@@ -48,6 +49,7 @@ from app.models.source import Source
 from app.models.source_evidence_profile import PublisherKind, SourceEvidenceProfile
 from app.models.source_sync_run import SourceSyncRun, SyncErrorKind, SyncRunStatus, SyncTrigger
 from app.models.studio import StudioArtifact, StudioAsset, StudioProject, StudioRevision
+from app.models.styles import ContentTemplate, ContentTemplateVersion, VisualStyle, VisualStyleVersion
 from app.models.topic import TopicGroup
 from app.models.trend import TopicTrend, TopicTrendMember
 from app.models.trending import TrendingItem, TrendingSnapshot
@@ -124,6 +126,15 @@ __all__ = [
     "EvalSurface",
     "PromptRegistry",
     "PeriodReport",
+    "LibraryBoard",
+    "LibraryBoardItem",
+    "LibraryItem",
+    "LibraryLink",
+    "Note",
+    "ContentTemplate",
+    "ContentTemplateVersion",
+    "VisualStyle",
+    "VisualStyleVersion",
     "TopicDossier",
     "TopicTrend",
     "VerdictMark",

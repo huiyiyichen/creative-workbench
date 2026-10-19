@@ -169,7 +169,14 @@ def catalog() -> dict:
 
 
 async def catalog_for_user(db, user_id: int) -> dict:
+    """风格与模板表（6.6）有数据时以它为准（内置种子 + 自定义 + 从收藏夹迁移的），形状不变；
+    表为空（未跑种子）时沿用旧的收藏夹来源。"""
     from app.repositories.favorite_repo import FavoriteRepo
+    from app.services.styles import catalog_entries
+
+    entries = await catalog_entries(db)
+    if entries["templates"] or entries["styles"]:
+        return entries
 
     repo = FavoriteRepo(db, user_id)
 

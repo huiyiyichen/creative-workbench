@@ -743,6 +743,14 @@ async def _topic_signals_hourly() -> str:
     return f"{stats} dossiers={dossiers}"
 
 
+async def _scan_library_inbox() -> str:
+    """素材收件箱（6.2）：放进指定文件夹的文件自动导入灵感库，导入后移到「已导入/」。"""
+    from app.services.library_migration import scan_inbox
+
+    async with async_session() as db:
+        return str(await scan_inbox(db))
+
+
 async def _refresh_verdicts() -> str:
     """选题结论（4.3）：近 7 天条目按最新依据重算。"""
     from app.services.verdict_service import refresh_verdicts
@@ -1028,6 +1036,15 @@ def start_scheduler() -> None:
         max_instances=1,
         coalesce=True,
         next_run_time=datetime.now(scheduler.timezone) + timedelta(minutes=3),
+    )
+    scheduler.add_job(
+        _scan_library_inbox,
+        trigger=IntervalTrigger(minutes=2),
+        id="library_inbox",
+        name="素材收件箱导入",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
     )
     scheduler.add_job(
         _refresh_verdicts,
