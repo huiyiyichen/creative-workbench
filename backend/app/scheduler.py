@@ -709,6 +709,16 @@ async def _startup_backfill_then_rescan() -> None:
         await asyncio.wait_for(run_gap_backfill(async_session, sync=_sync), timeout=20 * 60)
     except Exception:
         logger.warning("Scheduler: startup gap backfill did not finish cleanly", exc_info=True)
+    # 连续 2 天以上没有采集：补采完成后生成空档回看（5.4）
+    try:
+        from app.services.period_reports import detect_and_generate_gap
+
+        async with async_session() as db:
+            report = await detect_and_generate_gap(db)
+        if report is not None:
+            logger.info("Scheduler: gap review generated %s – %s", report.start_date, report.end_date)
+    except Exception:
+        logger.warning("Scheduler: gap review failed", exc_info=True)
     await _rescan_sources()
 
 
@@ -719,6 +729,26 @@ async def _merge_events() -> str:
     async with async_session() as db:
         stats = await merge_recent_events(db)
     return str(stats)
+
+
+async def _topic_signals_hourly() -> str:
+    """趋势计算 v2（5.3）：每小时增量计算话题信号与状态，随后同步专题（5.5）。"""
+    from app.services.dossiers import sync_dossiers
+    from app.services.topic_signals import compute_topic_signals
+
+    async with async_session() as db:
+        stats = await compute_topic_signals(db)
+        await db.commit()
+        dossiers = await sync_dossiers(db)
+    return f"{stats} dossiers={dossiers}"
+
+
+async def _refresh_verdicts() -> str:
+    """选题结论（4.3）：近 7 天条目按最新依据重算。"""
+    from app.services.verdict_service import refresh_verdicts
+
+    async with async_session() as db:
+        return str(await refresh_verdicts(db))
 
 
 async def _evict_covers() -> str:
@@ -985,6 +1015,25 @@ def start_scheduler() -> None:
         trigger=IntervalTrigger(minutes=10),
         id="cover_cache",
         name="封面本地缓存",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.add_job(
+        _topic_signals_hourly,
+        trigger=CronTrigger(minute=5),
+        id="topic_signals_hourly",
+        name="趋势计算（话题信号与状态）与专题同步",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        next_run_time=datetime.now(scheduler.timezone) + timedelta(minutes=3),
+    )
+    scheduler.add_job(
+        _refresh_verdicts,
+        trigger=IntervalTrigger(minutes=15),
+        id="refresh_verdicts",
+        name="选题结论刷新",
         replace_existing=True,
         max_instances=1,
         coalesce=True,

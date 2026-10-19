@@ -202,6 +202,9 @@ async def generate_weekly_digest(
             apply_llm_result(digest, result)
         else:
             apply_llm_result_with_matching(digest, result, items_data)
+        from app.services.period_reports import stamp_completeness
+
+        await stamp_completeness(db, digest)
         digest.status = "DONE"
         digest.updated_at = utc_now()
         await db.commit()

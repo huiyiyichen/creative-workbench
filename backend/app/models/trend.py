@@ -46,6 +46,25 @@ class TopicTrend(Base):
     window_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     provenance_status: Mapped[str] = mapped_column(String(30), nullable=False, default="unavailable")
 
+    # ── 趋势计算 v2（5.3，calculation_version = "signal-v2"）──
+    topic_kind: Mapped[str | None] = mapped_column(String(20), nullable=True)  # event / watch_term
+    event_group_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    watch_source_id: Mapped[int | None] = mapped_column(Integer, nullable=True, index=True)
+    representative_content_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    signal_value: Mapped[float | None] = mapped_column(Float, nullable=True)  # 近 24 小时
+    signal_prev: Mapped[float | None] = mapped_column(Float, nullable=True)  # 前 24 小时
+    signal_peak: Mapped[float | None] = mapped_column(Float, nullable=True)  # 窗口内 24 小时峰值
+    status: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    platform_distribution: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
+    first_platform: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    source_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    series: Mapped[list | None] = mapped_column(
+        JSON(none_as_null=True), nullable=True
+    )  # 逐小时，最新在后，None=观测不足
+    first_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    streak_days: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
     )

@@ -664,6 +664,9 @@ async def generate_daily_report(
     # 日报的可推荐选题只能来自精选池。背景素材只用于帮助归纳当天脉络，
     # 不能在精选为空时补位成日报推荐；否则会让“日报精选”的边界失真。
     if not curated_items:
+        from app.services.period_reports import stamp_completeness
+
+        await stamp_completeness(db, report)
         report.status = "DONE"
         report.overview = "今日暂未形成可推荐精选。已分析素材会继续参与后续评分，达到精选门槛后再进入日报。"
         report.takeaway = "今日暂无达到精选门槛的选题"
@@ -731,6 +734,9 @@ async def generate_daily_report(
         report.source_item_ids = json.dumps(
             selected_source_ids or [item["id"] for item in curated_items], ensure_ascii=False
         )
+        from app.services.period_reports import stamp_completeness
+
+        await stamp_completeness(db, report)
         report.status = "DONE"
         report.updated_at = _local_now()
         await db.commit()

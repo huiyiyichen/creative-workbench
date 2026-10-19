@@ -91,6 +91,10 @@ class ContentItem(Base):
     full_eligible: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     # 归属日期（5.4 / 第 13 节 #17）：发布日期，缺发布时间按采集日期（Asia/Shanghai）
     attributed_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    # 选题结论（4.3）：worth / watch / skip；verdict_data 为结论、理由、依据、缺失项、计算明细
+    verdict: Mapped[str | None] = mapped_column(String(10), nullable=True, index=True)
+    verdict_data: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
+    verdict_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     # Topic clustering fields
     topic_id: Mapped[int | None] = mapped_column(

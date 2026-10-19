@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
+from sqlalchemy import JSON, DateTime, ForeignKey, Index, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -65,6 +65,8 @@ class DailyReport(Base):
     content_count: Mapped[int] = mapped_column(Integer, default=0)
     analyzed_count: Mapped[int] = mapped_column(Integer, default=0)
 
+    # 生成时的数据完整度（5.4）：待分析条数、缺失的信源与热榜
+    completeness: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="PENDING")  # PENDING / GENERATING / DONE / ERROR
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))

@@ -12,6 +12,7 @@ from app.api.v1.collection import router as collection_router
 from app.api.v1.content_events import router as content_events_router
 from app.api.v1.contents import router as contents_router
 from app.api.v1.daily_reports import router as daily_reports_router
+from app.api.v1.discover import router as discover_router
 from app.api.v1.favorites import router as favorites_router
 from app.api.v1.feedback import router as feedback_router
 from app.api.v1.llm_calls import router as llm_calls_router
@@ -25,6 +26,7 @@ from app.api.v1.mother_topics import router as mother_topics_router
 from app.api.v1.notifications import router as notifications_router
 from app.api.v1.product_feedback import router as product_feedback_router
 from app.api.v1.read_records import router as read_records_router
+from app.api.v1.reports import router as reports_router
 from app.api.v1.scheduler import router as scheduler_router
 from app.api.v1.scoring import router as scoring_router
 from app.api.v1.settings import router as settings_router
@@ -45,6 +47,8 @@ router.include_router(scoring_router)
 router.include_router(skill_router)
 router.include_router(sources_router)
 router.include_router(collection_router)
+router.include_router(discover_router)
+router.include_router(reports_router)
 router.include_router(llm_calls_router)
 router.include_router(media_router)
 router.include_router(content_events_router)

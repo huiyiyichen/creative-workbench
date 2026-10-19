@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from sqlalchemy import DateTime, Integer, String, Text
+from sqlalchemy import JSON, DateTime, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -64,6 +64,8 @@ class WeeklyDigest(Base):
     category_count: Mapped[int] = mapped_column(Integer, default=0)
 
     # ── Lifecycle ──
+    # 生成时的数据完整度（5.4）：待分析条数、缺失的信源与热榜
+    completeness: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="PENDING")  # PENDING / GENERATING / DONE / ERROR
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))

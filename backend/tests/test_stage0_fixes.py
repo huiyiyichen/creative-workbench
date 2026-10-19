@@ -98,9 +98,16 @@ async def test_report_catchup_only_generates_missing(db, monkeypatch):
     monkeypatch.setattr(daily_report, "generate_daily_report", fake_daily)
     monkeypatch.setattr(weekly_digest, "generate_weekly_digest", fake_weekly)
     monkeypatch.setattr(monthly_digest, "generate_monthly_digest", fake_monthly)
+    from app.services import period_reports
+
+    async def fake_has_data(db, d):
+        return d != date(2026, 10, 15)  # 这天没有采集：不生成日报，标「未采集」
+
+    monkeypatch.setattr(period_reports, "has_collected_data", fake_has_data)
 
     done = await report_catchup.catch_up_reports(db, today=date(2026, 10, 18))
 
-    assert len(calls["daily"]) == 7
+    assert len(calls["daily"]) == 6
+    assert done["uncollected"] == ["2026-10-15"]
     assert "2026-W41" not in done["weekly"] and len(done["weekly"]) == 3
     assert done["monthly"] == ["2026-08", "2026-09"]

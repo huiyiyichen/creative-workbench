@@ -48,6 +48,7 @@ from app.models.source_evidence_profile import PublisherKind, SourceEvidenceProf
 from app.models.source_sync_run import SourceSyncRun, SyncErrorKind, SyncRunStatus, SyncTrigger
 from app.models.studio import StudioArtifact, StudioAsset, StudioProject, StudioRevision
 from app.models.topic import TopicGroup
+from app.models.dossier import PeriodReport, TopicDossier, VerdictMark
 from app.models.trend import TopicTrend, TopicTrendMember
 from app.models.trending import TrendingItem, TrendingSnapshot
 from app.models.user import User
@@ -122,6 +123,9 @@ __all__ = [
     "RankingEvalSnapshot",
     "EvalSurface",
     "PromptRegistry",
+    "PeriodReport",
+    "TopicDossier",
     "TopicTrend",
+    "VerdictMark",
     "TopicTrendMember",
 ]

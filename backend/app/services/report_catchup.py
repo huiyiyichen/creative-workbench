@@ -1,7 +1,7 @@
 """启动时补跑错过的日报 / 周刊 / 月刊（第 13 节 #11）。
 
 调度器的 cron 任务在应用没开时会被跳过（``misfire_grace_time=120``），
-那天、那周就没有报告。启动后检查最近的周期，只为「完全没有记录」的周期补跑；
+那天、那周就没有报告。启动后检查最近的周期，只为「完全没有记录」且有采集数据的周期补跑；
 已有记录（包括失败的）不重复生成，失败的由用户在报告页手动重试。
 """
 
@@ -58,9 +58,15 @@ async def catch_up_reports(db: AsyncSession, *, today: date | None = None) -> di
     repo = ReportCatchupRepository(db)
     done: dict[str, list[str]] = {"daily": [], "weekly": [], "monthly": []}
 
+    from app.services.period_reports import has_collected_data
+
     existing_days = await repo.existing_final_daily_dates([d.isoformat() for d in days])
     for d in sorted(days):
         if d.isoformat() in existing_days:
+            continue
+        # 没有采集数据的日期不生成日报，归档日历里标「未采集」（5.4）
+        if not await has_collected_data(db, d):
+            done.setdefault("uncollected", []).append(d.isoformat())
             continue
         try:
             await generate_daily_report(db, target_date=d, edition="final")
