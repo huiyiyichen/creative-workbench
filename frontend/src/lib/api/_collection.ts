@@ -147,7 +147,54 @@ export interface SyncRunResult {
   error_message: string | null;
 }
 
+export interface CollectionInsights {
+  suggestions: {
+    kind: 'disable' | 'stale' | 'subscribe' | 'structure';
+    text: string;
+    action: string;
+    source_id?: number;
+    author?: string;
+    author_url?: string;
+    platform?: string;
+  }[];
+  coverage: { event_id: number; content_id: number | null; title: string; seen_in: string[]; text: string; content_ids: number[] }[];
+  completeness: {
+    source_id: number;
+    name: string;
+    items: number;
+    cover: number | null;
+    published_at: number | null;
+    author: number | null;
+    metrics: number | null;
+    body: number | null;
+    delay_hours_median: number | null;
+  }[];
+  value: {
+    days: number;
+    sources: {
+      source_id: number;
+      name: string;
+      kind: string | null;
+      enabled: boolean | null;
+      items: number;
+      analyzed: number;
+      worth: number;
+      worth_rate: number | null;
+      favorited: number;
+      used_in_projects: number | null;
+      duplicate_rate: number | null;
+      first_reports: number;
+      cost: number;
+    }[];
+    favorite_trend: { week_end: string; favorites: number }[];
+  };
+  structure: Record<'platform' | 'language' | 'media_type', { key: string; count: number }[]>;
+}
+
 export const collectionApi = {
+  insights(): Promise<CollectionInsights> {
+    return request('/collection/insights');
+  },
   overview(): Promise<CollectionOverview> {
     return request('/collection/overview');
   },

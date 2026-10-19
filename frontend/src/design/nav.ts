@@ -38,10 +38,10 @@ export const CW_NAV: CwNavGroup[] = [
   {
     id: 'discover',
     items: [
-      { id: 'today', label: '今日', href: '/', icon: Sun, match: ['/today-picks'] },
-      { id: 'hot', label: '热点', href: '/trending', icon: Flame },
-      { id: 'reports', label: '报告', href: '/daily', icon: Newspaper, match: ['/weekly', '/monthly'] },
-      { id: 'topics', label: '专题', href: '/trends', icon: Waypoints, match: ['/topics'] },
+      { id: 'today', label: '今日', href: '/', icon: Sun, match: ['/items'] },
+      { id: 'hot', label: '热点', href: '/hot', icon: Flame },
+      { id: 'reports', label: '报告', href: '/reports', icon: Newspaper, match: ['/daily', '/weekly', '/monthly'] },
+      { id: 'topics', label: '专题', href: '/dossiers', icon: Waypoints },
     ],
   },
   {
@@ -62,8 +62,14 @@ export const CW_NAV: CwNavGroup[] = [
 ];
 
 export const CW_NAV_BOTTOM: CwNavItem[] = [
-  { id: 'sources', label: '信源', href: '/sources', icon: RadioTower, match: ['/admin/sources', '/admin/contents', '/stats'] },
-  { id: 'settings', label: '设置', href: '/admin/settings', icon: Settings, match: ['/admin', '/algorithm'] },
+  { id: 'sources', label: '信源', href: '/sources', icon: RadioTower, match: ['/admin/sources', '/admin/contents'] },
+  {
+    id: 'settings',
+    label: '设置',
+    href: '/settings/scoring',
+    icon: Settings,
+    match: ['/settings', '/admin/model-eval', '/admin/prompts', '/admin/settings'],
+  },
 ];
 
 function matches(pathname: string, prefix: string): boolean {

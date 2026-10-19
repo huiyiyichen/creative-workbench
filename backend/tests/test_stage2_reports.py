@@ -207,7 +207,7 @@ async def test_collection_insights(db):
     )
     db.add(g)
     await db.flush()
-    for c in (a, b):
+    for c in (b,):  # a 是规范条目，不进成员表
         db.add(
             ContentEventMember(
                 event_group_id=g.id,

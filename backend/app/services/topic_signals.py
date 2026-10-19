@@ -31,11 +31,12 @@ from sqlalchemy import and_, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.content import ContentItem
-from app.models.content_event import ContentEventGroup, ContentEventMember
+from app.models.content_event import ContentEventGroup
 from app.models.content_observation import ContentMetricObservation
 from app.models.source import Source
 from app.models.source_sync_run import SourceSyncRun
 from app.models.trend import TopicTrend
+from app.services.event_members import event_members_subquery
 
 CALC_VERSION = "signal-v2"
 WINDOW_HOURS = 7 * 24  # 只扫描最近 7 天的观测窗口
@@ -58,6 +59,8 @@ DEFAULT_STATUS_RULES: dict[str, float] = {
 }
 
 PRIMARY_METRICS = ("views", "stars", "score", "hot", "likes", "favorites", "comments")
+
+_em = event_members_subquery()
 
 
 @dataclass
@@ -246,9 +249,8 @@ async def _event_topics(db: AsyncSession, since: datetime) -> list[dict[str, Any
     ids = [g.id for g in groups]
     members = (
         await db.execute(
-            select(ContentEventMember.event_group_id, ContentEventMember.content_id).where(
-                ContentEventMember.event_group_id.in_(ids),
-                ContentEventMember.review_status != "rejected",
+            select(_em.c.event_group_id, _em.c.content_id).where(
+                _em.c.event_group_id.in_(ids),
             )
         )
     ).all()

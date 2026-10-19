@@ -25,10 +25,13 @@ from app.models.dossier import TopicDossier
 from app.models.feedback import FEEDBACK_SCORE_DELTAS, FeedbackType, UserFeedback
 from app.services.content_journey import list_journey, record_journey
 from app.services.discovery import _series, item_cards
+from app.services.event_members import event_members_subquery
 from app.services.verdict_service import mark_verdict, refresh_items
 
 VALID_VERDICTS = ("worth", "watch", "skip")
 FEEDBACK_KINDS = {"useful": FeedbackType.like, "not_interested": FeedbackType.not_relevant}
+
+_em = event_members_subquery()
 
 
 class ItemNotFoundError(LookupError):
@@ -91,14 +94,19 @@ async def _latest_analysis(db: AsyncSession, content_id: int) -> AiAnalysis | No
     ).scalar_one_or_none()
 
 
-async def _event_block(db: AsyncSession, item: ContentItem) -> dict[str, Any] | None:
-    member = (
+async def _membership(db: AsyncSession, content_id: int):
+    """(event_group_id, relation_type, confidence)；规范条目也算成员。"""
+    return (
         await db.execute(
-            select(ContentEventMember).where(
-                ContentEventMember.content_id == item.id, ContentEventMember.review_status != "rejected"
-            )
+            select(_em.c.event_group_id, _em.c.relation_type, _em.c.confidence)
+            .where(_em.c.content_id == content_id)
+            .limit(1)
         )
-    ).scalar_one_or_none()
+    ).first()
+
+
+async def _event_block(db: AsyncSession, item: ContentItem) -> dict[str, Any] | None:
+    member = await _membership(db, item.id)
     if member is None:
         return None
     group = await db.get(ContentEventGroup, member.event_group_id)
@@ -108,10 +116,9 @@ async def _event_block(db: AsyncSession, item: ContentItem) -> dict[str, Any] | 
         (
             await db.execute(
                 select(ContentItem)
-                .join(ContentEventMember, ContentEventMember.content_id == ContentItem.id)
+                .join(_em, _em.c.content_id == ContentItem.id)
                 .where(
-                    ContentEventMember.event_group_id == group.id,
-                    ContentEventMember.review_status != "rejected",
+                    _em.c.event_group_id == group.id,
                     ContentItem.id != item.id,
                 )
                 .order_by(func.coalesce(ContentItem.published_at, ContentItem.crawled_at))
@@ -249,30 +256,25 @@ async def set_feedback(db: AsyncSession, content_id: int, kind: str | None, user
 
 
 async def remove_from_event(db: AsyncSession, content_id: int) -> dict[str, Any]:
-    """归错时「移出此事件」：成员标为 rejected；若它是分析代表，改选剩余成员里最早的一条。"""
+    """归错时「移出此事件」：成员标为 rejected；若它是规范条目 / 分析代表，改选剩余成员里最早的一条。
+
+    规范条目不在成员表里（库约束）：先把最早的成员升为规范条目、删掉它的成员行，再给原规范条目记一条 rejected。
+    """
     item = await _require(db, content_id)
-    member = (
-        await db.execute(
-            select(ContentEventMember).where(
-                ContentEventMember.content_id == item.id, ContentEventMember.review_status != "rejected"
-            )
-        )
-    ).scalar_one_or_none()
-    if member is None:
+    membership = await _membership(db, item.id)
+    if membership is None:
         return {"removed": False}
-    group = await db.get(ContentEventGroup, member.event_group_id)
-    member.review_status = "rejected"
-    member.reason = "在条目详情中移出此事件"
-    member.updated_at = datetime.now(UTC)
-    if group is not None:
-        remaining = (
+    group_id = membership.event_group_id
+    group = await db.get(ContentEventGroup, group_id)
+    now = datetime.now(UTC)
+    if group is not None and group.canonical_content_id == item.id:
+        rows = (
             (
                 await db.execute(
-                    select(ContentItem)
-                    .join(ContentEventMember, ContentEventMember.content_id == ContentItem.id)
+                    select(ContentEventMember)
+                    .join(ContentItem, ContentItem.id == ContentEventMember.content_id)
                     .where(
-                        ContentEventMember.event_group_id == group.id,
-                        ContentEventMember.review_status != "rejected",
+                        ContentEventMember.event_group_id == group_id, ContentEventMember.review_status != "rejected"
                     )
                     .order_by(func.coalesce(ContentItem.published_at, ContentItem.crawled_at))
                 )
@@ -280,11 +282,56 @@ async def remove_from_event(db: AsyncSession, content_id: int) -> dict[str, Any]
             .scalars()
             .all()
         )
-        if (group.representative_content_id == item.id or group.canonical_content_id == item.id) and remaining:
-            if group.representative_content_id == item.id:
-                group.representative_content_id = remaining[0].id
-            if group.canonical_content_id == item.id:
-                group.canonical_content_id = remaining[0].id
+        if rows:
+            successor = rows[0]
+            group.canonical_content_id = successor.content_id
+            await db.delete(successor)
+        else:
+            group.status = "archived"
+        await db.flush()
+        db.add(
+            ContentEventMember(
+                event_group_id=group_id,
+                content_id=item.id,
+                relation_type=membership.relation_type if membership.relation_type != "canonical" else "corroboration",
+                confidence=float(membership.confidence or 0),
+                match_method="manual",
+                review_status="rejected",
+                reason="在条目详情中移出此事件",
+                updated_at=now,
+            )
+        )
+    else:
+        member = (
+            await db.execute(
+                select(ContentEventMember).where(
+                    ContentEventMember.content_id == item.id,
+                    ContentEventMember.event_group_id == group_id,
+                    ContentEventMember.review_status != "rejected",
+                )
+            )
+        ).scalar_one()
+        member.review_status = "rejected"
+        member.reason = "在条目详情中移出此事件"
+        member.updated_at = now
+    await db.flush()
+    if group is not None:
+        remaining = (
+            (
+                await db.execute(
+                    select(ContentItem)
+                    .join(_em, _em.c.content_id == ContentItem.id)
+                    .where(
+                        _em.c.event_group_id == group.id,
+                    )
+                    .order_by(func.coalesce(ContentItem.published_at, ContentItem.crawled_at))
+                )
+            )
+            .scalars()
+            .all()
+        )
+        if group.representative_content_id == item.id and remaining:
+            group.representative_content_id = remaining[0].id
         if len(remaining) <= 1:
             group.status = "archived"
         group.version += 1
@@ -292,13 +339,11 @@ async def remove_from_event(db: AsyncSession, content_id: int) -> dict[str, Any]
     if item.analysis_level != "full" and item.full_eligible is False and (item.quick_result or {}).get("event"):
         item.full_eligible = None
         item.quick_result = None
-    await record_journey(
-        db, item.id, "event", f"移出事件 #{member.event_group_id}", detail={"event_id": member.event_group_id}
-    )
+    await record_journey(db, item.id, "event", f"移出事件 #{group_id}", detail={"event_id": group_id})
     await db.flush()
     await refresh_items(db, [item])
     await db.commit()
-    return {"removed": True, "event_id": member.event_group_id}
+    return {"removed": True, "event_id": group_id}
 
 
 async def analyze_now(db: AsyncSession, content_id: int) -> dict[str, Any]:
@@ -313,3 +358,26 @@ async def analyze_now(db: AsyncSession, content_id: int) -> dict[str, Any]:
     await refresh_items(db, [item], record=True)
     await db.commit()
     return {"analyzed": True, "analysis_id": analysis.id}
+
+
+async def on_favorited(content_id: int) -> None:
+    """收藏后：记入经历；未完整分析的立即分析（4.1 按需补分析，不受每日预算限制）。后台任务用独立会话。"""
+    import logging
+    import os
+
+    from app.core.database import async_session
+
+    if os.environ.get("PYTEST_CURRENT_TEST"):
+        return  # 测试里不碰全局引擎；行为由 analyze_now 的单测覆盖
+    log = logging.getLogger(__name__)
+    try:
+        async with async_session() as db:
+            item = await db.get(ContentItem, content_id)
+            if item is None:
+                return
+            await record_journey(db, content_id, "favorited", "收进灵感库")
+            await db.commit()
+            if item.analysis_level != "full":
+                await analyze_now(db, content_id)
+    except Exception:
+        log.warning("on-demand analysis after favorite failed for %s", content_id, exc_info=True)

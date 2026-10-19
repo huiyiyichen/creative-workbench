@@ -1,10 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1.admin_content_events import router as admin_content_events_router
-from app.api.v1.admin_evidence import router as admin_evidence_router
 from app.api.v1.admin_prompts import router as admin_prompts_router
-from app.api.v1.admin_ranking_eval import router as admin_ranking_eval_router
-from app.api.v1.admin_scoring_dashboard import router as admin_scoring_dashboard_router
 from app.api.v1.analyses import router as analyses_router
 from app.api.v1.auth import router as auth_router
 from app.api.v1.categories import router as categories_router
@@ -24,7 +20,6 @@ from app.api.v1.model_catalog import router as model_catalog_router
 from app.api.v1.monthly_digests import router as monthly_digests_router
 from app.api.v1.mother_topics import router as mother_topics_router
 from app.api.v1.notifications import router as notifications_router
-from app.api.v1.product_feedback import router as product_feedback_router
 from app.api.v1.read_records import router as read_records_router
 from app.api.v1.reports import router as reports_router
 from app.api.v1.scheduler import router as scheduler_router
@@ -65,7 +60,6 @@ router.include_router(studio_router)
 router.include_router(sources_health_router)
 router.include_router(metrics_router)
 router.include_router(feedback_router)
-router.include_router(product_feedback_router)
 router.include_router(weekly_digests_router)
 router.include_router(monthly_digests_router)
 router.include_router(trending_router)
@@ -78,7 +72,3 @@ router.include_router(llm_evaluations_router)
 router.include_router(favorites_router)
 router.include_router(read_records_router)
 router.include_router(admin_prompts_router)
-router.include_router(admin_ranking_eval_router)
-router.include_router(admin_scoring_dashboard_router)
-router.include_router(admin_evidence_router)
-router.include_router(admin_content_events_router)

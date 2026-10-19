@@ -16,6 +16,7 @@ import {
   type SourceHealthRow,
 } from '@/lib/api/_collection';
 import { AddSourceModal, BudgetLine, FunnelSettingsModal, PlatformList, RecentDrawer } from './_parts';
+import { InsightsSections, SuggestionsCard } from './_insights';
 import {
   ACTION_LABEL,
   ERROR_KIND_LABEL,
@@ -393,6 +394,8 @@ export default function SourcesCollectionPage() {
         <Kpi label="漏采" pair={overview?.missed} higherIsBetter={false} />
       </div>
 
+      <SuggestionsCard onChanged={load} onAddSource={() => setAdding(true)} />
+
       <SectionHead title="健康" note="异常排在最前" />
       <Card className="cw-scroll-x">
         <HealthTable
@@ -427,6 +430,8 @@ export default function SourcesCollectionPage() {
           </Card>
         </div>
       </div>
+
+      <InsightsSections />
 
       <AddSourceModal
         open={adding}

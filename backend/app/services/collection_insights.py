@@ -18,11 +18,12 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.content import ContentItem
-from app.models.content_event import ContentEventGroup, ContentEventMember
+from app.models.content_event import ContentEventGroup
 from app.models.content_observation import ContentMetricObservation
 from app.models.llm_model import LlmCallLog
 from app.models.source import Source
 from app.models.source_sync_run import SourceSyncRun
+from app.services.event_members import event_members_subquery
 
 VALUE_DAYS = 30
 COVERAGE_HOURS = 48
@@ -42,6 +43,8 @@ PLATFORM_LABEL = {
     "xiaohongshu": "小红书",
 }
 CHINESE_PLATFORMS = {"bilibili", "zhihu", "weibo", "douyin", "xiaohongshu"}
+
+_em = event_members_subquery()
 
 
 def _aware(ts: datetime | None) -> datetime | None:
@@ -66,10 +69,10 @@ async def coverage(
     sources = await _sources(db)
     rows = (
         await db.execute(
-            select(ContentEventMember.event_group_id, ContentItem.id, ContentItem.source_id, ContentItem.platform)
-            .join(ContentItem, ContentItem.id == ContentEventMember.content_id)
-            .join(ContentEventGroup, ContentEventGroup.id == ContentEventMember.event_group_id)
-            .where(ContentEventGroup.last_occurrence_at >= since, ContentEventMember.review_status != "rejected")
+            select(_em.c.event_group_id, ContentItem.id, ContentItem.source_id, ContentItem.platform)
+            .join(ContentItem, ContentItem.id == _em.c.content_id)
+            .join(ContentEventGroup, ContentEventGroup.id == _em.c.event_group_id)
+            .where(ContentEventGroup.last_occurrence_at >= since)
         )
     ).all()
     by_event: dict[int, list[tuple[int, int | None, str | None]]] = defaultdict(list)
@@ -195,9 +198,7 @@ async def source_value(db: AsyncSession, *, now: datetime | None = None, days: i
     members = (
         (
             await db.execute(
-                select(ContentEventMember.event_group_id, ContentEventMember.content_id).where(
-                    ContentEventMember.content_id.in_(list(source_of)), ContentEventMember.review_status != "rejected"
-                )
+                select(_em.c.event_group_id, _em.c.content_id).where(_em.c.content_id.in_(list(source_of)))
             )
         ).all()
         if source_of

@@ -20,7 +20,7 @@ from sqlalchemy import Text, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.content import ContentItem
-from app.models.content_event import ContentEventGroup, ContentEventMember
+from app.models.content_event import ContentEventGroup
 from app.models.daily_report import DailyReport
 from app.models.dossier import PeriodReport, TopicDossier
 from app.models.monthly_digest import MonthlyDigest
@@ -29,11 +29,14 @@ from app.models.source_sync_run import SourceSyncRun
 from app.models.trend import TopicTrend
 from app.models.trending import TrendingSnapshot
 from app.models.weekly_digest import WeeklyDigest
+from app.services.event_members import event_members_subquery
 from app.services.topic_signals import CALC_VERSION, STATUS_LABEL
 
 LOCAL_TZ = ZoneInfo("Asia/Shanghai")
 GAP_MIN_DAYS = 2
 GAP_LOOKBACK_DAYS = 60
+
+_em = event_members_subquery()
 
 
 def _day_bounds(d: date) -> tuple[datetime, datetime]:
@@ -166,13 +169,13 @@ async def _big_events(db: AsyncSession, lo: datetime, hi: datetime, limit: int =
     rows = (
         await db.execute(
             select(
-                ContentEventMember.event_group_id,
+                _em.c.event_group_id,
                 func.count(func.distinct(ContentItem.id)),
                 func.count(func.distinct(ContentItem.platform)),
             )
-            .join(ContentItem, ContentItem.id == ContentEventMember.content_id)
-            .where(eff >= lo, eff < hi, ContentEventMember.review_status != "rejected")
-            .group_by(ContentEventMember.event_group_id)
+            .join(ContentItem, ContentItem.id == _em.c.content_id)
+            .where(eff >= lo, eff < hi)
+            .group_by(_em.c.event_group_id)
         )
     ).all()
     rows = sorted(rows, key=lambda r: (-r[2], -r[1]))[:limit]
@@ -309,8 +312,8 @@ async def _followed_updates(db: AsyncSession, lo: datetime, hi: datetime) -> lis
     fav_events = set(
         (
             await db.execute(
-                select(ContentEventMember.event_group_id)
-                .join(ContentItem, ContentItem.id == ContentEventMember.content_id)
+                select(_em.c.event_group_id)
+                .join(ContentItem, ContentItem.id == _em.c.content_id)
                 .where(ContentItem.is_favorited.is_(True))
             )
         ).scalars()
@@ -325,10 +328,9 @@ async def _followed_updates(db: AsyncSession, lo: datetime, hi: datetime) -> lis
             (
                 await db.execute(
                     select(ContentItem)
-                    .join(ContentEventMember, ContentEventMember.content_id == ContentItem.id)
+                    .join(_em, _em.c.content_id == ContentItem.id)
                     .where(
-                        ContentEventMember.event_group_id == gid,
-                        ContentEventMember.review_status != "rejected",
+                        _em.c.event_group_id == gid,
                         eff >= lo,
                         eff < hi,
                     )

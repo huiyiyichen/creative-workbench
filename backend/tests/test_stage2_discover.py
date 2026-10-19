@@ -180,7 +180,7 @@ async def _seed(db):
     )
     db.add(group)
     await db.flush()
-    for c in items:
+    for c in items[:3]:  # 规范条目（items[3]）不进成员表，库约束禁止
         db.add(
             ContentEventMember(
                 event_group_id=group.id,

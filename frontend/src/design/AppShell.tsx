@@ -6,11 +6,10 @@ import type { ReactNode } from 'react';
 import { CW_NAV, CW_NAV_BOTTOM, activeNavId, type CwNavItem } from './nav';
 
 /** 已按调色台重做的路由；其余仍是旧页面，包在浅色容器里直到阶段 2 替换 */
-export const CW_ROUTES = ['/sources'];
+export const CW_ROUTES = ['/', '/sources', '/hot', '/reports', '/dossiers', '/items', '/settings'];
 
 export function isCwRoute(pathname: string): boolean {
-  if (pathname.startsWith('/sources/me')) return false;
-  return CW_ROUTES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  return CW_ROUTES.some((p) => pathname === p || (p !== '/' && pathname.startsWith(`${p}/`)));
 }
 
 function Mark() {

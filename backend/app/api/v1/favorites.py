@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -172,6 +172,7 @@ async def favorite_index(
 @router.post("", response_model=FavoriteResponse, status_code=201)
 async def create_favorite(
     data: FavoriteCreate,
+    background: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -179,6 +180,10 @@ async def create_favorite(
     try:
         item = await repo.upsert(data)
         _invalidate_favorite_mutation_caches(content_changed=data.target_type == FavoriteTargetType.CONTENT)
+        if data.target_type == FavoriteTargetType.CONTENT and item.target_id:
+            from app.services.item_detail import on_favorited
+
+            background.add_task(on_favorited, int(item.target_id))
         return favorite_to_dict(item)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc

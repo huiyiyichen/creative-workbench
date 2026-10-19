@@ -16,16 +16,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.analysis import AiAnalysis
 from app.models.content import ContentItem
-from app.models.content_event import ContentEventMember
 from app.models.content_observation import ContentJourney, ContentMetricObservation
 from app.models.dossier import VerdictMark
 from app.models.favorite import FavoriteItem
 from app.models.feedback import UserFeedback
+from app.services.event_members import event_members_subquery
 from app.services.topic_signals import latest_status_for_events
 from app.services.verdict import VERDICT_LABEL, VerdictFacts, compute_verdict
 
 REFRESH_WINDOW_DAYS = 7
 SIMILAR_FAVORITE = 0.75  # 初筛「与收藏的相似度」≥ 此值算「相关收藏」
+
+_em = event_members_subquery()
 
 
 async def _latest_metrics(db: AsyncSession, ids: list[int]) -> dict[int, dict[str, list[tuple[datetime, float]]]]:
@@ -48,23 +50,16 @@ async def _latest_metrics(db: AsyncSession, ids: list[int]) -> dict[int, dict[st
 
 
 async def _events(db: AsyncSession, ids: list[int]) -> tuple[dict[int, int], dict[int, list[tuple[int, str | None]]]]:
-    rows = (
-        await db.execute(
-            select(ContentEventMember.content_id, ContentEventMember.event_group_id).where(
-                ContentEventMember.content_id.in_(ids), ContentEventMember.review_status != "rejected"
-            )
-        )
-    ).all()
+    rows = (await db.execute(select(_em.c.content_id, _em.c.event_group_id).where(_em.c.content_id.in_(ids)))).all()
     event_of = dict(rows)
     if not event_of:
         return {}, {}
     members = (
         await db.execute(
-            select(ContentEventMember.event_group_id, ContentItem.id, ContentItem.platform)
-            .join(ContentItem, ContentItem.id == ContentEventMember.content_id)
+            select(_em.c.event_group_id, ContentItem.id, ContentItem.platform)
+            .join(ContentItem, ContentItem.id == _em.c.content_id)
             .where(
-                ContentEventMember.event_group_id.in_(set(event_of.values())),
-                ContentEventMember.review_status != "rejected",
+                _em.c.event_group_id.in_(set(event_of.values())),
             )
         )
     ).all()

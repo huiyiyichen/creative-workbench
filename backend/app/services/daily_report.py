@@ -569,12 +569,16 @@ async def generate_daily_report(
 
     async def _claim_generation() -> tuple[DailyReport, bool]:
         if report_id is not None:
-            existing_stmt = select(DailyReport).where(
-                DailyReport.id == report_id,
-                DailyReport.report_date == report_date,
-                DailyReport.edition == normalized_edition,
-                _owner_filter(owner_user_id),
-            ).with_for_update()
+            existing_stmt = (
+                select(DailyReport)
+                .where(
+                    DailyReport.id == report_id,
+                    DailyReport.report_date == report_date,
+                    DailyReport.edition == normalized_edition,
+                    _owner_filter(owner_user_id),
+                )
+                .with_for_update()
+            )
         else:
             existing_stmt = (
                 select(DailyReport)

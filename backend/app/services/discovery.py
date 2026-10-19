@@ -17,13 +17,15 @@ from typing import Any
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import case, func, or_, select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.app_setting import AppSetting
 from app.models.content import ContentItem
-from app.models.content_event import ContentEventGroup, ContentEventMember
+from app.models.content_event import ContentEventGroup
 from app.models.content_observation import ContentMetricObservation, MediaAsset
 from app.models.source import Source
+from app.services.event_members import event_members_subquery
 from app.services.verdict_service import verdicts_for
 
 LOCAL_TZ = ZoneInfo("Asia/Shanghai")
@@ -42,6 +44,8 @@ _ENGAGEMENT_REF = {
     "comments": 5_000,
 }
 PRIMARY_METRICS = ("views", "stars", "score", "hot", "likes", "favorites", "comments")
+
+_em = event_members_subquery()
 
 
 def local_day_bounds(now: datetime | None = None, days_ago: int = 0) -> tuple[datetime, datetime]:
@@ -117,22 +121,16 @@ async def _covers(db: AsyncSession, items: list[ContentItem]) -> dict[int, tuple
 async def _event_info(db: AsyncSession, ids: list[int]) -> dict[int, dict[str, Any]]:
     if not ids:
         return {}
-    rows = (
-        await db.execute(
-            select(ContentEventMember.content_id, ContentEventMember.event_group_id).where(
-                ContentEventMember.content_id.in_(ids), ContentEventMember.review_status != "rejected"
-            )
-        )
-    ).all()
+    rows = (await db.execute(select(_em.c.content_id, _em.c.event_group_id).where(_em.c.content_id.in_(ids)))).all()
     if not rows:
         return {}
     gids = {gid for _, gid in rows}
     counts = dict(
         (
             await db.execute(
-                select(ContentEventMember.event_group_id, func.count())
-                .where(ContentEventMember.event_group_id.in_(gids), ContentEventMember.review_status != "rejected")
-                .group_by(ContentEventMember.event_group_id)
+                select(_em.c.event_group_id, func.count())
+                .where(_em.c.event_group_id.in_(gids))
+                .group_by(_em.c.event_group_id)
             )
         ).all()
     )
@@ -349,14 +347,13 @@ async def resonance_matrix(
     since = now - timedelta(hours=hours)
     rows = (
         await db.execute(
-            select(ContentEventMember.event_group_id, ContentItem.platform, func.count())
-            .join(ContentItem, ContentItem.id == ContentEventMember.content_id)
-            .join(ContentEventGroup, ContentEventGroup.id == ContentEventMember.event_group_id)
+            select(_em.c.event_group_id, ContentItem.platform, func.count())
+            .join(ContentItem, ContentItem.id == _em.c.content_id)
+            .join(ContentEventGroup, ContentEventGroup.id == _em.c.event_group_id)
             .where(
                 ContentEventGroup.last_occurrence_at >= since,
-                ContentEventMember.review_status != "rejected",
             )
-            .group_by(ContentEventMember.event_group_id, ContentItem.platform)
+            .group_by(_em.c.event_group_id, ContentItem.platform)
         )
     ).all()
     by_event: dict[int, dict[str, int]] = defaultdict(dict)
@@ -412,6 +409,13 @@ async def mark_today_seen(db: AsyncSession, *, now: datetime | None = None) -> d
         away_days = delta_days if delta_days >= AWAY_DAYS else None
     if row is None:
         db.add(AppSetting(key=LAST_SEEN_KEY, value=now.isoformat()))
+        try:
+            await db.flush()
+        except IntegrityError:  # 两个标签页 / 严格模式同时打开：另一条已写入，改为更新
+            await db.rollback()
+            row = await db.get(AppSetting, LAST_SEEN_KEY)
+            if row is not None:
+                row.value = now.isoformat()
     else:
         row.value = now.isoformat()
     await db.commit()

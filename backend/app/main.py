@@ -478,11 +478,6 @@ from app.api.agent_skills import router as agent_skills_router  # noqa: E402
 
 app.include_router(agent_skills_router)
 
-# 内置监控大盘（自包含 HTML 页面，零外部依赖）
-from app.api.dashboard import router as dashboard_router  # noqa: E402
-
-app.include_router(dashboard_router)
-
 
 # ── 根路径 /metrics 别名（Prometheus 标准约定）─────────────────────────
 # prometheus.yml 默认 metrics_path: /metrics，此处提供根路径别名

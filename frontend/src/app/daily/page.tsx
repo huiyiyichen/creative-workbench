@@ -169,7 +169,9 @@ export default function DailyReportPage() {
   }, [reportScope]);
 
   useEffect(() => {
-    fetchReport();
+    // 从报告归档 / 专题跳转过来时带 ?date=YYYY-MM-DD
+    const linked = new URLSearchParams(window.location.search).get('date');
+    fetchReport(linked && /^\d{4}-\d{2}-\d{2}$/.test(linked) ? linked : undefined);
   }, [fetchReport]);
 
   // T2: 当 scope 切换时刷新主报告

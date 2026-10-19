@@ -14,13 +14,13 @@ describe('主导航', () => {
 
   it('按最长前缀判断当前入口', () => {
     expect(activeNavId('/')).toBe('today');
-    expect(activeNavId('/today-picks')).toBe('today');
+    expect(activeNavId('/items/3')).toBe('today');
     expect(activeNavId('/weekly')).toBe('reports');
     expect(activeNavId('/sources')).toBe('sources');
     expect(activeNavId('/admin/sources')).toBe('sources');
     expect(activeNavId('/admin/settings')).toBe('settings');
     expect(activeNavId('/stats/jobs')).toBe('tasks');
-    expect(activeNavId('/stats')).toBe('sources');
+    expect(activeNavId('/admin/contents')).toBe('sources');
     expect(activeNavId('/works')).toBeNull();
   });
 });

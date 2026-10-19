@@ -32,6 +32,7 @@ from app.models.content_observation import (
 )
 from app.models.content_relation import ContentRelation, RelationType
 from app.models.creation import CreationPlan
+from app.models.dossier import PeriodReport, TopicDossier, VerdictMark
 from app.models.evidence_interaction import EvidenceInteraction
 from app.models.favorite import FavoriteItem
 from app.models.ignored import IgnoredItem
@@ -48,7 +49,6 @@ from app.models.source_evidence_profile import PublisherKind, SourceEvidenceProf
 from app.models.source_sync_run import SourceSyncRun, SyncErrorKind, SyncRunStatus, SyncTrigger
 from app.models.studio import StudioArtifact, StudioAsset, StudioProject, StudioRevision
 from app.models.topic import TopicGroup
-from app.models.dossier import PeriodReport, TopicDossier, VerdictMark
 from app.models.trend import TopicTrend, TopicTrendMember
 from app.models.trending import TrendingItem, TrendingSnapshot
 from app.models.user import User

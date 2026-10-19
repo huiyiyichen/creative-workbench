@@ -1,600 +1,259 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import {
-  ChevronDown,
-  ChevronUp,
-  ArrowUp,
-  RefreshCw,
-} from 'lucide-react';
-import { useAppContext } from '@/components/ClientLayout';
-import Header from '@/components/Header';
-import CategoryChip from '@/components/CategoryChip';
-import { Button, Toolbar, cx } from '@/components/ui';
-import { contentCategoriesApi, contentsApi, sourcesApi } from '@/lib/api';
-import { useContentFavoriteStates } from '@/hooks/useContentFavoriteStates';
-import type { ContentItem, ContentAnalysis, RecommendLevel } from '@/types';
-import {
-  ContentTimeline,
-  Spinner,
-  TimelineSummary,
-} from './_components';
-import {
-  RECOMMEND_FILTERS,
-  TIME_RANGE_HOURS,
-  formatShanghaiToday,
-  getContentTime,
-  prettyTag,
-} from './_app-utils';
-import { explainRecommendation } from '@/lib/recommendation';
-import { mergeItemsById } from '@/lib/utils';
-import ContentAnalysisPanel from '@/components/ContentAnalysisPanel';
-import { startContentWorkflow } from '@/lib/workflow';
-import {
-  parseUTC,
-  isToday,
-  formatTimelineDate,
-} from '@/lib/datetime';
+/**
+ * 今日（改造方案 5.1）：统一信息流 + 今天的信号时间线 + 右侧栏（追踪词、跨平台共振、采集状态）。
+ * 视图：全部（默认）、精选（结论为「值得做」，保留 7 天）。超过 2 天没打开时提示「你离开了 N 天」。
+ */
 
-const INITIAL_CONTENT_LIMIT = 40;
-const CONTENT_LOAD_STEP = 40;
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { Button, Card, CwPage, Segmented, StatusDot, TopBar } from '@/design/components';
+import { DotMatrix, FeedItem, ItemDrawer, PlatformBars, ResonanceTable, SignalTimeline, platformName } from '@/design/discover';
+import { mediaColor } from '@/design/tokens';
+import { discoverApi, type TodayFeed, type TodaySide, type TodaySignals } from '@/lib/api/_discover';
+import { MEDIA_FILTERS } from '@/lib/discover';
 
-export default function HomePage() {
+const LEGEND: { key: keyof typeof mediaColor; label: string }[] = [
+  { key: 'article', label: '文章' },
+  { key: 'video', label: '视频' },
+  { key: 'image', label: '图文' },
+  { key: 'prompt', label: '提示词' },
+  { key: 'repo', label: '仓库' },
+  { key: 'list', label: '榜单' },
+];
+
+function errText(err: unknown): string {
+  return err instanceof Error ? err.message : '请求失败';
+}
+
+function todayLabel(): string {
+  return new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' });
+}
+
+function TodayPage() {
   const router = useRouter();
-  const { toggleFavorite, refreshCounts, reportContentTotal } = useAppContext();
-  const [items, setItems] = useState<ContentItem[]>([]);
-  const [totalAvailable, setTotalAvailable] = useState(0);
-  const [nextPage, setNextPage] = useState(2);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
-  const [categoryOptions, setCategoryOptions] = useState<string[]>(['全部']);
-  const [loading, setLoading] = useState(true);
-  const [syncing, setSyncing] = useState(false);
-  const [syncNotice, setSyncNotice] = useState<string | null>(null);
-  const [refreshVersion, setRefreshVersion] = useState(0);
+  const params = useSearchParams();
+  const view = (params.get('view') === 'picks' ? 'picks' : 'all') as 'all' | 'picks';
+  const [media, setMedia] = useState('');
+  const [feed, setFeed] = useState<TodayFeed | null>(null);
+  const [signals, setSignals] = useState<TodaySignals | null>(null);
+  const [side, setSide] = useState<TodaySide | null>(null);
+  const [away, setAway] = useState<{ days: number; start: string; end: string } | null>(null);
+  const [openId, setOpenId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [activeCategory, setActiveCategory] = useState('全部');
-  const [categoryExpanded, setCategoryExpanded] = useState(false);
-  const [activeRecommendLevel, setActiveRecommendLevel] = useState<RecommendLevel | '全部'>('全部');
-  const [activeTag, setActiveTag] = useState('全部');
-  const [tagFacets, setTagFacets] = useState<Array<{ tag: string; count: number }>>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [activeTimeRange, setActiveTimeRange] = useState('24h');
-  const [activeSourceType, setActiveSourceType] = useState('全部');
-  const [selectedAnalysis, setSelectedAnalysis] = useState<ContentAnalysis | null>(null);
-  const [workflowPendingId, setWorkflowPendingId] = useState<number | null>(null);
-  const [showBackToTop, setShowBackToTop] = useState(false);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const [more, setMore] = useState(false);
+
+  const loadFeed = useCallback(async () => {
+    try {
+      setError(null);
+      setFeed(await discoverApi.feed({ view, media: media || undefined, limit: 40 }));
+    } catch (err) {
+      setError(errText(err));
+    }
+  }, [view, media]);
 
   useEffect(() => {
-    let cancelled = false;
+    void loadFeed();
+  }, [loadFeed]);
 
-    (async () => {
-      try {
-        const res = await contentCategoriesApi.list();
-        if (!cancelled) {
-          const names = (res.categories || [])
-            .map((category) => category.name)
-            .filter(Boolean)
-            .sort((a, b) => a.localeCompare(b, 'zh-CN'));
-          setCategoryOptions(['全部', ...names]);
-        }
-      } catch (err) {
-        console.warn('Load categories failed:', err);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+  useEffect(() => {
+    discoverApi
+      .signals()
+      .then(setSignals)
+      .catch(() => setSignals({ start: '', end: '', now: '', tracks: [] })); // 失败时显示空轨道，不画播放头
+    discoverApi.side().then(setSide).catch(() => setSide(null));
+    discoverApi
+      .seen()
+      .then((s) => (s.away_days && s.gap_start && s.gap_end ? setAway({ days: s.away_days, start: s.gap_start, end: s.gap_end }) : null))
+      .catch(() => undefined);
   }, []);
 
-  // Fetch data
-  useEffect(() => {
-    let cancelled = false;
-
-    (async () => {
-      try {
-        setLoading(true);
-        setNextPage(2);
-        setLoadMoreError(null);
-        setError(null);
-        const res = await contentsApi.list({
-          page_size: INITIAL_CONTENT_LIMIT,
-          hours: TIME_RANGE_HOURS[activeTimeRange],
-          source_type: activeSourceType === '全部' ? undefined : activeSourceType,
-          category: activeCategory === '全部' ? undefined : activeCategory,
-          q: searchQuery.trim() || undefined,
-          include_trend_sources: false,
-          recommend_level: activeRecommendLevel === '全部' ? undefined : activeRecommendLevel,
-          tag: activeTag === '全部' ? undefined : activeTag,
-        });
-        if (!cancelled) {
-          setItems(res.items || []);
-          setTotalAvailable(res.total ?? (res.items || []).length);
-          reportContentTotal(res.total ?? 0);
-          setCategoryOptions((prev) => {
-            const merged = new Set(prev);
-            merged.add('全部');
-            (res.items || []).forEach((item) => {
-              if (item.category) merged.add(item.category);
-            });
-            return ['全部', ...Array.from(merged).filter((name) => name !== '全部').sort((a, b) => a.localeCompare(b, 'zh-CN'))];
-          });
-        }
-      } catch (err: unknown) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : '获取内容失败');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTimeRange, activeSourceType, activeCategory, searchQuery, activeRecommendLevel, activeTag, refreshVersion, reportContentTotal]);
-
-  // 标签统计与基础口径联动（时间/来源/分类/搜索），覆盖口径内全部内容；
-  // 等级/标签筛选不改变 chips 本身，只改变列表结果。
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await contentsApi.tagFacets({
-          hours: TIME_RANGE_HOURS[activeTimeRange],
-          source_type: activeSourceType === '全部' ? undefined : activeSourceType,
-          category: activeCategory === '全部' ? undefined : activeCategory,
-          q: searchQuery.trim() || undefined,
-          limit: 16,
-        });
-        if (!cancelled) setTagFacets(res.tags || []);
-      } catch {
-        // 标签统计失败不阻塞列表；保留上一次结果
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [activeTimeRange, activeSourceType, activeCategory, searchQuery, refreshVersion]);
-
-  async function syncContent() {
-    setSyncing(true);
-    setSyncNotice(null);
-    setError(null);
+  const loadMore = async () => {
+    if (!feed) return;
+    setMore(true);
     try {
-      const result = await sourcesApi.list({ enabled: true, source_type: 'RSS', page_size: 100 });
-      if (!result.items.length) {
-        setError('没有启用的 RSS 信源，请先在信源管理中添加。');
-        return;
-      }
-      let added = 0, failed = 0;
-      const failures: string[] = [];
-      for (let offset = 0; offset < result.items.length; offset += 3) {
-        const batch = result.items.slice(offset, offset + 3);
-        const outcomes = await Promise.allSettled(batch.map(source => sourcesApi.sync(source.id)));
-        outcomes.forEach((outcome, index) => {
-          if (outcome.status === 'fulfilled') added += outcome.value.new;
-          else {
-            failed += 1;
-            failures.push(batch[index].name);
-          }
-        });
-        setRefreshVersion(value => value + 1);
-        setSyncNotice(`已处理 ${Math.min(offset + 3, result.items.length)}/${result.items.length} 个信源，新增 ${added} 条`);
-      }
-      if (failed) setError(`${failed} 个信源同步失败：${failures.join('、')}。已采集内容已保留。`);
-      await refreshCounts?.();
-    } catch (syncError) {
-      setError(syncError instanceof Error ? syncError.message : '同步失败');
-    } finally {
-      setSyncing(false);
-    }
-  }
-
-  const resetPagination = useCallback(() => {
-    setNextPage(2);
-    setLoadMoreError(null);
-  }, []);
-
-  const handleLoadMore = useCallback(async () => {
-    setLoadingMore(true);
-    setLoadMoreError(null);
-    try {
-      // 固定大小分页追加：接口 page_size 上限 200，旧实现不断放大
-      // page_size（40→80→…→240）会在 200 之后触发 422，列表无法继续加载。
-      const res = await contentsApi.list({
-        page: nextPage,
-        page_size: CONTENT_LOAD_STEP,
-        hours: TIME_RANGE_HOURS[activeTimeRange],
-        source_type: activeSourceType === '全部' ? undefined : activeSourceType,
-        category: activeCategory === '全部' ? undefined : activeCategory,
-        q: searchQuery.trim() || undefined,
-        include_trend_sources: false,
-        recommend_level: activeRecommendLevel === '全部' ? undefined : activeRecommendLevel,
-        tag: activeTag === '全部' ? undefined : activeTag,
-      });
-      setItems((prev) => mergeItemsById(prev, res.items || []));
-      setTotalAvailable((prev) => res.total ?? prev);
-      setNextPage((prev) => prev + 1);
+      const next = await discoverApi.feed({ view, media: media || undefined, limit: 40, offset: feed.items.length });
+      setFeed({ ...feed, items: [...feed.items, ...next.items], days: next.days ? [...(feed.days || []), ...next.days] : feed.days });
     } catch (err) {
-      setLoadMoreError(err instanceof Error ? err.message : '加载更多失败，请重试');
+      setError(errText(err));
     } finally {
-      setLoadingMore(false);
+      setMore(false);
     }
-  }, [nextPage, activeTimeRange, activeSourceType, activeCategory, searchQuery, activeRecommendLevel, activeTag]);
+  };
 
-  const handleIgnore = useCallback(async (id: number) => {
-    try {
-      await contentsApi.ignore(id);
-      setItems((prev) => prev.filter((item) => item.id !== id));
-      refreshCounts?.();
-    } catch (err) {
-      console.error('Ignore failed:', err);
-    }
-  }, [refreshCounts]);
+  const setView = (v: 'all' | 'picks') => router.replace(v === 'picks' ? '/?view=picks' : '/');
 
-  const tagOptions = useMemo(() => {
-    const keys = tagFacets.map((facet) => facet.tag);
-    // 当前选中项不在 facets 里时仍保留入口（例如口径切换瞬间的旧选择）
-    if (activeTag !== '全部' && !keys.includes(activeTag)) keys.unshift(activeTag);
-    return ['全部', ...keys];
-  }, [tagFacets, activeTag]);
-  const tagCounts = useMemo(
-    () => new Map(tagFacets.map((facet) => [facet.tag, facet.count])),
-    [tagFacets],
+  const healthy = side?.collection;
+  const term = side?.watch_terms[0];
+
+  const legend = useMemo(
+    () => (
+      <div className="cw-legend">
+        {LEGEND.map((l) => (
+          <span key={l.key} style={{ '--c': mediaColor[l.key] } as CSSProperties}>
+            <b />
+            {l.label}
+          </span>
+        ))}
+      </div>
+    ),
+    [],
   );
 
-  // 分类 / 推荐等级 / 标签 / 搜索均已下沉服务端（list 接口参数），
-  // 客户端只负责按发布时间排序展示。
-  const filtered = useMemo(() => {
-    const result = [...items];
-    result.sort((a, b) => {
-      const ta = parseUTC(getContentTime(a)).getTime() || 0;
-      const tb = parseUTC(getContentTime(b)).getTime() || 0;
-      return tb - ta;
-    });
-    return result;
-  }, [items]);
-
-  const timelineGroups = useMemo(() => {
-    const groups = new Map<string, Array<{ item: ContentItem; level: RecommendLevel }>>();
-    filtered.forEach((item) => {
-      const key = formatTimelineDate(getContentTime(item));
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push({
-        item,
-        level: explainRecommendation(item.analysis).level,
-      });
-    });
-    return Array.from(groups.entries()).map(([dateLabel, entries]) => ({ dateLabel, entries }));
-  }, [filtered]);
-  const visibleContentIds = useMemo(() => filtered.map((item) => item.id), [filtered]);
-  const contentFavoriteState = useContentFavoriteStates(visibleContentIds);
-
-  const handleStartWorkflow = useCallback(async (item: ContentItem, isFavorited: boolean) => {
-    setWorkflowPendingId(item.id);
-    setError(null);
-    try {
-      await startContentWorkflow({
-        contentId: item.id,
-        title: item.title,
-        isFavorited,
-        toggleFavorite,
-        router,
-      });
-      contentFavoriteState.refresh();
-      refreshCounts?.();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : '推进选题失败');
-    } finally {
-      setWorkflowPendingId(null);
-    }
-  }, [contentFavoriteState, refreshCounts, router, toggleFavorite]);
-
-  const levelSummary = useMemo(() => {
-    const groups: Array<{ level: RecommendLevel; title: string; items: ContentItem[] }> = [
-      { level: '强烈建议写', title: '主编推荐', items: [] },
-      { level: '值得观察', title: '值得观察', items: [] },
-      { level: '适合深挖', title: '适合深挖', items: [] },
-      { level: '适合蹭热点', title: '热点观察', items: [] },
-      { level: '不建议追', title: '低优先级', items: [] },
-      { level: '信号不足', title: '待补信号', items: [] },
-    ];
-    const fallback = groups[5];
-    filtered.forEach((item) => {
-      const level = explainRecommendation(item.analysis).level;
-      (groups.find((g) => g.level === level) || fallback).items.push(item);
-    });
-    return groups.filter((g) => g.items.length > 0);
-  }, [filtered]);
-
-  // Stats
-  const totalCount = totalAvailable || items.length;
-  const todayCount = useMemo(() => items.filter((i) => isToday(getContentTime(i))).length, [items]);
-  const displayedTotalCount = totalCount;
-
-  // Today's date
-  const dateStr = formatShanghaiToday();
-
-  const handleScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
-    const el = e.currentTarget;
-    setShowBackToTop(el.scrollTop > window.innerHeight * 0.5);
-  }, []);
-
-  const scrollToTop = useCallback(() => {
-    scrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
-  }, []);
-
   return (
-    <div ref={scrollRef} onScroll={handleScroll} className="fade-in h-full overflow-y-auto px-10 py-8">
-      {/* Header */}
-      <div className="flex max-w-[820px] flex-wrap items-start justify-between gap-3">
-      <Header
-        title="今日选题"
-        date={dateStr}
-        stats={[
-          { label: '总内容', value: displayedTotalCount, color: 'var(--color-primary-text)' },
-          { label: '今日新增', value: todayCount, color: 'var(--color-teal-text)' },
-        ]}
-      />
-      <Button type="button" variant="secondary" disabled={syncing} onClick={() => void syncContent()}>
-        <RefreshCw size={15} className={syncing ? 'animate-spin' : ''} />
-        {syncing ? '同步中…' : '同步内容'}
-      </Button>
-      </div>
-      {syncNotice && <div role="status" className="mb-4 text-sm text-gray-600">{syncNotice}</div>}
+    <CwPage>
+      <TopBar title="今日" sub={todayLabel()}>
+        {healthy ? (
+          <span className="cw-health">
+            <StatusDot tone={healthy.paused ? 'warn' : 'ok'} />
+            {healthy.paused ? '采集已暂停' : `今日新增 ${healthy.today_new.value ?? 0} 条`}
+            {healthy.missed.value ? ` · 漏采 ${healthy.missed.value}` : ''}
+          </span>
+        ) : null}
+      </TopBar>
 
-      {/* Search bar */}
-      <div className="mb-4 max-w-[820px]">
-        <input
-          type="text"
-          placeholder="搜索标题、摘要、标签、AI分析..."
-          value={searchQuery}
-          onChange={(e) => {
-            resetPagination();
-            setSearchQuery(e.target.value);
-          }}
-          className="w-full rounded-lg border border-gray-200 bg-white px-4 py-2.5 text-[13px] text-gray-900 outline-none transition focus:border-primary"
-        />
-      </div>
+      {away ? (
+        <div className="cw-away" role="status">
+          <span>
+            你离开了 <b className="cw-num">{away.days}</b> 天（{away.start} 至 {away.end}）。
+          </span>
+          <span className="cw-grow" />
+          <Link className="cw-btn" data-variant="primary" href={`/reports?gap=${away.start}`}>
+            看空档回看
+          </Link>
+          <Button variant="ghost" onClick={() => setAway(null)}>
+            知道了
+          </Button>
+        </div>
+      ) : null}
 
-      {/* Filter row: time range + source type */}
-      <div className="mb-3 max-w-[820px]">
-        <Toolbar className="gap-3">
-          {/* Time range */}
-          <div className="flex items-center gap-1.5">
-            <span className="text-xs font-medium text-gray-500">时间</span>
-            {['24h', '48h', '7d', '全部'].map((range) => (
-              <button
-                key={range}
-                type="button"
-                onClick={() => {
-                  resetPagination();
-                  setActiveTimeRange(range);
-                }}
-                className={cx(
-                  'rounded-xs px-2.5 py-1 text-xs transition',
-                  activeTimeRange === range
-                    ? 'bg-primary-light font-semibold text-primary-text'
-                    : 'bg-gray-50 font-normal text-gray-500 hover:bg-gray-100',
-                )}
-              >
-                {range === '全部' ? '全部' : range === '24h' ? '24小时' : range === '48h' ? '48小时' : '近7天'}
-              </button>
-            ))}
-          </div>
-          {/* Divider */}
-          <div className="h-5 w-px bg-gray-200" />
-          {/* Source type */}
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-medium text-gray-500">来源</span>
-            {['全部', 'RSS', 'RSSHub', '网站', 'Reddit', 'Zhihu'].map((type) => (
-              <button
-                key={type}
-                type="button"
-                onClick={() => {
-                  resetPagination();
-                  setActiveSourceType(type);
-                }}
-                className={cx(
-                  'rounded-xs px-2.5 py-1 text-xs transition',
-                  activeSourceType === type
-                    ? 'bg-primary-light font-semibold text-primary-text'
-                    : 'bg-gray-50 font-normal text-gray-500 hover:bg-gray-100',
-                )}
-              >
-                {type}
-              </button>
-            ))}
-          </div>
-        </Toolbar>
-      </div>
+      <SignalTimeline data={signals} selectedId={openId} onOpen={setOpenId} legend={legend} />
 
-      {/* Filters - Category (first row + expand) */}
-      <div className="mb-3 max-w-[820px]">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="mr-1 text-xs font-medium text-gray-500">分类</span>
-          {(categoryExpanded
-            ? categoryOptions
-            : categoryOptions.slice(0, 6)
-          ).map((c) => (
-            <CategoryChip
-              key={c}
-              name={c}
-              active={activeCategory === c}
-              onClick={() => {
-                resetPagination();
-                setActiveCategory(c);
-                setActiveTag('全部');
-              }}
+      <div className="cw-today">
+        <section>
+          <div className="cw-feed-head">
+            <h2>信号流</h2>
+            <Segmented
+              label="视图"
+              value={view}
+              onChange={setView}
+              options={[
+                { value: 'all', label: '全部' },
+                { value: 'picks', label: '精选' },
+              ]}
             />
-          ))}
-          {categoryOptions.length > 6 && (
-            <button
-              type="button"
-              onClick={() => setCategoryExpanded((v) => !v)}
-              className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-[13px] font-normal text-gray-500 transition hover:border-primary-border hover:text-primary-text"
-            >
-              {categoryExpanded ? '收起' : `更多 ${categoryOptions.length - 6}`}
-              {categoryExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            </button>
+            <Segmented label="形态" value={media} onChange={setMedia} options={MEDIA_FILTERS} />
+            <span className="cw-grow" />
+            <span className="cw-muted">{feed ? `${feed.total} 条` : ''}</span>
+          </div>
+          {error ? <div className="cw-error">{error}</div> : null}
+          {!feed ? (
+            <div className="cw-empty">加载中…</div>
+          ) : feed.items.length === 0 ? (
+            <div className="cw-empty">{view === 'picks' ? '近 7 天还没有「值得做」的内容' : '今天还没有采到内容'}</div>
+          ) : view === 'picks' && feed.days ? (
+            feed.days.map((d) => (
+              <div key={d.date}>
+                <div className="cw-feed-day cw-num">{d.date}</div>
+                <ul className="cw-feed">
+                  {d.items.map((item) => (
+                    <FeedItem key={item.id} item={item} selected={item.id === openId} onOpen={setOpenId} />
+                  ))}
+                </ul>
+              </div>
+            ))
+          ) : (
+            <ul className="cw-feed">
+              {feed.items.map((item) => (
+                <FeedItem key={item.id} item={item} selected={item.id === openId} onOpen={setOpenId} />
+              ))}
+            </ul>
           )}
-        </div>
-      </div>
+          {feed && feed.items.length < feed.total ? (
+            <div style={{ textAlign: 'center', marginTop: 14 }}>
+              <Button onClick={loadMore} disabled={more}>
+                {more ? '加载中…' : '更多'}
+              </Button>
+            </div>
+          ) : null}
+        </section>
 
-      <div className="mb-3 max-w-[820px]">
-        <Toolbar className="gap-3">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-medium text-gray-500">推荐</span>
-            {RECOMMEND_FILTERS.map((level) => (
-              <button
-                key={level}
-                type="button"
-                onClick={() => {
-                  resetPagination();
-                  setActiveRecommendLevel(level);
-                }}
-                className={cx(
-                  'rounded-xs px-2.5 py-1 text-xs transition',
-                  activeRecommendLevel === level
-                    ? 'bg-primary-light font-semibold text-primary-text'
-                    : 'bg-gray-50 font-normal text-gray-500 hover:bg-gray-100',
-                )}
-              >
-                {level === '全部' ? '全部' : level}
-              </button>
-            ))}
-          </div>
-        </Toolbar>
-      </div>
-
-      <div className="mb-7 max-w-[820px]">
-        <Toolbar className="gap-3">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs font-medium text-gray-500">标签</span>
-            {tagOptions.map((tag) => {
-              const count = tagCounts.get(tag);
-              return (
-                <button
-                  key={tag}
-                  type="button"
-                  onClick={() => {
-                    resetPagination();
-                    setActiveTag(tag);
-                  }}
-                  className={cx(
-                    'rounded-xs px-2.5 py-1 text-xs transition',
-                    activeTag === tag
-                      ? 'bg-teal-light font-semibold text-teal-text'
-                      : 'bg-gray-50 font-normal text-gray-500 hover:bg-gray-100',
-                  )}
-                >
-                  {tag === '全部' ? '全部' : `#${prettyTag(tag)}${count !== undefined ? ` ${count}` : ''}`}
-                </button>
-              );
-            })}
-          </div>
-        </Toolbar>
-      </div>
-
-      {/* Error state */}
-      {error && (
-        <div className="mb-5 max-w-[820px] rounded-lg border border-red bg-red-light px-5 py-4 text-sm text-red">
-          加载失败：{error}
-        </div>
-      )}
-
-      {/* Loading state */}
-      {loading && (
-        <div className="max-w-[820px] py-[60px] text-center">
-          <Spinner />
-          <div className="mt-3 text-[13px] text-gray-400">加载中...</div>
-        </div>
-      )}
-
-      {/* Editorial content flow */}
-      {!loading && !error && (
-        <div className="grid items-start gap-6 pb-[60px] xl:grid-cols-[minmax(0,820px)_260px]">
-          <div className="min-w-0">
-            <ContentTimeline
-              groups={timelineGroups}
-              isFavorited={contentFavoriteState.isFavorited}
-              onToggleFav={async (id) => {
-                const wasFav = contentFavoriteState.isFavorited(id);
-                await toggleFavorite(id);
-                contentFavoriteState.refresh();
-                contentsApi.trackEvidenceInteraction(id, wasFav ? 'unfavorite' : 'favorite');
-              }}
-              onIgnore={handleIgnore}
-              onShowAnalysis={(a) => setSelectedAnalysis(a)}
-              onStartWorkflow={handleStartWorkflow}
-              workflowPendingId={workflowPendingId}
-            />
-            {items.length < totalAvailable && (
-              <div className="mt-6 text-center">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={handleLoadMore}
-                  disabled={loadingMore}
-                >
-                  {loadingMore ? '加载中…' : `加载更多（还有 ${totalAvailable - items.length} 条）`}
-                </Button>
-                {loadMoreError && !loadingMore && (
-                  <div className="mt-2 text-[12px] text-red-500">
-                    加载失败：{loadMoreError}
-                    <button type="button" className="ml-2 underline underline-offset-2" onClick={handleLoadMore}>
-                      重试
-                    </button>
+        <aside className="cw-today-side">
+          <Card title="追踪词" extra={<small className="cw-muted">近 24 小时</small>}>
+            {!side ? (
+              <div className="cw-muted">加载中…</div>
+            ) : side.watch_terms.length === 0 ? (
+              <div className="cw-muted">
+                还没有追踪词。<Link href="/hot?tab=terms">添加追踪词</Link>
+              </div>
+            ) : (
+              <>
+                {term ? (
+                  <div className="cw-watch-block">
+                    <h3 className="cw-watch-term">{term.term}</h3>
+                    <div className="cw-watch-sub">
+                      {Object.keys(term.per_platform).length} 个平台共 <b className="cw-num">{term.total}</b> 条
+                    </div>
+                    <DotMatrix dots={term.dots} label={`${term.term} 近 24 小时逐小时点阵`} />
+                    <PlatformBars dist={term.per_platform} />
                   </div>
-                )}
-                <div className="mt-2 text-[11px] text-gray-400">首屏优先展示最新内容，按需继续展开。</div>
-              </div>
+                ) : null}
+                {side.watch_terms.length > 1 ? (
+                  <div className="cw-watch-block cw-chips">
+                    {side.watch_terms.slice(1).map((t) => (
+                      <Link key={t.source_id} className="cw-chip" href={`/hot?tab=terms#term-${t.source_id}`}>
+                        {t.term} <span className="cw-num">{t.total}</span>
+                      </Link>
+                    ))}
+                    <Link className="cw-chip" href="/hot?tab=terms">
+                      添加追踪词
+                    </Link>
+                  </div>
+                ) : null}
+              </>
             )}
-            {filtered.length === 0 && (
-              <div className="py-[60px] text-center text-sm text-gray-400">
-                {totalAvailable === 0 && searchQuery === '' && activeCategory === '全部' && activeSourceType === '全部' && activeRecommendLevel === '全部' && activeTag === '全部'
-                  ? '尚未采集到内容'
-                  : '当前筛选条件下没有内容'}
+          </Card>
+          <Card title="跨平台共振" extra={<small className="cw-muted">近 48 小时</small>}>
+            {side ? <ResonanceTable data={side.resonance} onOpen={setOpenId} /> : <div className="cw-muted">加载中…</div>}
+          </Card>
+          <Card title="采集" extra={<Link href="/sources" className="cw-muted">查看信源</Link>}>
+            {healthy ? (
+              <div className="cw-mini-kpis">
+                <div>
+                  今日新增 <b className="cw-num">{healthy.today_new.value ?? '—'}</b>
+                </div>
+                <div>
+                  7 天成功率 <b className="cw-num">{healthy.success_rate_7d.value === null ? '—' : `${Math.round(healthy.success_rate_7d.value)}%`}</b>
+                </div>
+                <div>
+                  待分析 <b className="cw-num">{healthy.pending_analysis.value ?? '—'}</b>
+                </div>
+                <div>
+                  漏采 <b className="cw-num">{healthy.missed.value ?? '—'}</b>
+                </div>
               </div>
+            ) : (
+              <div className="cw-muted">加载中…</div>
             )}
-          </div>
-          <TimelineSummary
-            groups={levelSummary}
-            total={filtered.length}
-            availableTotal={totalCount}
-          />
-        </div>
-      )}
+          </Card>
+          {signals && signals.tracks.length ? (
+            <div className="cw-muted" style={{ fontSize: 12 }}>
+              今天 {signals.tracks.map((t) => `${platformName(t.platform)} ${t.items.length}`).join(' · ')}
+            </div>
+          ) : null}
+        </aside>
+      </div>
 
-      {/* Back to top button */}
-      {showBackToTop && !selectedAnalysis && (
-        <button
-          type="button"
-          onClick={scrollToTop}
-          className="fixed bottom-8 right-8 z-50 grid h-11 w-11 place-items-center rounded-full border border-gray-200 bg-white text-gray-600 shadow-lg transition hover:border-primary-border hover:text-primary"
-          aria-label="回到顶部"
-        >
-          <ArrowUp size={20} strokeWidth={2.2} />
-        </button>
-      )}
+      <ItemDrawer id={openId} onClose={() => setOpenId(null)} onChanged={() => void loadFeed()} />
+    </CwPage>
+  );
+}
 
-      {/* Analysis panel overlay */}
-      {selectedAnalysis && (
-        <>
-          <div
-            onClick={() => setSelectedAnalysis(null)}
-            className="fixed inset-0 z-[999] bg-black/20"
-          />
-          <ContentAnalysisPanel
-            analysis={selectedAnalysis}
-            onClose={() => setSelectedAnalysis(null)}
-          />
-        </>
-      )}
-    </div>
+export default function Page() {
+  return (
+    <Suspense fallback={null}>
+      <TodayPage />
+    </Suspense>
   );
 }

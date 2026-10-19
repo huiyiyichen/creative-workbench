@@ -18,7 +18,7 @@ from sqlalchemy import Text, cast, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.content import ContentItem
-from app.models.content_event import ContentEventGroup, ContentEventMember
+from app.models.content_event import ContentEventGroup
 from app.models.daily_report import DailyReport
 from app.models.dossier import PeriodReport, TopicDossier
 from app.models.monthly_digest import MonthlyDigest
@@ -26,10 +26,13 @@ from app.models.source import Source
 from app.models.trend import TopicTrend
 from app.models.weekly_digest import WeeklyDigest
 from app.services.discovery import item_cards, items_by_ids
+from app.services.event_members import event_members_subquery
 from app.services.topic_signals import CALC_VERSION, STATUS_LABEL
 
 AUTO_STREAK_DAYS = 3
 ARCHIVE_AFTER_DAYS = 30
+
+_em = event_members_subquery()
 
 
 class DossierNotFoundError(LookupError):
@@ -325,9 +328,8 @@ async def _dossier_content_ids(db: AsyncSession, d: TopicDossier) -> list[int]:
         return list(
             (
                 await db.execute(
-                    select(ContentEventMember.content_id).where(
-                        ContentEventMember.event_group_id == d.event_group_id,
-                        ContentEventMember.review_status != "rejected",
+                    select(_em.c.content_id).where(
+                        _em.c.event_group_id == d.event_group_id,
                     )
                 )
             ).scalars()

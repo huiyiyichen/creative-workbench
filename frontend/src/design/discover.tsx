@@ -1,0 +1,634 @@
+'use client';
+
+/**
+ * 发现区的招牌组件（12.3）：结论标记、指标示波、信息流条目、今天的信号时间线、追踪词点阵、共振矩阵、
+ * 升温榜行、带缺口曲线、条目详情（抽屉与独立页共用）。
+ */
+
+import Link from 'next/link';
+import { Drawer, Input, Popover, Spin, message } from 'antd';
+import { Bookmark, ExternalLink, Maximize2, Sparkles, ThumbsDown, ThumbsUp, Unlink } from 'lucide-react';
+import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { Button, Cover, Sparkline } from '@/design/components';
+import { color } from '@/design/tokens';
+import { favoritesApi } from '@/lib/api/_admin-api';
+import { mediaUrl } from '@/lib/api/_collection';
+import {
+  discoverApi,
+  type ItemCard,
+  type ItemDetail,
+  type MetricView,
+  type ResonanceMatrix,
+  type TodaySignals,
+  type TopicStatus,
+  type Verdict,
+} from '@/lib/api/_discover';
+import { METRIC_LABEL, PLATFORM_LABEL, compactNumber, formatDuration, primarySeries, relativeTime } from '@/lib/collection';
+import {
+  BASIS_LABEL,
+  JOURNEY_LABEL,
+  MEDIA_LABEL,
+  STATUS_COLOR,
+  STATUS_LABEL,
+  VERDICT_COLOR,
+  VERDICT_LABEL,
+  dayPosition,
+  gappedPaths,
+  heatOpacity,
+  mediaKindColor,
+  metricText,
+  topPlatforms,
+} from '@/lib/discover';
+
+export function platformName(p: string | null | undefined): string {
+  return PLATFORM_LABEL[p || 'web'] || p || '网页';
+}
+
+function errText(err: unknown): string {
+  return err instanceof Error ? err.message : '请求失败';
+}
+
+// ── 结论标记 ──
+
+export function VerdictMark({ verdict, user, size = 'default' }: { verdict: Verdict | null; user?: boolean; size?: 'default' | 'small' }) {
+  if (!verdict) return <span className="cw-verdict" data-size={size} data-empty="true">未判断</span>;
+  return (
+    <span
+      className="cw-verdict"
+      data-size={size}
+      style={{ '--c': VERDICT_COLOR[verdict] } as CSSProperties}
+      title={user ? '你改过的结论' : undefined}
+    >
+      <b />
+      {VERDICT_LABEL[verdict]}
+      {user ? <small>·你</small> : null}
+    </span>
+  );
+}
+
+export function StatusTag({ status }: { status: TopicStatus | null | undefined }) {
+  if (!status) return <span className="cw-status" data-empty="true">观测不足</span>;
+  return (
+    <span className="cw-status" style={{ '--c': STATUS_COLOR[status] } as CSSProperties}>
+      {STATUS_LABEL[status]}
+    </span>
+  );
+}
+
+// ── 指标示波：观测柱 + 原始值 + 变化量 + 观测时间 ──
+
+export function MetricScope({ metric, accent }: { metric: MetricView; accent: string }) {
+  const t = metricText(metric);
+  if (!metric.metric) return <div className="cw-scope" data-empty="true">{t.value}</div>;
+  const obs = Math.min(12, Math.max(2, metric.observations ?? 2));
+  return (
+    <div className="cw-scope" style={{ '--c': accent } as CSSProperties}>
+      <div className="cw-scope-bars" aria-hidden>
+        {Array.from({ length: obs }, (_, i) => (
+          <i key={i} style={{ height: `${25 + (75 * (i + 1)) / obs}%` }} data-last={i === obs - 1 ? 'true' : undefined} />
+        ))}
+      </div>
+      <div className="cw-scope-val">
+        <span className="cw-muted">{t.label}</span> <b className="cw-num">{t.value}</b>
+        {t.delta ? <span className="cw-num cw-up">{t.delta}</span> : null}
+      </div>
+      {t.observed ? <div className="cw-scope-time">{t.observed}</div> : null}
+    </div>
+  );
+}
+
+// ── 信息流条目 ──
+
+export function FeedItem({ item, selected, onOpen }: { item: ItemCard; selected?: boolean; onOpen: (id: number) => void }) {
+  const c = mediaKindColor(item.media_type);
+  const cover = item.cover_asset_id ? mediaUrl(item.cover_asset_id) : null;
+  return (
+    <li className="cw-item" data-selected={selected ? 'true' : undefined} style={{ '--c': c } as CSSProperties}>
+      <button type="button" className="cw-item-cover" onClick={() => onOpen(item.id)} aria-label={`打开 ${item.title}`}>
+        <Cover
+          src={cover}
+          title={item.title}
+          color={item.cover_color}
+          orientation={item.media_type === 'video' ? 'landscape' : 'landscape'}
+          kind={item.media_type}
+          badge={formatDuration(item.duration)}
+        />
+        <span className="cw-item-kind">{MEDIA_LABEL[item.media_type] || '文章'}</span>
+      </button>
+      <div className="cw-item-main">
+        <button type="button" className="cw-item-title" onClick={() => onOpen(item.id)}>
+          {item.title}
+        </button>
+        <div className="cw-item-meta">
+          <span className="cw-plat">{platformName(item.platform)}</span>
+          {item.author ? <span>{item.author}</span> : item.source_name ? <span>{item.source_name}</span> : null}
+          <span>{relativeTime(item.published_at || item.crawled_at)}发布</span>
+          {item.event && item.event.members > 1 ? <span>同一事件 {item.event.members} 条</span> : null}
+        </div>
+        <div className="cw-item-verdict">
+          <VerdictMark verdict={item.verdict} user={Boolean(item.user_verdict)} size="small" />
+          {item.key_points.length ? <span className="cw-num">{item.key_points.join(' · ')}</span> : null}
+          {item.analysis_level !== 'full' ? <span className="cw-muted">未分析</span> : null}
+        </div>
+      </div>
+      <MetricScope metric={item.metric} accent={c} />
+    </li>
+  );
+}
+
+// ── 今天的信号 ──
+
+const HOURS = [0, 3, 6, 9, 12, 15, 18, 21, 24];
+
+export function SignalTimeline({
+  data,
+  selectedId,
+  onOpen,
+  legend,
+}: {
+  data: TodaySignals | null;
+  selectedId?: number | null;
+  onOpen: (id: number) => void;
+  legend?: ReactNode;
+}) {
+  const nowPos = data?.now ? dayPosition(data.now, data.start, data.end) : 0;
+  const nowLabel = data?.now ? new Date(data.now).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
+  return (
+    <section className="cw-timeline" aria-label="今天的信号">
+      <div className="cw-tl-head">
+        <h2>今天的信号</h2>
+        {legend}
+      </div>
+      <div className="cw-tl-body">
+        <div className="cw-tl-grid">
+          <div className="cw-ruler">
+            <span />
+            <div className="cw-ruler-scale">
+              {HOURS.map((h) => (
+                <span key={h} className="cw-num" style={{ left: `${(h / 24) * 100}%` }}>
+                  {String(h).padStart(2, '0')}:00
+                </span>
+              ))}
+            </div>
+          </div>
+          {!data ? (
+            <div className="cw-tl-empty">加载中…</div>
+          ) : data.tracks.length === 0 ? (
+            <div className="cw-tl-empty">今天还没有采到内容</div>
+          ) : (
+            data.tracks.slice(0, 9).map((track) => (
+              <div className="cw-track" key={track.platform}>
+                <span className="cw-track-name">{platformName(track.platform)}</span>
+                <div className="cw-lane">
+                  {HOURS.slice(1, -1).map((h) => (
+                    <i key={h} className="cw-lane-tick" style={{ left: `${(h / 24) * 100}%` }} />
+                  ))}
+                  {track.items.map((clip) => (
+                    <button
+                      key={clip.id}
+                      type="button"
+                      className="cw-clip"
+                      data-selected={clip.id === selectedId ? 'true' : undefined}
+                      title={clip.title}
+                      aria-label={clip.title}
+                      onClick={() => onOpen(clip.id)}
+                      style={
+                        {
+                          left: `${dayPosition(clip.at, data.start, data.end) * 100}%`,
+                          '--c': mediaKindColor(clip.media_type),
+                          '--o': heatOpacity(clip.heat),
+                        } as CSSProperties
+                      }
+                    />
+                  ))}
+                </div>
+              </div>
+            ))
+          )}
+          {data && data.now ? (
+            <div className="cw-playhead" style={{ left: `calc(72px + (100% - 72px) * ${nowPos})` }}>
+              <span className="cw-num">{nowLabel}</span>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ── 追踪词点阵、平台条 ──
+
+export function DotMatrix({ dots, label }: { dots: number[]; label: string }) {
+  return (
+    <div>
+      <div className="cw-dots" role="img" aria-label={label}>
+        {dots.map((n, i) => (
+          <i key={i} data-on={n > 0 ? 'true' : undefined} title={`${n} 条`} />
+        ))}
+      </div>
+      <div className="cw-dots-axis cw-num">
+        <span>-24h</span>
+        <span>-18h</span>
+        <span>-12h</span>
+        <span>-6h</span>
+        <span>现在</span>
+      </div>
+    </div>
+  );
+}
+
+export function PlatformBars({ dist, accent = color.mg }: { dist: Record<string, number>; accent?: string }) {
+  const rows = topPlatforms(dist, 6);
+  const max = Math.max(1, ...rows.map(([, n]) => n));
+  if (!rows.length) return <div className="cw-muted">还没有采到</div>;
+  return (
+    <div className="cw-plat-bars" style={{ '--c': accent } as CSSProperties}>
+      {rows.map(([p, n]) => (
+        <div key={p}>
+          <span>{platformName(p)}</span>
+          <s style={{ width: `${(n / max) * 100}%` }} />
+          <b className="cw-num">{n}</b>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function ResonanceTable({ data, onOpen }: { data: ResonanceMatrix; onOpen: (id: number) => void }) {
+  if (!data.rows.length) return <div className="cw-muted">近 48 小时没有跨平台的事件</div>;
+  return (
+    <table className="cw-res">
+      <thead>
+        <tr>
+          <th>主题</th>
+          {data.platforms.map((p) => (
+            <th key={p}>{platformName(p)}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {data.rows.map((r) => (
+          <tr key={r.event_id}>
+            <td>
+              {r.representative_id ? (
+                <button type="button" className="cw-link-btn" onClick={() => onOpen(r.representative_id!)}>
+                  {r.title}
+                </button>
+              ) : (
+                r.title
+              )}
+            </td>
+            {data.platforms.map((p) => (
+              <td key={p}>
+                <i className="cw-res-dot" data-on={r.cells[p] ? 'true' : undefined} title={`${r.cells[p] || 0} 条`} />
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+/** 带缺口的曲线：没有观测的时段断开，不画 0 */
+export function GapSpark({ values, width = 140, height = 30, accent = color.rd, label }: { values: (number | null)[]; width?: number; height?: number; accent?: string; label: string }) {
+  const paths = gappedPaths(values, width, height);
+  if (!paths.length) return <span className="cw-spark-empty">观测不足</span>;
+  return (
+    <svg className="cw-spark" width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label} style={{ '--c': accent } as CSSProperties}>
+      {paths.map((d, i) => (
+        <path key={i} d={d} />
+      ))}
+    </svg>
+  );
+}
+
+// ── 条目详情 ──
+
+export function ItemDrawer({ id, onClose, onChanged }: { id: number | null; onClose: () => void; onChanged?: (id: number) => void }) {
+  return (
+    <Drawer
+      open={id !== null}
+      onClose={onClose}
+      size={620}
+      title={null}
+      closable={false}
+      destroyOnHidden
+      className="cw-drawer"
+      styles={{ body: { padding: 0 } }}
+    >
+      {id !== null ? <ItemDetailView id={id} compact onClose={onClose} onChanged={onChanged} /> : null}
+    </Drawer>
+  );
+}
+
+function BasisRow({ name, children }: { name: string; children: ReactNode }) {
+  return (
+    <div className="cw-basis-row">
+      <span className="cw-muted">{name}</span>
+      <div>{children}</div>
+    </div>
+  );
+}
+
+export function ItemDetailView({ id, compact, onClose, onChanged }: { id: number; compact?: boolean; onClose?: () => void; onChanged?: (id: number) => void }) {
+  const [data, setData] = useState<ItemDetail | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [note, setNote] = useState('');
+
+  const load = useCallback(async () => {
+    try {
+      setError(null);
+      setData(await discoverApi.item(id));
+    } catch (err) {
+      setError(errText(err));
+    }
+  }, [id]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const act = async (key: string, fn: () => Promise<unknown>, ok?: string) => {
+    setBusy(key);
+    try {
+      await fn();
+      if (ok) message.success(ok);
+      await load();
+      onChanged?.(id);
+    } catch (err) {
+      message.error(errText(err));
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  if (error) return <div className="cw-detail"><div className="cw-error">{error}</div></div>;
+  if (!data) return <div className="cw-detail cw-detail-loading"><Spin /></div>;
+
+  const v = data.verdict_full;
+  const c = mediaKindColor(data.media_type);
+  const key = primarySeries(data.series);
+  const series = key ? data.series[key].map((p) => p.value) : [];
+  const cover = data.cover_asset_id ? mediaUrl(data.cover_asset_id, 'full') : null;
+
+  const correction = (
+    <div className="cw-correct">
+      <div className="cw-muted">改成正确的结论</div>
+      <div className="cw-correct-btns">
+        {(['worth', 'watch', 'skip'] as Verdict[]).map((opt) => (
+          <Button
+            key={opt}
+            variant={v.verdict === opt ? 'primary' : 'default'}
+            onClick={() => act('verdict', () => discoverApi.setVerdict(id, opt, note), '已记下')}
+          >
+            {VERDICT_LABEL[opt]}
+          </Button>
+        ))}
+      </div>
+      <Input.TextArea value={note} onChange={(e) => setNote(e.target.value)} placeholder="为什么（可选）" rows={2} maxLength={500} />
+      {v.user_verdict ? (
+        <Button variant="ghost" onClick={() => act('verdict', () => discoverApi.setVerdict(id, null), '已恢复计算结论')}>
+          恢复计算结论（{VERDICT_LABEL[v.computed || v.verdict]}）
+        </Button>
+      ) : null}
+    </div>
+  );
+
+  return (
+    <article className="cw-detail" style={{ '--c': c } as CSSProperties}>
+      <header className="cw-detail-head">
+        <div className="cw-detail-actions">
+          {compact ? (
+            <Link className="cw-btn" data-variant="ghost" href={`/items/${id}`} aria-label="展开为独立页">
+              <Maximize2 size={15} />
+              独立页
+            </Link>
+          ) : null}
+          <a className="cw-btn" data-variant="ghost" href={data.url} target="_blank" rel="noreferrer">
+            <ExternalLink size={15} />
+            原文
+          </a>
+          {onClose ? (
+            <Button variant="ghost" onClick={onClose}>
+              关闭
+            </Button>
+          ) : null}
+        </div>
+        <section className="cw-conclusion" style={{ '--v': VERDICT_COLOR[v.verdict] } as CSSProperties}>
+          <div className="cw-conclusion-top">
+            <VerdictMark verdict={v.verdict} user={Boolean(v.user_verdict)} />
+            <Popover content={correction} trigger="click" placement="bottomRight">
+              <button type="button" className="cw-link-btn">不对</button>
+            </Popover>
+          </div>
+          <p className="cw-conclusion-reason">{v.reason}</p>
+          {v.user_note ? <p className="cw-muted">你的理由：{v.user_note}</p> : null}
+          <div className="cw-basis">
+            <BasisRow name="热度">
+              {v.basis.heat.state ? (
+                <span className="cw-muted">{v.basis.heat.state}</span>
+              ) : (
+                <>
+                  {v.basis.heat.metric ? <span>{METRIC_LABEL[v.basis.heat.metric] || v.basis.heat.metric} <b className="cw-num">{compactNumber(v.basis.heat.value)}</b></span> : null}
+                  {v.basis.heat.rank ? <span>上榜第 <b className="cw-num">{v.basis.heat.rank}</b></span> : null}
+                  {v.basis.heat.growth ? <span className="cw-num cw-up">+{compactNumber(v.basis.heat.growth.last - v.basis.heat.growth.first)} / {Math.round(v.basis.heat.growth.hours)}h</span> : null}
+                </>
+              )}
+            </BasisRow>
+            <BasisRow name="时机">
+              {v.basis.timing.age_hours !== undefined ? <span>发布 <b className="cw-num">{v.basis.timing.age_hours < 48 ? `${Math.round(v.basis.timing.age_hours)} 小时` : `${Math.round(v.basis.timing.age_hours / 24)} 天`}</b></span> : null}
+              <StatusTag status={v.basis.timing.topic_status} />
+            </BasisRow>
+            <BasisRow name="同题">
+              {v.basis.same_topic.event_id ? (
+                <span>
+                  同一事件 <b className="cw-num">{v.basis.same_topic.members}</b> 条 ·{' '}
+                  {Array.from(new Set(v.basis.same_topic.platforms)).map(platformName).join('、')}
+                </span>
+              ) : (
+                <span className="cw-muted">未归入事件</span>
+              )}
+            </BasisRow>
+            <BasisRow name="和你相关">
+              {v.basis.relevance.keyword_hits.length ? <span>追踪词「{v.basis.relevance.keyword_hits.join('、')}」</span> : null}
+              {v.basis.relevance.related_favorites ? <span>相关收藏 <b className="cw-num">{v.basis.relevance.related_favorites}</b></span> : null}
+              {!v.basis.relevance.keyword_hits.length && !v.basis.relevance.related_favorites ? <span className="cw-muted">无</span> : null}
+            </BasisRow>
+            <BasisRow name="风险">
+              {v.basis.risk.rule_hits.length ? <span className="cw-bad">命中规则：{v.basis.risk.rule_hits.join('、')}</span> : null}
+              {v.basis.risk.score !== null ? <span>风险分 <b className="cw-num">{Math.round(v.basis.risk.score)}</b></span> : <span className="cw-muted">未分析，只看规则：{v.basis.risk.rule_hits.length ? '有风险' : '无'}</span>}
+            </BasisRow>
+            <BasisRow name="内容质量">
+              {v.basis.quality !== null ? <b className="cw-num">{Math.round(v.basis.quality)}</b> : <span className="cw-muted">未分析</span>}
+            </BasisRow>
+          </div>
+          {v.missing.length ? (
+            <div className="cw-missing">
+              {v.missing.map((m) => (
+                <span key={m}>{m}</span>
+              ))}
+            </div>
+          ) : null}
+          <details className="cw-calc">
+            <summary>计算明细</summary>
+            <p className="cw-muted">{v.detail.formula}</p>
+            <ul>
+              {v.detail.scored.map((s, i) => (
+                <li key={i}>
+                  <span>{BASIS_LABEL[s.basis] || s.basis}</span>
+                  <span>{s.why}</span>
+                  <b className="cw-num">{s.points > 0 ? `+${s.points}` : s.points}</b>
+                </li>
+              ))}
+              <li>
+                <span>合计</span>
+                <span />
+                <b className="cw-num">{v.detail.points}</b>
+              </li>
+            </ul>
+          </details>
+        </section>
+      </header>
+
+      <section className="cw-detail-body">
+        {cover || data.media_type === 'video' ? (
+          <div className="cw-detail-cover">
+            <Cover src={cover} title={data.title} color={data.cover_color} orientation={data.orientation} kind={data.media_type} badge={formatDuration(data.duration)} />
+          </div>
+        ) : null}
+        <h2 className="cw-detail-title">{data.title}</h2>
+        <div className="cw-item-meta">
+          <span className="cw-plat">{platformName(data.platform)}</span>
+          {data.author ? (data.author_url ? <a href={data.author_url} target="_blank" rel="noreferrer">{data.author}</a> : <span>{data.author}</span>) : null}
+          <span>发布 {data.published_at ? new Date(data.published_at).toLocaleString('zh-CN') : '时间未知'}</span>
+          <span>采集 {relativeTime(data.crawled_at)}</span>
+        </div>
+        <div className="cw-detail-tools">
+          <Button
+            icon={<ThumbsUp size={15} />}
+            variant={data.feedback === 'useful' ? 'primary' : 'default'}
+            disabled={busy === 'fb'}
+            onClick={() => act('fb', () => discoverApi.setFeedback(id, data.feedback === 'useful' ? null : 'useful'))}
+          >
+            有用
+          </Button>
+          <Button
+            icon={<ThumbsDown size={15} />}
+            variant={data.feedback === 'not_interested' ? 'primary' : 'default'}
+            disabled={busy === 'fb'}
+            onClick={() => act('fb', () => discoverApi.setFeedback(id, data.feedback === 'not_interested' ? null : 'not_interested'))}
+          >
+            不感兴趣
+          </Button>
+          <span className="cw-grow" />
+          <Button
+            icon={<Bookmark size={15} />}
+            variant={data.is_favorited ? 'primary' : 'default'}
+            disabled={busy === 'fav' || data.is_favorited}
+            onClick={() =>
+              act(
+                'fav',
+                () => favoritesApi.create({ target_type: 'content', target_id: id, title: data.title, url: data.url, source_name: data.source_name }),
+                data.analysis_level === 'full' ? '已收进灵感库' : '已收进灵感库，正在补分析',
+              )
+            }
+          >
+            {data.is_favorited ? '已收藏' : '收藏'}
+          </Button>
+        </div>
+
+        <h3 className="cw-detail-h">指标与观测</h3>
+        <div className="cw-detail-metrics">
+          <MetricScope metric={data.metric} accent={c} />
+          {key ? <Sparkline values={series} label={`${METRIC_LABEL[key] || key}观测曲线`} color={c} width={220} height={40} /> : <span className="cw-spark-empty">{data.metric.state || '暂无历史观测'}</span>}
+        </div>
+
+        <h3 className="cw-detail-h">角度</h3>
+        {data.analysis && data.analysis.angles.length ? (
+          <ol className="cw-angles">
+            {data.analysis.angles.map((a, i) => (
+              <li key={i}>
+                <b>{a.title}</b>
+                {a.detail ? <p className="cw-muted">{a.detail}</p> : null}
+                <Link href={`/studio?from_content=${data.event?.representative_id || id}&angle=${encodeURIComponent(a.title)}`} className="cw-link-btn">用于新项目</Link>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <div className="cw-angles-empty">
+            <span className="cw-muted">{data.analysis_level === 'full' ? '这次分析没有给出角度' : '还没有完整分析'}</span>
+            {data.analysis_level !== 'full' ? (
+              <Button icon={<Sparkles size={15} />} variant="primary" disabled={busy === 'analyze'} onClick={() => act('analyze', () => discoverApi.analyze(id), '分析完成')}>
+                {busy === 'analyze' ? '分析中…' : '分析并给角度'}
+              </Button>
+            ) : null}
+          </div>
+        )}
+        {data.analysis?.inherited_from ? <p className="cw-muted">继承自同一事件的代表条目 #{data.analysis.inherited_from}</p> : null}
+        {data.analysis?.summary ? <p className="cw-detail-summary">{data.analysis.summary}</p> : null}
+
+        {data.event ? (
+          <>
+            <h3 className="cw-detail-h">
+              同一事件的其他来源 <small className="cw-muted">{data.event.others.length} 条</small>
+              <span className="cw-grow" />
+              <Button variant="ghost" icon={<Unlink size={14} />} disabled={busy === 'leave'} onClick={() => act('leave', () => discoverApi.leaveEvent(id), '已移出此事件')}>
+                移出此事件
+              </Button>
+            </h3>
+            <ul className="cw-others">
+              {data.event.others.map((o) => (
+                <li key={o.id} style={{ '--c': mediaKindColor(o.media_type) } as CSSProperties}>
+                  <i />
+                  <span className="cw-plat">{platformName(o.platform)}</span>
+                  <a href={o.url} target="_blank" rel="noreferrer">{o.title}</a>
+                  <span className="cw-muted cw-num">{relativeTime(o.published_at)}</span>
+                </li>
+              ))}
+            </ul>
+          </>
+        ) : null}
+
+        {data.dossiers.length ? (
+          <>
+            <h3 className="cw-detail-h">所属专题</h3>
+            <div className="cw-chips">
+              {data.dossiers.map((d) => (
+                <Link key={d.id} className="cw-chip" href={`/dossiers/${d.id}`}>{d.title}</Link>
+              ))}
+            </div>
+          </>
+        ) : null}
+
+        <h3 className="cw-detail-h">原文</h3>
+        <div className="cw-reader">
+          {data.raw_content || data.summary_full ? (
+            (data.raw_content || data.summary_full || '').split(/\n{2,}/).slice(0, compact ? 8 : 200).map((p, i) => <p key={i}>{p}</p>)
+          ) : (
+            <p className="cw-muted">没有正文，点「原文」打开来源页面。</p>
+          )}
+          {compact && (data.raw_content || '').split(/\n{2,}/).length > 8 ? <Link href={`/items/${id}`} className="cw-link-btn">在独立页阅读全文</Link> : null}
+        </div>
+
+        <h3 className="cw-detail-h">评论</h3>
+        <p className="cw-muted">{data.comment_state === 'done' ? '评论已采集' : '评论未采集（阶段 3 接入 B站、YouTube、HN 评论）'}</p>
+
+        <h3 className="cw-detail-h">经历</h3>
+        <ol className="cw-journey">
+          {data.journey.length === 0 ? <li className="cw-muted">没有记录</li> : null}
+          {data.journey.map((j) => (
+            <li key={j.id}>
+              <span className="cw-journey-stage">{JOURNEY_LABEL[j.stage] || j.stage}</span>
+              <span>{j.summary}</span>
+              <span className="cw-muted cw-num">{new Date(j.at).toLocaleString('zh-CN', { hour12: false })}</span>
+            </li>
+          ))}
+        </ol>
+      </section>
+    </article>
+  );
+}
+
+export { MEDIA_LABEL, STATUS_LABEL, platformName as platformLabel };
