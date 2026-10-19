@@ -6,12 +6,14 @@
 
 import { App as AntdApp, ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
-import type { ButtonHTMLAttributes, CSSProperties, ReactNode } from 'react';
+import { useState, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from 'react';
+import { sparkPath, waveform } from '@/lib/collection';
+import { mediaColor } from './tokens';
 import { cwAntdTheme } from './antd-theme';
 
 export function CwPage({ children, className = '' }: { children: ReactNode; className?: string }) {
   return (
-    <ConfigProvider theme={cwAntdTheme} locale={zhCN}>
+    <ConfigProvider theme={cwAntdTheme} locale={zhCN} button={{ autoInsertSpace: false }}>
       <AntdApp component={false}>
         <div className={`cw-page ${className}`}>{children}</div>
       </AntdApp>
@@ -134,5 +136,91 @@ export function MiniBars({ values, color, label }: { values: number[]; color?: s
         <i key={i} data-zero={v === 0 ? 'true' : undefined} style={{ height: v === 0 ? 2 : `${Math.max(12, (v / max) * 100)}%` }} />
       ))}
     </div>
+  );
+}
+
+/** 观测曲线：不足 2 个点显示「暂无历史观测」，不画 0（改造方案 3.3） */
+export function Sparkline({
+  values,
+  label,
+  color,
+  width = 120,
+  height = 28,
+}: {
+  values: number[];
+  label: string;
+  color?: string;
+  width?: number;
+  height?: number;
+}) {
+  const d = sparkPath(values, width, height);
+  if (!d) return <span className="cw-spark-empty">暂无历史观测</span>;
+  return (
+    <svg className="cw-spark" width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label}
+      style={color ? ({ '--c': color } as CSSProperties) : undefined}>
+      <path d={d} />
+    </svg>
+  );
+}
+
+/**
+ * 封面：本地缓存（主色占位、懒加载）；缺失或加载失败时用按标题生成的示波器图形（改造方案 3.4）。
+ * 横版 16:9，竖版 9:16。
+ */
+export function Cover({
+  src,
+  title,
+  color,
+  orientation,
+  kind,
+  badge,
+}: {
+  src: string | null;
+  title: string;
+  color?: string | null;
+  orientation?: 'landscape' | 'portrait' | null;
+  kind?: string | null;
+  badge?: string | null;
+}) {
+  const [failed, setFailed] = useState(false);
+  const showImg = Boolean(src) && !failed;
+  return (
+    <div
+      className="cw-cover"
+      data-orientation={orientation === 'portrait' ? 'portrait' : 'landscape'}
+      style={{ background: color || undefined }}
+    >
+      {showImg ? (
+        // 本地缓存的封面走自己的 /media 接口，next/image 的优化在这里没有意义
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={src!} alt="" loading="lazy" onError={() => setFailed(true)} />
+      ) : (
+        <GeneratedCover title={title} kind={kind} />
+      )}
+      {kind ? <span className="cw-cover-kind" style={{ '--c': kindColor(kind) } as CSSProperties} /> : null}
+      {badge ? <span className="cw-cover-badge cw-num">{badge}</span> : null}
+    </div>
+  );
+}
+
+function kindColor(kind: string): string {
+  return (mediaColor as Record<string, string>)[kind] ?? mediaColor.article;
+}
+
+function GeneratedCover({ title, kind }: { title: string; kind?: string | null }) {
+  const wave = waveform(title, 40);
+  const w = 160;
+  const h = 90;
+  const d = wave
+    .map((v, i) => `${i === 0 ? 'M' : 'L'}${((i / (wave.length - 1)) * w).toFixed(1)},${(h - v * h).toFixed(1)}`)
+    .join(' ');
+  return (
+    <svg className="cw-cover-gen" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden
+      style={{ '--c': kindColor(kind || 'article') } as CSSProperties}>
+      {[0.25, 0.5, 0.75].map((y) => (
+        <line key={y} x1="0" x2={w} y1={h * y} y2={h * y} />
+      ))}
+      <path d={d} />
+    </svg>
   );
 }

@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Select, Tooltip, message } from 'antd';
-import { Pause, Play, RefreshCw, Undo2 } from 'lucide-react';
+import { Pause, Play, Plus, RefreshCw, Settings2, Undo2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Card, CwPage, MiniBars, Num, SectionHead, StatusDot, TopBar } from '@/design/components';
 import { mediaColor } from '@/design/tokens';
@@ -12,14 +12,18 @@ import {
   type CollectionFunnel,
   type CollectionOverview,
   type MetricPair,
+  type PlatformInfo,
   type SourceHealthRow,
 } from '@/lib/api/_collection';
+import { AddSourceModal, BudgetLine, FunnelSettingsModal, PlatformList, RecentDrawer } from './_parts';
 import {
   ACTION_LABEL,
   ERROR_KIND_LABEL,
   HEALTH_LABEL,
   HEALTH_TONE,
   INTERVAL_OPTIONS,
+  KIND_LABEL,
+  PLATFORM_LABEL,
   SKIP_REASON_LABEL,
   actionTone,
   delta,
@@ -68,12 +72,14 @@ function HealthTable({
   onSync,
   onToggle,
   onInterval,
+  onOpen,
 }: {
   rows: SourceHealthRow[];
   busy: Set<number>;
   onSync: (row: SourceHealthRow) => void;
   onToggle: (row: SourceHealthRow) => void;
   onInterval: (row: SourceHealthRow, minutes: number) => void;
+  onOpen: (row: SourceHealthRow) => void;
 }) {
   if (!rows.length) return <div className="cw-empty">还没有信源</div>;
   return (
@@ -97,8 +103,22 @@ function HealthTable({
           return (
             <tr key={row.id}>
               <td>
-                <div className="cw-cell-title">{row.name}</div>
-                <div className="cw-cell-sub">{[row.platform, row.source_type].filter(Boolean).join(' · ')}</div>
+                <button type="button" className="cw-link-btn" onClick={() => onOpen(row)} title="查看最近采到">
+                  <div className="cw-cell-title">{row.name}</div>
+                  <div className="cw-cell-sub">
+                    {[
+                      row.kind ? KIND_LABEL[row.kind] : null,
+                      row.kind === 'keyword' && row.platforms?.length
+                        ? row.platforms.map((p) => PLATFORM_LABEL[p] ?? p).join('/')
+                        : row.platform
+                          ? (PLATFORM_LABEL[row.platform] ?? row.platform)
+                          : null,
+                      row.source_type,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')}
+                  </div>
+                </button>
               </td>
               <td>
                 <span className="cw-health">
@@ -191,8 +211,11 @@ function Funnel({ funnel }: { funnel: CollectionFunnel | null }) {
                   .join(' · ')}
               </div>
             ) : null}
-            {stage.value === null && (stage.key === 'quick' || stage.key === 'picked') ? (
-              <div className="cw-funnel-removed">阶段 1 启用</div>
+            {stage.key === 'triage' && stage.threshold !== undefined ? (
+              <div className="cw-funnel-removed cw-num">过线 ≥ {stage.threshold}</div>
+            ) : null}
+            {stage.key === 'quick' && stage.passed !== undefined ? (
+              <div className="cw-funnel-removed cw-num">值得完整分析 {stage.passed}</div>
             ) : null}
           </div>
         ))}
@@ -201,6 +224,7 @@ function Funnel({ funnel }: { funnel: CollectionFunnel | null }) {
         积压：待分析 <span className="cw-num">{funnel.backlog.pending}</span> · 分析中{' '}
         <span className="cw-num">{funnel.backlog.analyzing}</span> · 失败 <span className="cw-num">{funnel.backlog.error}</span>
       </div>
+      <BudgetLine budget={funnel.budget} />
     </>
   );
 }
@@ -243,16 +267,22 @@ export default function SourcesCollectionPage() {
   const [actions, setActions] = useState<AutoActionItem[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState<Set<number>>(new Set());
+  const [platforms, setPlatforms] = useState<PlatformInfo[]>([]);
+  const [adding, setAdding] = useState(false);
+  const [funnelSettingsOpen, setFunnelSettingsOpen] = useState(false);
+  const [recentSource, setRecentSource] = useState<SourceHealthRow | null>(null);
   const [toast, toastHolder] = message.useMessage();
 
   const load = useCallback(async () => {
     try {
-      const [ov, health, fn, acts] = await Promise.all([
+      const [ov, health, fn, acts, plats] = await Promise.all([
         collectionApi.overview(),
         collectionApi.health(),
         collectionApi.funnel(7),
         collectionApi.autoActions(30),
+        collectionApi.platforms(),
       ]);
+      setPlatforms(plats.items);
       setOverview(ov);
       setRows(health.sources);
       setFunnel(fn);
@@ -348,6 +378,9 @@ export default function SourcesCollectionPage() {
         <Button icon={overview?.paused ? <Play /> : <Pause />} onClick={onPause} disabled={!overview}>
           {overview?.paused ? '恢复采集' : '暂停采集'}
         </Button>
+        <Button variant="primary" icon={<Plus />} onClick={() => setAdding(true)}>
+          添加信源
+        </Button>
       </TopBar>
 
       {loadError ? <div className="cw-error">{loadError}</div> : null}
@@ -362,14 +395,29 @@ export default function SourcesCollectionPage() {
 
       <SectionHead title="健康" note="异常排在最前" />
       <Card className="cw-scroll-x">
-        <HealthTable rows={rows} busy={busy} onSync={onSync} onToggle={onToggle} onInterval={onInterval} />
+        <HealthTable
+          rows={rows}
+          busy={busy}
+          onSync={onSync}
+          onToggle={onToggle}
+          onInterval={onInterval}
+          onOpen={setRecentSource}
+        />
       </Card>
 
       <div className="cw-grid-2">
         <div>
-          <SectionHead title="流程" note="近 7 天" />
+          <SectionHead title="流程" note="近 7 天">
+            <Button variant="ghost" icon={<Settings2 />} onClick={() => setFunnelSettingsOpen(true)}>
+              预算与阈值
+            </Button>
+          </SectionHead>
           <Card>
             <Funnel funnel={funnel} />
+          </Card>
+          <SectionHead title="平台" note="接口能力与 Key" />
+          <Card>
+            <PlatformList items={platforms} onChanged={(msg) => { toast.info(msg); load(); }} />
           </Card>
         </div>
         <div>
@@ -379,6 +427,15 @@ export default function SourcesCollectionPage() {
           </Card>
         </div>
       </div>
+
+      <AddSourceModal
+        open={adding}
+        onClose={() => setAdding(false)}
+        onAdded={(msg) => { toast.success(msg); load(); }}
+        searchable={platforms}
+      />
+      <FunnelSettingsModal open={funnelSettingsOpen} onClose={() => setFunnelSettingsOpen(false)} onSaved={load} />
+      <RecentDrawer source={recentSource} onClose={() => setRecentSource(null)} />
     </CwPage>
   );
 }

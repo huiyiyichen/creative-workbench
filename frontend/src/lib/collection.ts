@@ -99,3 +99,102 @@ export function intervalLabel(minutes: number): string {
 }
 
 export const INTERVAL_OPTIONS = [30, 60, 120, 240, 360, 720, 1440];
+
+// ── 阶段 1：信源类型、平台、观测曲线 ──────────────────────────────
+
+export const KIND_LABEL: Record<string, string> = {
+  subscription: '订阅',
+  keyword: '追踪词',
+  list: '榜单',
+};
+
+export const PLATFORM_LABEL: Record<string, string> = {
+  bilibili: 'B站',
+  youtube: 'YouTube',
+  github: 'GitHub',
+  hn: 'HN',
+  reddit: 'Reddit',
+  douyin: '抖音',
+  xiaohongshu: '小红书',
+  zhihu: '知乎',
+  web: '网页',
+  multi: '多平台',
+};
+
+export const METRIC_LABEL: Record<string, string> = {
+  views: '播放',
+  likes: '点赞',
+  comments: '评论',
+  favorites: '收藏',
+  shares: '转发',
+  coins: '投币',
+  danmaku: '弹幕',
+  stars: 'Star',
+  forks: 'Fork',
+  score: '分数',
+  hot: '热度',
+  rank: '排名',
+};
+
+/** 观测曲线优先展示的指标（排名不画曲线） */
+const SERIES_PRIORITY = ['views', 'stars', 'score', 'likes', 'hot', 'comments', 'favorites'];
+
+export function primarySeries(series: Record<string, { at: string; value: number }[]>): string | null {
+  for (const key of SERIES_PRIORITY) if ((series[key]?.length ?? 0) > 0) return key;
+  return Object.keys(series).find((k) => k !== 'rank') ?? null;
+}
+
+/** 折线坐标：至少 2 个点才画；不足返回 null（界面显示「暂无历史观测」，不画 0） */
+export function sparkPath(values: number[], width: number, height: number, pad = 2): string | null {
+  if (values.length < 2) return null;
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const span = max - min;
+  const step = (width - pad * 2) / (values.length - 1);
+  return values
+    .map((v, i) => {
+      const x = pad + i * step;
+      // 全部相同的值画在中线（持平），不贴底，避免看成 0
+      const y = span === 0 ? height / 2 : height - pad - ((v - min) / span) * (height - pad * 2);
+      return `${i === 0 ? 'M' : 'L'}${x.toFixed(1)},${y.toFixed(1)}`;
+    })
+    .join(' ');
+}
+
+/** 61 → "1:01"；3723 → "1:02:03" */
+export function formatDuration(seconds: number | null | undefined): string | null {
+  if (seconds === null || seconds === undefined || seconds < 0) return null;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = Math.floor(seconds % 60);
+  const mm = h ? String(m).padStart(2, '0') : String(m);
+  return `${h ? `${h}:` : ''}${mm}:${String(s).padStart(2, '0')}`;
+}
+
+/** 大数字：12345 → "1.2万" */
+export function compactNumber(value: number | null | undefined): string {
+  if (value === null || value === undefined) return '—';
+  if (Math.abs(value) >= 1e8) return `${(value / 1e8).toFixed(1)}亿`;
+  if (Math.abs(value) >= 1e4) return `${(value / 1e4).toFixed(1)}万`;
+  return Number.isInteger(value) ? String(value) : value.toFixed(1);
+}
+
+/** 生成封面的波形：按标题稳定生成（同一标题每次一样） */
+export function waveform(seed: string, points = 32): number[] {
+  let h = 2166136261;
+  for (const ch of seed) h = Math.imul(h ^ ch.codePointAt(0)!, 16777619) >>> 0;
+  const out: number[] = [];
+  for (let i = 0; i < points; i += 1) {
+    h = Math.imul(h ^ (h >>> 13), 1274126177) >>> 0;
+    const noise = (h % 1000) / 1000;
+    out.push(0.5 + 0.35 * Math.sin(i / 2.3 + noise * 2) * (0.4 + noise * 0.6));
+  }
+  return out;
+}
+
+export function analysisLabel(item: { analysis_level: string; full_eligible: boolean | null }): string {
+  if (item.analysis_level === 'full') return '已分析';
+  if (item.full_eligible === false) return '不做完整分析';
+  if (item.analysis_level === 'quick') return '待完整分析';
+  return '未分析';
+}
