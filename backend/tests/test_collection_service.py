@@ -65,7 +65,7 @@ async def test_overview_keeps_missing_values_empty(db):
     overview = await build_overview(db)
     assert overview["success_rate_7d"]["value"] is None
     assert overview["analysis_cost_today"]["value"] is None
-    assert overview["missed"]["value"] is None
+    assert overview["missed"]["value"] == 0  # 阶段 2：覆盖对照已上线，空库为 0
     assert overview["today_new"]["value"] == 0
 
 

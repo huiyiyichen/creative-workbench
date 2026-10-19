@@ -138,6 +138,29 @@ async def get_verdict_agreement(days: int = Query(30, ge=1, le=365), db: AsyncSe
     return await agreement_rate(db, days=days)
 
 
+class ScoringBody(BaseModel):
+    triage_weights: dict[str, float] | None = None
+    verdict_rules: dict[str, float] | None = None
+    status_rules: dict[str, float] | None = None
+
+
+@router.get("/settings/scoring")
+async def get_scoring(db: AsyncSession = Depends(get_db)):
+    from app.services.scoring_settings import get_scoring_settings
+
+    return {**await get_scoring_settings(db), "agreement": await agreement_rate(db, days=30)}
+
+
+@router.put("/settings/scoring")
+async def put_scoring(body: ScoringBody, db: AsyncSession = Depends(get_db)):
+    from app.services.scoring_settings import save_scoring_settings
+
+    try:
+        return await save_scoring_settings(db, body.model_dump(exclude_none=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
 # ── 热点 · 升温 / 追踪词 ──
 
 

@@ -305,3 +305,16 @@ async def test_signals_verdicts_dossiers_and_api(db):
         listed = (await client.get("/dossiers")).json()["items"]
         assert {x["id"] for x in listed} >= {followed["id"]}
         assert (await client.get("/items/999999")).status_code == 404
+
+
+@pytest.mark.asyncio
+async def test_scoring_settings_roundtrip(db):
+    from app.services.scoring_settings import get_scoring_settings, load_rules, save_scoring_settings
+
+    s = await get_scoring_settings(db)
+    assert s["verdict_rules"]["values"]["worth_points"] == 3
+    await save_scoring_settings(db, {"verdict_rules": {"worth_points": 4}, "status_rules": {"rising_ratio": 0.8}})
+    assert (await load_rules(db, "verdict_rules"))["worth_points"] == 4
+    assert (await load_rules(db, "status_rules"))["rising_ratio"] == 0.8
+    with pytest.raises(ValueError):
+        await save_scoring_settings(db, {"verdict_rules": {"nope": 1}})

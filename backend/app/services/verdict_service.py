@@ -208,12 +208,15 @@ async def refresh_items(
     """计算并写回；返回 content_id → 结论（已叠加「不对」的人工结论）。"""
     if not items:
         return {}
+    from app.services.scoring_settings import load_rules
+
     facts = await gather_facts(db, items)
     marks = await _marks(db, [c.id for c in items])
+    rules = await load_rules(db, "verdict_rules")
     now = datetime.now(UTC)
     out: dict[int, dict[str, Any]] = {}
     for c in items:
-        result = compute_verdict(facts[c.id], now=now).as_dict()
+        result = compute_verdict(facts[c.id], now=now, rules=rules).as_dict()
         changed = c.verdict != result["verdict"]
         c.verdict = result["verdict"]
         c.verdict_data = result

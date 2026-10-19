@@ -168,6 +168,12 @@ def _day_start(now: datetime) -> datetime:
     return local.replace(hour=0, minute=0, second=0, microsecond=0).astimezone(UTC)
 
 
+async def _missed(db: AsyncSession, now: datetime) -> int:
+    from app.services.collection_insights import missed_count
+
+    return await missed_count(db, now=now)
+
+
 async def build_overview(db: AsyncSession, *, now: datetime | None = None) -> dict[str, Any]:
     now = now or datetime.now(UTC)
     repo = CollectionStatsRepository(db)
@@ -195,8 +201,8 @@ async def build_overview(db: AsyncSession, *, now: datetime | None = None) -> di
             "value": await repo.llm_cost_between(today, now),
             "previous": await repo.llm_cost_between(week_ago, week_ago + (now - today)),
         },
-        # 漏采数依赖热榜对照（阶段 2），这里先保持空值
-        "missed": {"value": None, "previous": None},
+        # 漏采：48 小时内热榜 / 追踪词有、订阅里 0 条的事件（3.8 覆盖）
+        "missed": {"value": await _missed(db, now), "previous": None},
         "paused": await is_collection_paused(db),
     }
 

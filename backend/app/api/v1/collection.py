@@ -41,6 +41,14 @@ async def collection_health(db: AsyncSession = Depends(get_db)):
     return {"sources": await build_health(db)}
 
 
+@router.get("/insights")
+async def collection_insights(db: AsyncSession = Depends(get_db)):
+    """建议、覆盖（漏采）、完整度、信源价值、结构（3.8）。"""
+    from app.services.collection_insights import build_insights
+
+    return await build_insights(db)
+
+
 @router.get("/funnel")
 async def collection_funnel(days: int = Query(7, ge=1, le=90), db: AsyncSession = Depends(get_db)):
     return await build_funnel(db, days=days)

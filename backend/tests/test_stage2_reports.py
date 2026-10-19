@@ -135,3 +135,99 @@ async def test_gap_review_calendar_search(db):
 
         cont = (await client.get("/reports/daily/2026-10-13/continuity")).json()
         assert cont == {"previous_date": "2026-10-12", "continued": ["Opus"], "new": ["Gemini"], "dropped": ["MCP"]}
+
+
+@pytest.mark.asyncio
+async def test_collection_insights(db):
+    from app.models.content_event import ContentEventGroup, ContentEventMember
+    from app.services import collection_insights
+
+    now = datetime.now(UTC)
+    hot = Source(name="B站热门", url="https://bili/hot", kind="list", platform="bilibili")
+    rss = Source(name="arXiv cs.AI", url="https://arxiv/rss", kind="subscription")
+    db.add_all([hot, rss])
+    await db.flush()
+    a = ContentItem(
+        title="Opus 5.5 热门",
+        url="https://b/1",
+        status=ContentStatus.PENDING,
+        source_id=hot.id,
+        platform="bilibili",
+        crawled_at=now,
+        analysis_level="none",
+        comment_state="none",
+    )
+    b = ContentItem(
+        title="Opus 5.5 讲解",
+        url="https://b/2",
+        status=ContentStatus.PENDING,
+        source_id=hot.id,
+        platform="bilibili",
+        crawled_at=now,
+        analysis_level="none",
+        comment_state="none",
+    )
+    db.add_all([a, b])
+    for i in range(201):
+        db.add(
+            ContentItem(
+                title=f"paper {i}",
+                url=f"https://arxiv/{i}",
+                status=ContentStatus.PENDING,
+                source_id=rss.id,
+                crawled_at=now - timedelta(hours=1),
+                published_at=now - timedelta(hours=3),
+                analysis_level="none",
+                comment_state="none",
+                media_type="article",
+            )
+        )
+    for i in range(3):
+        db.add(
+            ContentItem(
+                title=f"fav {i}",
+                url=f"https://v/{i}",
+                status=ContentStatus.PENDING,
+                platform="bilibili",
+                author="像素与噪点",
+                author_url="https://space.bilibili.com/42",
+                is_favorited=True,
+                media_type="video",
+                crawled_at=now,
+                analysis_level="none",
+                comment_state="none",
+            )
+        )
+    await db.flush()
+    g = ContentEventGroup(
+        canonical_content_id=a.id,
+        representative_content_id=a.id,
+        first_occurrence_at=now - timedelta(hours=2),
+        last_occurrence_at=now,
+    )
+    db.add(g)
+    await db.flush()
+    for c in (a, b):
+        db.add(
+            ContentEventMember(
+                event_group_id=g.id,
+                content_id=c.id,
+                relation_type="corroboration",
+                confidence=0.9,
+                match_method="local_vector",
+                review_status="auto",
+            )
+        )
+    await db.commit()
+
+    out = await collection_insights.build_insights(db)
+    assert out["coverage"][0]["event_id"] == g.id
+    assert "B站热榜都有，你的订阅 0 条" in out["coverage"][0]["text"]
+    kinds = {s["kind"] for s in out["suggestions"]}
+    assert {"disable", "subscribe"} <= kinds
+    arxiv = next(r for r in out["completeness"] if r["source_id"] == rss.id)
+    assert arxiv["published_at"] == 1.0 and arxiv["cover"] == 0.0 and arxiv["delay_hours_median"] == 2.0
+    hot_value = next(r for r in out["value"]["sources"] if r["source_id"] == hot.id)
+    assert hot_value["duplicate_rate"] == 0.5 and hot_value["first_reports"] == 1
+    assert len(out["value"]["favorite_trend"]) == 8
+    assert out["structure"]["media_type"][0]["key"] == "article"

@@ -318,6 +318,10 @@ async def compute_topic_signals(
 ) -> dict[str, Any]:
     """计算所有话题的逐小时信号与状态，写入当天的 ``topic_trends``（signal-v2）。"""
     now = now or datetime.now(UTC)
+    if rules is None:
+        from app.services.scoring_settings import load_rules
+
+        rules = await load_rules(db, "status_rules")
     since = now - timedelta(hours=WINDOW_HOURS)
     topics = await _event_topics(db, since) + await _watch_term_topics(db, since)
     observed = await _observed_hours(db, since)
