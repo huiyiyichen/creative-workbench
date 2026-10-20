@@ -12,9 +12,10 @@ import { useCwTheme } from './theme';
 import { QuickNote } from './notes';
 import { TaskDrawer, useTaskCount } from './tasks';
 import { CommandPalette, OPEN_EVENT } from './command';
+import { NotificationDrawer, NotifyButton, useUnreadCount } from './notifications';
 
 /** 已按调色台重做的路由；其余旧页面（管理页、日报 / 周刊 / 月刊）包在 .cw-legacy 里，调色板换成 --cw-* 变量跟随主题 */
-export const CW_ROUTES = ['/', '/sources', '/hot', '/reports', '/dossiers', '/items', '/settings', '/library', '/notes', '/runs', '/projects', '/tasks', '/works'];
+export const CW_ROUTES = ['/', '/sources', '/hot', '/reports', '/dossiers', '/items', '/settings', '/library', '/notes', '/runs', '/projects', '/tasks', '/works', '/search'];
 
 export function isCwRoute(pathname: string): boolean {
   return CW_ROUTES.some((p) => pathname === p || (p !== '/' && pathname.startsWith(`${p}/`)));
@@ -93,6 +94,8 @@ export default function AppShell({
   const cw = isCwRoute(pathname);
   const [mode, setMode] = useCwTheme();
   const [tasksOpen, setTasksOpen] = useState(false);
+  const [notifyOpen, setNotifyOpen] = useState(false);
+  const [unread, reloadUnread] = useUnreadCount();
   const toggleTheme = useCallback(() => setMode(mode === 'light' ? 'dark' : 'light'), [mode, setMode]);
   const openTasks = useCallback(() => setTasksOpen(true), []);
 
@@ -119,7 +122,8 @@ export default function AppShell({
         </div>
         {/* 跳转、主题是工具按钮：并排成一行小图标，不占主导航的位置（样张底部只有设置） */}
         <div className="cw-nav-mini">
-          <button type="button" className="cw-nav-item" title="跳转（Ctrl K）" aria-label="跳转（Ctrl K）" onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))}>
+          <NotifyButton count={unread} onOpen={() => setNotifyOpen(true)} />
+          <button type="button" className="cw-nav-item" title="搜索与跳转（Ctrl K）" aria-label="搜索与跳转（Ctrl K）" onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))}>
             <Search aria-hidden="true" />
           </button>
           <ThemeToggle />
@@ -140,6 +144,7 @@ export default function AppShell({
       <ConfigProvider theme={cwAntdThemeFor(mode)} locale={zhCN}>
         <QuickNote />
         <TaskDrawer open={tasksOpen} onClose={() => setTasksOpen(false)} />
+        <NotificationDrawer open={notifyOpen} onClose={() => setNotifyOpen(false)} onChanged={reloadUnread} />
         <CommandPalette onToggleTheme={toggleTheme} onOpenTasks={openTasks} />
       </ConfigProvider>
     </div>
