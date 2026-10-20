@@ -2176,3 +2176,29 @@ a.cw-lamp:hover { color: var(--cw-text); }
 .cw-kpi-label a:hover { color: var(--cw-cy); }
 .cw-today-side .cw-readouts { grid-template-columns: 1fr 1fr; margin-bottom: 0; }
 .cw-today-side .cw-readout > b { font-size: 24px; }
+.cw-steps-path { margin-top: 10px; }
+.cw-steps-path .cw-path li { min-width: 150px; }
+.cw-steps-path .cw-path i { width: 12px; height: 12px; }
+.cw-steps-path .cw-path li + li::before { top: 6px; }
+.cw-steps-path .cw-path a, .cw-steps-path .cw-path div { font-size: 13px; }
+
+/* 产出总览 */
+.cw-outgrid-wrap { display: grid; gap: 16px; align-content: start; }
+.cw-outgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 14px; }
+.cw-outtile { display: grid; gap: 6px; align-content: start; padding: 10px 10px 12px; border-radius: 12px; border: 1px solid var(--cw-grat); background: var(--cw-panel); color: var(--cw-text); text-align: left; font: inherit; cursor: pointer;
+  box-shadow: inset 0 2px 0 color-mix(in srgb, var(--c) 70%, transparent); transition: border-color var(--cw-dur-1), transform var(--cw-dur-2) var(--cw-ease-out); }
+.cw-outtile:hover:not(:disabled) { border-color: var(--cw-line); transform: translateY(-2px); }
+.cw-outtile b { font-size: 14px; font-weight: 600; padding: 0 2px; }
+.cw-outtile small { display: flex; align-items: center; gap: 8px; padding: 0 2px; font-size: 12px; color: var(--cw-dim); }
+.cw-outtile-art { aspect-ratio: 16 / 9; border-radius: 8px; overflow: hidden; }
+.cw-outtile[data-empty='true'] { border-style: dashed; background: none; box-shadow: none; }
+.cw-outtile[data-empty='true']:disabled { opacity: .45; cursor: not-allowed; }
+.cw-outtile-plus { aspect-ratio: 16 / 9; display: grid; place-items: center; border-radius: 8px; color: var(--c); background: repeating-linear-gradient(135deg, transparent 0 8px, color-mix(in srgb, var(--c) 6%, transparent) 8px 9px); }
+/* 大纲：左侧一条刻度轨，每节一个刻度点 */
+.cw-outline-tree { position: relative; padding-left: 12px !important; }
+.cw-outline-tree::before { content: ''; position: absolute; left: 3px; top: 6px; bottom: 6px; width: 1px; background: var(--cw-grat); }
+.cw-outline-tree li { justify-content: flex-start !important; position: relative; }
+.cw-outline-tree li::before { content: ''; position: absolute; left: -12px; top: 50%; width: 7px; height: 1px; background: var(--cw-line); }
+.cw-outline-tree li .cw-link-btn { color: var(--cw-dim); text-align: left; }
+.cw-outline-tree li .cw-link-btn:hover { color: var(--cw-text); }
+.cw-outline > h3, .cw-outline-title { font-size: 12px; letter-spacing: .06em; color: var(--cw-faint); font-weight: 500; }

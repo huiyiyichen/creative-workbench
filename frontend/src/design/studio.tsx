@@ -5,6 +5,7 @@
  * 来源选择器 SourcePicker、情绪板 MoodBoard。
  */
 
+import { EmptyInstrument, SignalPath } from './instrument';
 import { FeishuButton } from './feishu';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -52,6 +53,7 @@ export const OUTPUT_STATUS: Record<string, [string, string]> = {
   published: ['已发布', color.wh],
 };
 export const STAGE_LABEL = { idea: '选题与创意', draft: '文稿', outputs: '产出' } as const;
+const STAGE_ORDER = ['idea', 'draft', 'outputs'] as const;
 export const VERSION_REASON: Record<string, string> = {
   manual: '保存版本',
   finalized: '定稿',
@@ -244,7 +246,21 @@ export function ProjectShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState('');
-  if (error) return <div className="cw-page"><div className="cw-error">{error}</div></div>;
+  if (error)
+    return (
+      <div className="cw-page">
+        <EmptyInstrument
+          kind="unplugged"
+          title={/not found|不存在/.test(error) ? '这个项目不存在或已被删除' : '项目没加载出来'}
+          reason={/not found|不存在/.test(error) ? '可能是在别处删掉了，或者链接里的编号不对。' : error}
+          actions={
+            <Link className="cw-btn" data-variant="primary" href="/projects">
+              回到项目
+            </Link>
+          }
+        />
+      </div>
+    );
   if (!project) return <div className="cw-page cw-empty">加载中…</div>;
   const base = `/projects/${project.id}`;
   const step = pathname.includes('/outputs') ? 'outputs' : pathname.endsWith('/draft') ? 'draft' : 'idea';
@@ -298,21 +314,19 @@ export function ProjectShell({ children }: { children: ReactNode }) {
           </Link>
           {project.running_tasks ? <span className="cw-pbar-link cw-num">任务 {project.running_tasks}</span> : null}
         </div>
-        <nav className="cw-steps" aria-label="项目步骤">
-          {steps.map((s, i) => (
-            <span key={s.id} className="cw-step-wrap">
-              {i ? <span className="cw-step-line" aria-hidden /> : null}
-              {s.disabled ? (
-                <span className="cw-step" aria-disabled="true" title={s.disabled}>
-                  <b className="cw-num">{i + 1}</b> {STAGE_LABEL[s.id]}
-                </span>
-              ) : (
-                <Link className="cw-step" href={s.href} aria-current={step === s.id ? 'step' : undefined}>
-                  <b className="cw-num">{i + 1}</b> {STAGE_LABEL[s.id]}
-                </Link>
-              )}
-            </span>
-          ))}
+        <nav className="cw-steps cw-steps-path" aria-label="项目步骤">
+          <SignalPath
+            steps={steps.map((st, i) => {
+              const reached = STAGE_ORDER.indexOf(project.stage === 'outputs' ? 'outputs' : project.stage === 'draft' ? 'draft' : 'idea');
+              return {
+                key: st.id,
+                label: `${i + 1} ${STAGE_LABEL[st.id]}`,
+                state: step === st.id ? 'current' : i < reached || (i <= reached && step !== st.id) ? 'done' : 'todo',
+                href: st.disabled ? undefined : st.href,
+                hint: st.disabled,
+              };
+            })}
+          />
         </nav>
       </header>
       <div className="cw-project-body">{children}</div>
