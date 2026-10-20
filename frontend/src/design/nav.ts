@@ -4,6 +4,7 @@ import {
   Flame,
   FolderKanban,
   ListChecks,
+  Wallet,
   Newspaper,
   RadioTower,
   Settings,
@@ -57,6 +58,7 @@ export const CW_NAV: CwNavGroup[] = [
     items: [
       { id: 'works', label: '作品', href: '/works', icon: FileStack },
       { id: 'tasks', label: '任务', href: '/tasks', icon: ListChecks, match: ['/runs', '/stats/jobs'] },
+      { id: 'costs', label: '花费', href: '/costs', icon: Wallet },
     ],
   },
 ];

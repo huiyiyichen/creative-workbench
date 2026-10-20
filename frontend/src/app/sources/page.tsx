@@ -42,8 +42,9 @@ function errorText(err: unknown): string {
   return err instanceof Error ? err.message : '请求失败';
 }
 
-function Kpi({ label, pair, digits = 0, suffix = '', higherIsBetter = true }: {
+function Kpi({ label, pair, digits = 0, suffix = '', higherIsBetter = true, href }: {
   label: string;
+  href?: string;
   pair: MetricPair | undefined;
   digits?: number;
   suffix?: string;
@@ -52,7 +53,7 @@ function Kpi({ label, pair, digits = 0, suffix = '', higherIsBetter = true }: {
   const d = pair ? delta(pair, higherIsBetter) : null;
   return (
     <div className="cw-kpi">
-      <div className="cw-kpi-label">{label}</div>
+      <div className="cw-kpi-label">{href ? <Link href={href}>{label} ›</Link> : label}</div>
       <div className="cw-kpi-value">
         <b>
           <Num value={pair?.value} digits={digits} suffix={suffix} />
@@ -390,7 +391,7 @@ export default function SourcesCollectionPage() {
         <Kpi label="今日新增" pair={overview?.today_new} />
         <Kpi label="7 天同步成功率" pair={overview?.success_rate_7d} suffix="%" />
         <Kpi label="待分析" pair={overview?.pending_analysis} higherIsBetter={false} />
-        <Kpi label="今日分析花费" pair={overview?.analysis_cost_today} digits={2} suffix=" 元" higherIsBetter={false} />
+        <Kpi label="今日分析花费" href="/costs" pair={overview?.analysis_cost_today} digits={2} suffix=" 元" higherIsBetter={false} />
         <Kpi label="漏采" pair={overview?.missed} higherIsBetter={false} />
       </div>
 

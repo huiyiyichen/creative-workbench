@@ -7,6 +7,7 @@ from app.api.v1.categories import router as categories_router
 from app.api.v1.collection import router as collection_router
 from app.api.v1.content_events import router as content_events_router
 from app.api.v1.contents import router as contents_router
+from app.api.v1.costs import router as costs_router
 from app.api.v1.daily_reports import router as daily_reports_router
 from app.api.v1.discover import router as discover_router
 from app.api.v1.favorites import router as favorites_router
@@ -49,6 +50,7 @@ router.include_router(skill_router)
 router.include_router(sources_router)
 router.include_router(collection_router)
 router.include_router(search_router)
+router.include_router(costs_router)
 router.include_router(discover_router)
 router.include_router(library_router)
 router.include_router(runs_router)

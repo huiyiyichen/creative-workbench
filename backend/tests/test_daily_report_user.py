@@ -223,7 +223,7 @@ async def test_get_latest_today_report_filters_by_owner():
     sf = async_sessionmaker(engine, expire_on_commit=False)
     async with engine.begin() as c:
         await c.run_sync(Base.metadata.create_all)
-    today = date.today()
+    today = daily_report_svc._local_today()  # 与服务同一时区（北京时间），CI 机器是 UTC
     iso = today.isoformat()
     async with sf() as db:
         # Public report (owner=None)

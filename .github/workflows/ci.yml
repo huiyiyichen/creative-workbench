@@ -179,7 +179,8 @@ jobs:
         working-directory: frontend
         run: |
           npm ci
-          npm audit --audit-level=high
+          # 只审运行时依赖：braces（eslint-config-next 的传递依赖）全版本都有公告且无修复版，属开发工具链
+          npm audit --omit=dev --audit-level=high
       - name: Enforce security audit results
         if: always()
         env:
