@@ -361,6 +361,65 @@ async def archive_project(db: AsyncSession, project_id: int, archived: bool = Tr
     return project_summary(project)
 
 
+async def duplicate_project(db: AsyncSession, project_id: int, owner_id: int) -> dict:
+    """复制一个项目当模板：设定、文稿工作副本、创作思路、来源与素材都带上；版本、定稿、产出物不带。"""
+    from app.models.project import ProjectAsset
+
+    src = await get_project(db, project_id)
+    spec = deepcopy(src.spec or {})
+    draft = spec.get("draft") or {}
+    has_draft = bool(draft.get("sections") or draft.get("shots") or draft.get("body") or draft.get("outline"))
+    copy = Project(
+        owner_id=owner_id,
+        title=f"{src.title}（副本）"[:120],
+        spec=spec,
+        source_snapshot=deepcopy(src.source_snapshot or {}),
+        version=0,
+        draft_token=_token(),
+        stage="draft" if has_draft and src.stage != "idea" else "idea",
+    )
+    db.add(copy)
+    await db.flush()
+    for s_ in (await db.execute(select(ProjectSource).where(ProjectSource.project_id == src.id))).scalars():
+        db.add(
+            ProjectSource(
+                project_id=copy.id,
+                content_id=s_.content_id,
+                library_item_id=s_.library_item_id,
+                role=s_.role,
+                snapshot=deepcopy(s_.snapshot or {}),
+            )
+        )
+    for a in (await db.execute(select(ProjectAsset).where(ProjectAsset.project_id == src.id))).scalars():
+        db.add(
+            ProjectAsset(project_id=copy.id, library_item_id=a.library_item_id, role=a.role, target=deepcopy(a.target))
+        )
+    await db.commit()
+    return await project_view(db, copy.id)
+
+
+async def batch_projects(db: AsyncSession, ids: list[int], action: str) -> dict:
+    """批量归档 / 取消归档 / 删除。删除只删已归档的项目，免得误删进行中的。"""
+    projects = (await db.execute(select(Project).where(Project.id.in_(ids)))).scalars().all()
+    done = 0
+    skipped: list[int] = []
+    for p in projects:
+        if action == "archive":
+            p.archived_at = p.archived_at or _now()
+        elif action == "unarchive":
+            p.archived_at = None
+        elif action == "delete":
+            if p.archived_at is None:
+                skipped.append(p.id)
+                continue
+            await db.delete(p)
+        else:
+            raise ValidationError("不支持的批量操作")
+        done += 1
+    await db.commit()
+    return {"done": done, "skipped": skipped, "missing": sorted(set(ids) - {p.id for p in projects})}
+
+
 # ── 来源 ─────────────────────────────────────────────────────────────
 
 

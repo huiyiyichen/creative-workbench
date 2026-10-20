@@ -32,6 +32,11 @@ class ProjectCreate(BoundedModel):
     sources: list[str] = Field(default_factory=list, max_length=10)
 
 
+class ProjectBatch(BoundedModel):
+    ids: list[int] = Field(min_length=1, max_length=200)
+    action: Literal["archive", "unarchive", "delete"]
+
+
 class ProjectPatch(BoundedModel):
     title: str = Field(min_length=1, max_length=120)
 

@@ -21,6 +21,7 @@ from app.schemas.projects import (
     OutputPatch,
     PipelineStart,
     PlatformRewrite,
+    ProjectBatch,
     ProjectCreate,
     ProjectPatch,
     SourceAdd,
@@ -72,6 +73,18 @@ async def rename_project(project_id: int, request: ProjectPatch, db: AsyncSessio
 @router.post("/projects/{project_id}/archive")
 async def archive_project(project_id: int, restore: bool = False, db: AsyncSession = Depends(get_db)):
     return await svc.archive_project(db, project_id, archived=not restore)
+
+
+@router.post("/projects/{project_id}/duplicate")
+async def duplicate_project(
+    project_id: int, db: AsyncSession = Depends(get_db), user: User = Depends(get_current_user)
+):
+    return await svc.duplicate_project(db, project_id, user.id)
+
+
+@router.post("/projects/batch")
+async def batch_projects(request: ProjectBatch, db: AsyncSession = Depends(get_db)):
+    return await svc.batch_projects(db, request.ids, request.action)
 
 
 # ── 来源 ──

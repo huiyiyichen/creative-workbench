@@ -305,6 +305,12 @@ export const projectsApi = {
   rename(id: number, title: string): Promise<ProjectView> {
     return request(`/projects/${id}`, { method: 'PATCH', body: j({ title }) });
   },
+  duplicate(id: number): Promise<{ id: number } & Record<string, unknown>> {
+    return request(`/projects/${id}/duplicate`, { method: 'POST' });
+  },
+  batch(ids: number[], action: 'archive' | 'unarchive' | 'delete'): Promise<{ done: number; skipped: number[]; missing: number[] }> {
+    return request('/projects/batch', { method: 'POST', body: JSON.stringify({ ids, action }) });
+  },
   archive(id: number, restore = false): Promise<ProjectSummary> {
     return request(`/projects/${id}/archive${restore ? '?restore=true' : ''}`, { method: 'POST' });
   },
