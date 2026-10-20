@@ -216,3 +216,12 @@
 - `POST /projects/{id}/platforms/rewrite {kinds, output_ids}` → 运行 id；运行中重复点击复用；结束回调写回 `project.platform_rewrite`。
 - 前端：产出页左栏「AI 生成平台版本」（选平台弹窗 → 阶段条 → 结束后刷新列表），「查看过程」打开运行视图。
 - 验证：tests/test_stage5_platform_flow.py 3 项（并行分支、超限重写、写进指定产出物与新建、清洗与补来源、报告、复用运行、空稿 / 非法平台拒绝）。
+
+## 阶段 5（refactor/stage-5）
+
+### 阶段 5 · 第 ① 步：平台改写流程（2026-10-20）
+- 模板 `platform_rewrite.yaml`：平台编辑（按 `platforms` 并行，一个平台一个分支）→ 规则校验。角色在 `flows/roles_platform.py`：编辑沿用直接改写的提示词，超限带问题重写一次，调用记入调用树；校验逐个平台截断仍超限的字段并写提示，结果写进项目的平台版本产出物（优先写指定的产出物，其次最新一个未发布的同平台版本，都没有就新建），平台稿登记溯源，产出 `platform_check` 报告。
+- `output_service` 把提示词、问题检查、重写消息、收尾（知乎补来源、公众号清洗）、保存拆成可复用函数，直接改写与流程共用。引擎输入支持 `dict` 类型。
+- `POST /projects/{id}/platforms/rewrite {kinds, output_ids}` → 运行 id；运行中重复点击复用同一运行；项目视图带 `platform_rewrite` 状态，结束回调更新。
+- 前端：产出页左栏「AI 生成平台版本」（选平台弹窗）、运行阶段条与「查看过程」，结束后刷新产出物列表。
+- 验证：tests/test_stage5_platform_flow.py 3 项（模板、三平台并行 + 小红书超限重写 + 写入指定 / 新建产出物 + 知乎补来源 + 公众号清洗 + 校验报告、空稿与非法平台）；tsc、eslint、ruff、分层检查通过。
