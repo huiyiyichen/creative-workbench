@@ -10,7 +10,8 @@ import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Input, Select, message } from 'antd';
 import { CheckSquare, Plus, Sparkles } from 'lucide-react';
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { EmptyInstrument, ScanSkeleton } from '@/design/instrument';
 import { Button, Card, CwPage, Segmented, TopBar } from '@/design/components';
 import {
   ASSET_LABEL,
@@ -44,6 +45,40 @@ function fmtBytes(n: number): string {
   if (n > 1e9) return `${(n / 1e9).toFixed(1)} GB`;
   if (n > 1e6) return `${(n / 1e6).toFixed(1)} MB`;
   return `${Math.round(n / 1e3)} KB`;
+}
+
+const LICENSE_COLOR: Record<string, string> = {
+  own: 'var(--cw-gr)',
+  commercial: 'var(--cw-cy)',
+  reference: 'var(--cw-yl)',
+  unknown: 'var(--cw-faint)',
+  ai: 'var(--cw-mg)',
+};
+
+function LicenseBar({ facets, active, onPick }: { facets: LibraryFacets | null; active?: string; onPick: (k: string) => void }) {
+  const rows = Object.entries(LICENSE_LABEL).map(([k, label]) => ({ k, label, n: facets?.licenses[k] ?? 0 }));
+  const total = rows.reduce((a, r) => a + r.n, 0);
+  return (
+    <div className="cw-licbar">
+      <div className="cw-licbar-stack" role="img" aria-label="授权占比">
+        {rows.map((r) => (r.n ? <i key={r.k} style={{ flex: r.n, background: LICENSE_COLOR[r.k] || 'var(--cw-dim)' }} title={`${r.label} ${r.n}`} /> : null))}
+        {!total ? <i style={{ flex: 1, background: 'var(--cw-grat)' }} /> : null}
+      </div>
+      <ul>
+        {rows.map((r) => (
+          <li key={r.k}>
+            <button type="button" aria-pressed={active === r.k} onClick={() => onPick(r.k)} style={{ '--c': LICENSE_COLOR[r.k] } as CSSProperties}>
+              <i />
+              {r.label}
+              <span className="cw-grow" />
+              <b className="cw-num">{r.n}</b>
+              <em className="cw-num">{total ? `${Math.round((r.n / total) * 100)}%` : ''}</em>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 function LibraryPage() {
@@ -179,7 +214,12 @@ function LibraryPage() {
       <AddBar onAdded={() => refresh()} />
 
       <div className="cw-filters">
-        <Segmented label="形态" value={kind} onChange={(v) => router.replace(v ? `/library?kind=${v}` : '/library')} options={KIND_TABS} />
+        <Segmented
+          label="形态"
+          value={kind}
+          onChange={(v) => router.replace(v ? `/library?kind=${v}` : '/library')}
+          options={KIND_TABS.map((t) => ({ ...t, count: t.value && facets ? facets.kinds[t.value] ?? null : null }))}
+        />
         <span className="cw-grow" />
         <Segmented
           label="视图"
@@ -191,7 +231,7 @@ function LibraryPage() {
           ]}
         />
       </div>
-      <div className="cw-filters">
+      <div className="cw-filters cw-lib-filters">
         <Input.Search allowClear placeholder="搜索标题、正文、标签、AI 描述" style={{ width: 280 }} value={q} onChange={(e) => setQ(e.target.value)} />
         {kind === 'asset' ? (
           <Select
@@ -248,11 +288,32 @@ function LibraryPage() {
         <section>
           {dragging ? <div className="cw-lib-drop">松开导入到灵感库</div> : null}
           {!items ? (
-            <div className="cw-empty">加载中…</div>
+            <ScanSkeleton height={360} />
           ) : items.length === 0 ? (
-            <div className="cw-empty" data-block="true">还没有东西。粘贴链接、拖进文件，或在任意页面粘贴截图</div>
+            q || license || tag || colorQ || kind || boardId ? (
+              <EmptyInstrument kind="dark" title="没有符合条件的收藏" reason="换个关键词，或清掉筛选条件。" />
+            ) : (
+              <EmptyInstrument kind="unplugged" title="灵感库还是空的" reason="看到好东西就收进来：之后写稿、做视频时随手拖进项目。">
+                <div className="cw-lib-ways">
+                  <div>
+                    <b>粘贴链接</b>
+                    <span>B站、YouTube、小红书、GitHub 或任意网页，贴进上面的输入框回车</span>
+                  </div>
+                  <div>
+                    <b>拖进文件</b>
+                    <span>图片、视频、音频、字体、PDF，直接拖到这一页；在任意页面也可以粘贴截图</span>
+                  </div>
+                  <div>
+                    <b>浏览器扩展</b>
+                    <span>
+                      看网页时一键收藏，<Link href="/settings/library">在设置里安装</Link>
+                    </span>
+                  </div>
+                </div>
+              </EmptyInstrument>
+            )
           ) : view === 'gallery' ? (
-            <div className="cw-masonry">
+            <div className="cw-masonry cw-stagger">
               {items.map((it) => (
                 <LibraryCard key={it.id} item={it} onOpen={setOpenId} selecting={selecting} selected={selected.has(it.id)} onToggle={toggle} />
               ))}
@@ -318,30 +379,11 @@ function LibraryPage() {
               </Button>
             </div>
           </Card>
-          <Card title="授权">
-            <ul className="cw-report-list">
-              {Object.entries(LICENSE_LABEL).map(([k, label]) => (
-                <li key={k}>
-                  <button type="button" className="cw-link-btn" onClick={() => setLicense(license === k ? undefined : k)}>
-                    {label}
-                  </button>
-                  <span className="cw-grow" />
-                  <span className="cw-muted cw-num">{facets?.licenses[k] ?? 0}</span>
-                </li>
-              ))}
-            </ul>
-            <p className="cw-muted" style={{ fontSize: 12, margin: '8px 0 0' }}>
+          <Card title="授权" extra={<small className="cw-muted">点一项筛选</small>}>
+            <LicenseBar facets={facets} active={license} onPick={(k) => setLicense(license === k ? undefined : k)} />
+            <p className="cw-muted" style={{ fontSize: 12, margin: '10px 0 0' }}>
               「仅参考」「未知」的素材放进成片时会提醒，不阻止。
             </p>
-          </Card>
-          <Card title="收进来的其他方式">
-            <ul className="cw-report-list" style={{ fontSize: 12 }}>
-              <li>任意页面粘贴截图或链接</li>
-              <li>拖入文件或文件夹</li>
-              <li>
-                <Link href="/settings/library">素材收件箱与浏览器扩展</Link>
-              </li>
-            </ul>
           </Card>
         </aside>
       </div>

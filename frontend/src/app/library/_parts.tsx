@@ -27,6 +27,7 @@ import {
   type ObsidianSettings,
 } from '@/lib/api/_library';
 import { formatDuration, waveform } from '@/lib/collection';
+import { SignalArt } from '@/design/signal-art';
 
 export const KIND_COLOR: Record<string, string> = {
   article: mediaColor.article,
@@ -100,10 +101,20 @@ function Placeholder({ item }: { item: LibraryItem }) {
       </div>
     );
   }
-  if (item.kind === 'prompt' || item.kind === 'link' || item.kind === 'article' || item.kind === 'post') {
+  if (item.kind === 'prompt') {
     return (
-      <div className="cw-lib-ph" data-kind="text">
-        <p>{(item.body || item.title).slice(0, 180)}</p>
+      <div className="cw-lib-ph" data-kind="prompt">
+        <p>
+          <span aria-hidden>›</span> {(item.body || item.title).slice(0, 160)}
+          <i aria-hidden />
+        </p>
+      </div>
+    );
+  }
+  if (item.kind === 'link' || item.kind === 'article' || item.kind === 'post') {
+    return (
+      <div className="cw-lib-ph cw-work-art" data-kind="gen" style={{ aspectRatio: '16 / 9', height: 'auto' }}>
+        <SignalArt title={item.title} kind={item.kind} />
       </div>
     );
   }
@@ -115,12 +126,9 @@ function Placeholder({ item }: { item: LibraryItem }) {
       </div>
     );
   }
-  const wave = waveform(item.title, 32);
   return (
-    <div className="cw-lib-ph" data-kind="gen">
-      <svg viewBox="0 0 160 90" preserveAspectRatio="none" aria-hidden>
-        <path d={wave.map((v, i) => `${i ? 'L' : 'M'}${(i / 31) * 160},${90 - v * 90}`).join(' ')} />
-      </svg>
+    <div className="cw-lib-ph" data-kind="gen" style={{ aspectRatio: '16 / 9' }}>
+      <SignalArt title={item.title} kind={item.kind} />
     </div>
   );
 }
@@ -175,6 +183,22 @@ export function LibraryCard({
   );
 }
 
+function linkPlatform(url: string): string {
+  try {
+    const h = new URL(url).hostname.replace(/^www\.|^m\./, '');
+    if (h.endsWith('bilibili.com') || h === 'b23.tv') return 'B站';
+    if (h.endsWith('douyin.com')) return '抖音';
+    if (h.endsWith('xiaohongshu.com') || h === 'xhslink.com') return '小红书';
+    if (h.endsWith('youtube.com') || h === 'youtu.be') return 'YouTube';
+    if (h === 'github.com') return 'GitHub';
+    if (h === 'x.com' || h === 'twitter.com') return 'X';
+    if (h.endsWith('zhihu.com')) return '知乎';
+    return h;
+  } catch {
+    return '链接';
+  }
+}
+
 export function AddBar({ onAdded }: { onAdded: (items: LibraryItem[]) => void }) {
   const [link, setLink] = useState('');
   const [busy, setBusy] = useState(false);
@@ -209,9 +233,12 @@ export function AddBar({ onAdded }: { onAdded: (items: LibraryItem[]) => void })
     }
   };
 
+  const plat = /^https?:\/\//.test(link.trim()) ? linkPlatform(link.trim()) : link.trim() ? '提示词 / 文本' : null;
   return (
-    <div className="cw-lib-add">
+    <div className="cw-lib-add" data-ready={plat ? 'true' : undefined}>
+      {plat ? <span className="cw-lib-add-plat">{plat}</span> : null}
       <Input
+        size="large"
         value={link}
         onChange={(e) => setLink(e.target.value)}
         onPressEnter={addLink}
