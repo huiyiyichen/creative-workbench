@@ -8,6 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CW_NAV, CW_NAV_BOTTOM } from './nav';
 import { SHORTCUTS, filterCommands, type CommandItem } from '@/lib/command';
 import { projectsApi } from '@/lib/api/_projects';
+import { SEARCH_GROUP_LABEL, SEARCH_GROUP_ORDER, searchApi } from '@/lib/api/_search';
 
 const NAV_KEYWORDS: Record<string, string> = {
   today: 'today jr home',
@@ -27,6 +28,7 @@ const EXTRA_PAGES: CommandItem[] = [
   { id: 'p-prompts', label: '设置 · 提示词', group: '页面', href: '/admin/prompts', keywords: 'prompts tsc' },
   { id: 'p-feishu', label: '设置 · 飞书', group: '页面', href: '/settings/feishu', keywords: 'feishu lark fs' },
   { id: 'p-daily', label: '日报', group: '页面', href: '/daily', keywords: 'daily rb' },
+  { id: 'p-search', label: '搜索 · 按关键词抓取', group: '页面', href: '/search', keywords: 'search crawl ss zq' },
 ];
 
 /** 其他地方（导航按钮）打开面板用的事件名 */
@@ -45,6 +47,7 @@ export function CommandPalette({ onToggleTheme, onOpenTasks }: { onToggleTheme: 
   const [q, setQ] = useState('');
   const [cursor, setCursor] = useState(0);
   const [projects, setProjects] = useState<CommandItem[]>([]);
+  const [hits, setHits] = useState<CommandItem[]>([]);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -53,6 +56,10 @@ export function CommandPalette({ onToggleTheme, onOpenTasks }: { onToggleTheme: 
         e.preventDefault();
         setHelp(false);
         setOpen((v) => !v);
+      } else if (e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTyping(e.target)) {
+        e.preventDefault();
+        setHelp(false);
+        setOpen(true);
       } else if (e.key === '?' && !e.ctrlKey && !e.metaKey && !e.altKey && !isTyping(e.target)) {
         e.preventDefault();
         setOpen(false);
@@ -93,7 +100,41 @@ export function CommandPalette({ onToggleTheme, onOpenTasks }: { onToggleTheme: 
     [onOpenTasks, onToggleTheme],
   );
   const all = useMemo(() => [...base, ...projects], [base, projects]);
-  const shown = useMemo(() => filterCommands(all, q, 14) as (CommandItem & { run?: () => void })[], [all, q]);
+
+  // 库内命中：输入停 250ms 后查一次，每类最多 3 条
+  useEffect(() => {
+    const term = q.trim();
+    if (!open || !term) {
+      setHits([]);
+      return;
+    }
+    let alive = true;
+    const t = setTimeout(() => {
+      searchApi
+        .search(term, { limit: 3, groups: ['contents', 'library', 'notes', 'reports'] })
+        .then((r) => {
+          if (!alive) return;
+          setHits(
+            SEARCH_GROUP_ORDER.flatMap((g) =>
+              (r.groups[g] ?? []).map((h) => ({ id: `hit-${g}-${h.id}`, label: h.title, group: '结果' as const, href: h.href, hint: SEARCH_GROUP_LABEL[g] })),
+            ).slice(0, 8),
+          );
+        })
+        .catch(() => alive && setHits([]));
+    }, 250);
+    return () => {
+      alive = false;
+      clearTimeout(t);
+    };
+  }, [q, open]);
+
+  const shown = useMemo(() => {
+    const term = q.trim();
+    const local = filterCommands(all, q, term ? 8 : 14) as (CommandItem & { run?: () => void })[];
+    if (!term) return local;
+    const search: CommandItem = { id: 'search', label: `搜索「${term}」：库内内容 + 去平台抓`, group: '搜索', href: `/search?q=${encodeURIComponent(term)}` };
+    return [search, ...local, ...hits];
+  }, [all, q, hits]);
 
   const pick = useCallback(
     (item: CommandItem & { run?: () => void }) => {
@@ -110,9 +151,9 @@ export function CommandPalette({ onToggleTheme, onOpenTasks }: { onToggleTheme: 
         <input
           ref={inputRef}
           className="cw-cmd-input"
-          placeholder="跳转到页面、项目或操作…"
+          placeholder="搜索内容，或跳转到页面、项目、操作…"
           value={q}
-          aria-label="全局跳转"
+          aria-label="全局搜索与跳转"
           onChange={(e) => {
             setQ(e.target.value);
             setCursor(0);
@@ -132,9 +173,9 @@ export function CommandPalette({ onToggleTheme, onOpenTasks }: { onToggleTheme: 
         />
         <ul className="cw-cmd-list" role="listbox">
           {shown.map((it, i) => (
-            <li key={it.id} role="option" aria-selected={i === cursor} onMouseEnter={() => setCursor(i)} onClick={() => pick(it)}>
+            <li key={it.id} role="option" aria-selected={i === cursor} data-search={it.group === '搜索' || undefined} onMouseEnter={() => setCursor(i)} onClick={() => pick(it)}>
               <span>{it.label}</span>
-              <small>{it.group}</small>
+              <small>{it.hint ?? it.group}</small>
             </li>
           ))}
           {!shown.length ? <li className="cw-empty">没有匹配的条目</li> : null}

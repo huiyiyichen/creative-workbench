@@ -348,7 +348,7 @@ export function PlatformList({ items, onChanged }: { items: PlatformInfo[]; onCh
 
 // ── 最近采到（封面 + 观测曲线） ────────────────────────────────────
 
-function RecentCard({ item }: { item: RecentItem }) {
+export function RecentCard({ item }: { item: RecentItem }) {
   const metric = primarySeries(item.series);
   const points = metric ? item.series[metric].map((p) => p.value) : [];
   const duration = formatDuration(item.duration);

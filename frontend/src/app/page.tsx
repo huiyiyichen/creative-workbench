@@ -121,7 +121,7 @@ function TodayPage() {
         ) : null}
         <button type="button" className="cw-search" onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))}>
           <Search size={15} aria-hidden />
-          <span>搜索选题、收藏、项目</span>
+          <span>搜索内容，或按关键词去平台抓</span>
           <kbd>Ctrl K</kbd>
         </button>
       </TopBar>

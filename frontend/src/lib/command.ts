@@ -3,7 +3,7 @@
 export interface CommandItem {
   id: string;
   label: string;
-  group: '页面' | '操作' | '项目';
+  group: '页面' | '操作' | '项目' | '搜索' | '结果';
   href?: string;
   /** 额外的检索词（拼音首字母、英文别名等） */
   keywords?: string;
@@ -41,7 +41,8 @@ export function filterCommands(items: CommandItem[], query: string, limit = 12):
 
 /** 快捷键说明（「?」面板与 Ctrl+K 底部共用） */
 export const SHORTCUTS: { keys: string; desc: string }[] = [
-  { keys: 'Ctrl K', desc: '全局跳转：页面、项目、常用操作' },
+  { keys: 'Ctrl K', desc: '全局跳转与搜索：页面、项目、库内内容；回车去搜索页' },
+  { keys: '/', desc: '打开搜索' },
   { keys: '?', desc: '显示快捷键' },
   { keys: 'Ctrl S', desc: '文稿：保存版本' },
   { keys: 'Ctrl Enter', desc: 'AI 助手：发送指令' },

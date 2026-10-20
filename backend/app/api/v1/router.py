@@ -30,6 +30,7 @@ from app.api.v1.reports import router as reports_router
 from app.api.v1.runs import mcp_router, router as runs_router
 from app.api.v1.scheduler import router as scheduler_router
 from app.api.v1.scoring import router as scoring_router
+from app.api.v1.search import router as search_router
 from app.api.v1.settings import router as settings_router
 from app.api.v1.skill import router as skill_router
 from app.api.v1.sources import router as sources_router
@@ -47,6 +48,7 @@ router.include_router(scoring_router)
 router.include_router(skill_router)
 router.include_router(sources_router)
 router.include_router(collection_router)
+router.include_router(search_router)
 router.include_router(discover_router)
 router.include_router(library_router)
 router.include_router(runs_router)
