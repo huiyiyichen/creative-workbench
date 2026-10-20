@@ -261,6 +261,9 @@ async def test_signals_verdicts_dossiers_and_api(db):
         assert all(i["verdict"] == "worth" for i in picks["items"]) and picks["days"]
 
         assert (await client.get("/today/signals")).json()["tracks"]
+        week = (await client.get("/today/signals", params={"range": "7d"})).json()
+        assert week["range"] == "7d" and week["tracks"] and week["end"] == week["now"]
+        assert (await client.get("/today/signals", params={"range": "1y"})).status_code == 422
         side = (await client.get("/today/side")).json()
         assert side["watch_terms"][0]["term"] == "Opus 5.5"
         assert side["resonance"]["rows"][0]["event_id"] == group.id

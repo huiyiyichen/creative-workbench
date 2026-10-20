@@ -112,7 +112,7 @@ export default function WorksPage() {
       </div>
       {data === null ? <p className="cw-muted">加载中…</p> : null}
       {data && !data.total ? (
-        <p className="cw-muted">还没有作品。产出物完成、导出或发布后会自动收进来；草稿可以在产出页点「加入作品库」。</p>
+        <p className="cw-empty" data-block="true">还没有作品。产出物完成、导出或发布后会自动收进来；草稿可以在产出页点「加入作品库」。</p>
       ) : null}
       {data?.groups.map((g) => (
         <section key={g.project.id} className="cw-works-group">

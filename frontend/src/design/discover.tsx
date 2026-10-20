@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { Drawer, Input, Popover, Spin, message } from 'antd';
 import { Bookmark, ExternalLink, Maximize2, Sparkles, ThumbsDown, ThumbsUp, Unlink, Workflow } from 'lucide-react';
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
-import { Button, Cover, Sparkline } from '@/design/components';
+import { Button, Cover, Segmented, Sparkline } from '@/design/components';
 import { color } from '@/design/tokens';
 import { favoritesApi } from '@/lib/api/_admin-api';
 import { mediaUrl } from '@/lib/api/_collection';
@@ -29,6 +29,9 @@ import { METRIC_LABEL, PLATFORM_LABEL, compactNumber, formatDuration, primarySer
 import {
   BASIS_LABEL,
   JOURNEY_LABEL,
+  SIGNAL_RANGES,
+  SIGNAL_TITLE,
+  type SignalRange,
   MEDIA_LABEL,
   STATUS_COLOR,
   STATUS_LABEL,
@@ -39,6 +42,7 @@ import {
   heatOpacity,
   mediaKindColor,
   metricText,
+  rulerTicks,
   topPlatforms,
 } from '@/lib/discover';
 
@@ -182,35 +186,46 @@ function FeedActions({ item }: { item: ItemCard }) {
 
 // ── 今天的信号 ──
 
-const HOURS = [0, 3, 6, 9, 12, 15, 18, 21, 24];
-
 export function SignalTimeline({
   data,
   selectedId,
   onOpen,
   legend,
+  range = 'today',
+  onRange,
 }: {
   data: TodaySignals | null;
   selectedId?: number | null;
   onOpen: (id: number) => void;
   legend?: ReactNode;
+  range?: SignalRange;
+  onRange?: (r: SignalRange) => void;
 }) {
   const nowPos = data?.now ? dayPosition(data.now, data.start, data.end) : 0;
   const nowLabel = data?.now ? new Date(data.now).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
+  const ticks = data?.start ? rulerTicks(range, data.start, data.end) : rulerTicks('today', '2000-01-01T00:00:00', '2000-01-02T00:00:00');
+  const inner = ticks.filter((t) => t.pos > 0.001 && t.pos < 0.999);
+  const title = SIGNAL_TITLE[range];
   return (
-    <section className="cw-timeline" aria-label="今天的信号">
+    <section className="cw-timeline" aria-label={title}>
       <div className="cw-tl-head">
-        <h2>今天的信号</h2>
+        <h2>{title}</h2>
         {legend}
+        {onRange ? (
+          <>
+            <span className="cw-grow" />
+            <Segmented value={range} options={SIGNAL_RANGES} onChange={onRange} label="时间范围" />
+          </>
+        ) : null}
       </div>
       <div className="cw-tl-body">
         <div className="cw-tl-grid">
           <div className="cw-ruler">
             <span />
             <div className="cw-ruler-scale">
-              {HOURS.map((h) => (
-                <span key={h} className="cw-num" style={{ left: `${(h / 24) * 100}%` }}>
-                  {String(h).padStart(2, '0')}:00
+              {ticks.map((t) => (
+                <span key={t.pos} className="cw-num" style={{ left: `${t.pos * 100}%` }}>
+                  {t.label}
                 </span>
               ))}
             </div>
@@ -218,14 +233,14 @@ export function SignalTimeline({
           {!data ? (
             <div className="cw-tl-empty">加载中…</div>
           ) : data.tracks.length === 0 ? (
-            <div className="cw-tl-empty">今天还没有采到内容</div>
+            <div className="cw-tl-empty">{range === 'today' ? '今天还没有采到内容' : '这段时间没有采到内容'}</div>
           ) : (
             data.tracks.slice(0, 9).map((track) => (
               <div className="cw-track" key={track.platform}>
                 <span className="cw-track-name">{platformName(track.platform)}</span>
                 <div className="cw-lane">
-                  {HOURS.slice(1, -1).map((h) => (
-                    <i key={h} className="cw-lane-tick" style={{ left: `${(h / 24) * 100}%` }} />
+                  {inner.map((t) => (
+                    <i key={t.pos} className="cw-lane-tick" style={{ left: `${t.pos * 100}%` }} />
                   ))}
                   {track.items.map((clip) => (
                     <button

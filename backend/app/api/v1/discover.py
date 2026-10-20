@@ -57,8 +57,11 @@ async def get_today_feed(
 
 
 @router.get("/today/signals")
-async def get_today_signals(db: AsyncSession = Depends(get_db)):
-    return await today_signals(db)
+async def get_today_signals(
+    range: str = Query("today", pattern="^(today|48h|7d)$"),  # noqa: A002 - 查询参数名
+    db: AsyncSession = Depends(get_db),
+):
+    return await today_signals(db, range_=range)
 
 
 @router.get("/today/side")

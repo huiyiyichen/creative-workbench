@@ -266,12 +266,28 @@ async def today_feed(
     return {"view": view, "total": total, "items": cards, "days": days}
 
 
-async def today_signals(db: AsyncSession, *, now: datetime | None = None) -> dict[str, Any]:
-    """今天的信号：每个平台一条轨道（0 点到现在），条目按发布时间放置。"""
+def _aware(ts: datetime) -> datetime:
+    """库里有的时间不带时区（按 UTC 存），统一补上，避免排序时比较报错。"""
+    return ts if ts.tzinfo else ts.replace(tzinfo=UTC)
+
+
+SIGNAL_RANGES = {"today": None, "48h": timedelta(hours=48), "7d": timedelta(days=7)}
+
+
+async def today_signals(db: AsyncSession, *, now: datetime | None = None, range_: str = "today") -> dict[str, Any]:
+    """今天的信号：每个平台一条轨道，条目按发布时间放置。
+
+    range_：today = 本地 0 点到 24 点；48h / 7d = 截至现在的滚动窗口（窗口末端就是现在）。
+    """
     now = now or datetime.now(UTC)
-    start, end = local_day_bounds(now)
+    span = SIGNAL_RANGES.get(range_)
+    if span is None:
+        range_ = "today"
+        start, end = local_day_bounds(now)
+    else:
+        start, end = now - span, now
     rows = (
-        (await db.execute(select(ContentItem).where(_effective_time() >= start, _effective_time() < end).limit(1500)))
+        (await db.execute(select(ContentItem).where(_effective_time() >= start, _effective_time() < end).limit(3000)))
         .scalars()
         .all()
     )
@@ -283,7 +299,7 @@ async def today_signals(db: AsyncSession, *, now: datetime | None = None) -> dic
             {
                 "id": c.id,
                 "title": c.title,
-                "at": c.published_at or c.crawled_at,
+                "at": _aware(c.published_at or c.crawled_at),
                 "media_type": c.media_type or "article",
                 "heat": heat_of(latest),
                 "verdict": c.verdict,
@@ -291,6 +307,7 @@ async def today_signals(db: AsyncSession, *, now: datetime | None = None) -> dic
         )
     order = sorted(tracks, key=lambda p: -len(tracks[p]))
     return {
+        "range": range_,
         "start": start,
         "end": end,
         "now": now,

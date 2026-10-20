@@ -7,6 +7,7 @@ import {
   mediaKindColor,
   metricText,
   monthGrid,
+  rulerTicks,
   topPlatforms,
 } from '@/lib/discover';
 import { mediaColor } from '@/design/tokens';
@@ -56,5 +57,26 @@ describe('阶段 2 发现页展示逻辑', () => {
     const grid = monthGrid(2026, 10); // 2026-10-01 是周四
     expect(grid.slice(0, 4)).toEqual([null, null, null, '2026-10-01']);
     expect(grid.length % 7).toBe(0);
+  });
+});
+
+describe('rulerTicks', () => {
+  it('今天：0 点到 24 点每 3 小时一格', () => {
+    const t = rulerTicks('today', '2026-10-20T00:00:00Z', '2026-10-21T00:00:00Z');
+    expect(t.map((x) => x.label)).toEqual(['00:00', '03:00', '06:00', '09:00', '12:00', '15:00', '18:00', '21:00', '00:00']);
+    expect(t[4].pos).toBeCloseTo(0.5);
+  });
+  it('48 小时：每 6 小时，零点写日期', () => {
+    const t = rulerTicks('48h', '2026-10-18T15:30:00Z', '2026-10-20T15:30:00Z');
+    expect(t[0].label).toBe('18:00');
+    expect(t.map((x) => x.label)).toContain('10/19');
+    expect(t.every((x) => x.pos >= 0 && x.pos <= 1)).toBe(true);
+  });
+  it('7 天：每个零点一格', () => {
+    const t = rulerTicks('7d', '2026-10-13T15:30:00Z', '2026-10-20T15:30:00Z');
+    expect(t.map((x) => x.label)).toEqual(['10/14', '10/15', '10/16', '10/17', '10/18', '10/19', '10/20']);
+  });
+  it('窗口无效时不出刻度', () => {
+    expect(rulerTicks('7d', '', '')).toEqual([]);
   });
 });

@@ -250,7 +250,7 @@ function LibraryPage() {
           {!items ? (
             <div className="cw-empty">加载中…</div>
           ) : items.length === 0 ? (
-            <div className="cw-empty">还没有东西。粘贴链接、拖进文件，或在任意页面粘贴截图</div>
+            <div className="cw-empty" data-block="true">还没有东西。粘贴链接、拖进文件，或在任意页面粘贴截图</div>
           ) : view === 'gallery' ? (
             <div className="cw-masonry">
               {items.map((it) => (

@@ -59,6 +59,38 @@ export function dayPosition(at: string, dayStart: string, dayEnd: string): numbe
   return Math.min(1, Math.max(0, (t - s) / (e - s)));
 }
 
+export type SignalRange = 'today' | '48h' | '7d';
+export const SIGNAL_RANGES: { value: SignalRange; label: string }[] = [
+  { value: 'today', label: '今天' },
+  { value: '48h', label: '48 小时' },
+  { value: '7d', label: '7 天' },
+];
+export const SIGNAL_TITLE: Record<SignalRange, string> = { today: '今天的信号', '48h': '近 48 小时的信号', '7d': '近 7 天的信号' };
+
+/**
+ * 时间轴刻度（按本地时间）：今天每 3 小时；48 小时每 6 小时、零点换成日期；7 天每个零点一格写日期。
+ * pos 是 0–1 的位置，只返回落在窗口内的刻度。
+ */
+export function rulerTicks(range: SignalRange, start: string, end: string): { pos: number; label: string }[] {
+  const s = new Date(start).getTime();
+  const e = new Date(end).getTime();
+  if (!(e > s)) return [];
+  const stepH = range === 'today' ? 3 : range === '48h' ? 6 : 24;
+  const first = new Date(s);
+  first.setMinutes(0, 0, 0);
+  while (first.getHours() % stepH !== 0 || first.getTime() < s) first.setHours(first.getHours() + 1);
+  const out: { pos: number; label: string }[] = [];
+  const pad = (n: number) => String(n).padStart(2, '0');
+  for (let t = new Date(first); t.getTime() <= e; t.setHours(t.getHours() + stepH)) {
+    const midnight = t.getHours() === 0;
+    const label =
+      range === 'today' ? `${pad(t.getHours())}:00` : midnight ? `${t.getMonth() + 1}/${t.getDate()}` : `${pad(t.getHours())}:00`;
+    out.push({ pos: (t.getTime() - s) / (e - s), label });
+  }
+  if (range === 'today' && out.length && out[0].pos > 0.001) out.unshift({ pos: 0, label: '00:00' });
+  return out;
+}
+
 /** 热度 → 亮度（不透明度）：没有平台指标时用中等亮度 */
 export function heatOpacity(heat: number | null | undefined): number {
   if (heat === null || heat === undefined) return 0.45;

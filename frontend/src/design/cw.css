@@ -93,6 +93,9 @@
 .cw-nav-item[aria-disabled='true']:hover {
   background: none;
 }
+.cw-nav-mini { display: flex; gap: 2px; padding-top: 6px; border-top: 1px solid var(--cw-grat); }
+.cw-nav-mini .cw-nav-item { width: 31px; padding: 6px 0; }
+.cw-nav-mini .cw-nav-item svg { width: 16px; height: 16px; }
 .cw-nav-badge {
   position: absolute;
   top: 4px;
@@ -110,6 +113,8 @@
   .cw-nav-item span.cw-nav-label {
     display: none;
   }
+  .cw-nav-mini { flex-direction: column; }
+  .cw-nav-mini .cw-nav-item { width: 48px; }
 }
 
 .cw-main {
@@ -612,6 +617,15 @@
   padding: 18px 0;
   color: var(--cw-faint);
   font-size: 13px;
+}
+/* 整页空状态：样张的虚线框 */
+.cw-empty[data-block='true'] {
+  margin: 8px 0 0;
+  padding: 40px 24px;
+  border: 1px dashed var(--cw-line);
+  border-radius: 12px;
+  text-align: center;
+  color: var(--cw-dim);
 }
 .cw-error {
   padding: 10px 12px;
@@ -1634,3 +1648,24 @@ button.cw-dircard { cursor: pointer; }
 .cw-search { display: flex; align-items: center; gap: 8px; width: 300px; height: 36px; padding: 0 12px; border: 1px solid var(--cw-line); border-radius: 8px; background: var(--cw-panel); color: var(--cw-faint); cursor: pointer; font-size: 13px; }
 .cw-search:hover { border-color: var(--cw-dim); }
 .cw-search kbd { margin-left: auto; font: 12px var(--cw-num); color: var(--cw-faint); border: 1px solid var(--cw-line); border-radius: 4px; padding: 0 5px; }
+
+/* 旧页面原生下拉框：和样张输入框同一套边框、圆角、箭头 */
+.cw-legacy select,
+.cw-legacy-area select {
+  appearance: none;
+  -webkit-appearance: none;
+  height: 34px;
+  padding: 0 30px 0 12px;
+  border: 1px solid var(--cw-line);
+  border-radius: 8px;
+  background-color: var(--cw-panel);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%238d96a3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  font-size: 13px;
+  cursor: pointer;
+}
+.cw-legacy select:hover,
+.cw-legacy-area select:hover { border-color: var(--cw-dim); }
+.cw-legacy select:focus-visible,
+.cw-legacy-area select:focus-visible { outline: 2px solid var(--cw-cy); outline-offset: 1px; }

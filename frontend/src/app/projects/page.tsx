@@ -107,7 +107,7 @@ export default function ProjectsPage() {
           })}
         </ul>
       ) : (
-        <div className="cw-empty">还没有项目。写个主题新建，或在今日 / 灵感库里点「做成项目」。</div>
+        <div className="cw-empty" data-block="true">还没有项目。写个主题新建，或在今日 / 灵感库里点「做成项目」。</div>
       )}
     </CwPage>
   );

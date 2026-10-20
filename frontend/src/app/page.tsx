@@ -12,7 +12,7 @@ import { Button, Card, CwPage, Segmented, StatusDot, TopBar } from '@/design/com
 import { DotMatrix, FeedItem, ItemDrawer, PlatformBars, ResonanceTable, SignalTimeline, platformName } from '@/design/discover';
 import { mediaColor } from '@/design/tokens';
 import { discoverApi, type TodayFeed, type TodaySide, type TodaySignals } from '@/lib/api/_discover';
-import { MEDIA_FILTERS } from '@/lib/discover';
+import { MEDIA_FILTERS, SIGNAL_RANGES, type SignalRange } from '@/lib/discover';
 import { Onboarding } from '@/design/onboarding';
 import { OPEN_EVENT } from '@/design/command';
 import { Search } from 'lucide-react';
@@ -41,6 +41,7 @@ function TodayPage() {
   const [media, setMedia] = useState('');
   const [feed, setFeed] = useState<TodayFeed | null>(null);
   const [signals, setSignals] = useState<TodaySignals | null>(null);
+  const [range, setRange] = useState<SignalRange>('today');
   const [side, setSide] = useState<TodaySide | null>(null);
   const [away, setAway] = useState<{ days: number; start: string; end: string } | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
@@ -61,16 +62,20 @@ function TodayPage() {
   }, [loadFeed]);
 
   useEffect(() => {
-    discoverApi
-      .signals()
-      .then(setSignals)
-      .catch(() => setSignals({ start: '', end: '', now: '', tracks: [] })); // 失败时显示空轨道，不画播放头
     discoverApi.side().then(setSide).catch(() => setSide(null));
     discoverApi
       .seen()
       .then((s) => (s.away_days && s.gap_start && s.gap_end ? setAway({ days: s.away_days, start: s.gap_start, end: s.gap_end }) : null))
       .catch(() => undefined);
   }, []);
+
+  useEffect(() => {
+    setSignals(null);
+    discoverApi
+      .signals(range)
+      .then(setSignals)
+      .catch(() => setSignals({ start: '', end: '', now: '', tracks: [] })); // 失败时显示空轨道，不画播放头
+  }, [range]);
 
   const loadMore = async () => {
     if (!feed) return;
@@ -138,7 +143,7 @@ function TodayPage() {
         </div>
       ) : null}
 
-      <SignalTimeline data={signals} selectedId={openId} onOpen={setOpenId} legend={legend} />
+      <SignalTimeline data={signals} selectedId={openId} onOpen={setOpenId} legend={legend} range={range} onRange={setRange} />
 
       <div className="cw-today">
         <section>
@@ -249,7 +254,7 @@ function TodayPage() {
           </Card>
           {signals && signals.tracks.length ? (
             <div className="cw-muted" style={{ fontSize: 12 }}>
-              今天 {signals.tracks.map((t) => `${platformName(t.platform)} ${t.items.length}`).join(' · ')}
+              {SIGNAL_RANGES.find((r) => r.value === range)?.label} {signals.tracks.map((t) => `${platformName(t.platform)} ${t.items.length}`).join(' · ')}
             </div>
           ) : null}
         </aside>

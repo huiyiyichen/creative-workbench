@@ -62,6 +62,7 @@ export interface SignalClip {
 }
 
 export interface TodaySignals {
+  range?: 'today' | '48h' | '7d';
   start: string;
   end: string;
   now: string;
@@ -332,8 +333,8 @@ export const discoverApi = {
   feed(params: { view?: 'all' | 'picks'; media?: string; platform?: string; limit?: number; offset?: number } = {}): Promise<TodayFeed> {
     return request(`/today/feed${qs(params)}`);
   },
-  signals(): Promise<TodaySignals> {
-    return request('/today/signals');
+  signals(range: 'today' | '48h' | '7d' = 'today'): Promise<TodaySignals> {
+    return request(`/today/signals?range=${range}`);
   },
   side(): Promise<TodaySide> {
     return request('/today/side');

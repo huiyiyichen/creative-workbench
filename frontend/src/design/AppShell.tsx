@@ -42,7 +42,6 @@ function ThemeToggle() {
   return (
     <button type="button" className="cw-nav-item cw-theme-toggle" onClick={() => setMode(next)} title={label} aria-label={label}>
       <Icon aria-hidden="true" />
-      <span className="cw-nav-label">{next === 'light' ? '亮色' : '暗色'}</span>
     </button>
   );
 }
@@ -117,9 +116,11 @@ export default function AppShell({
           {CW_NAV_BOTTOM.map((item) => (
             <NavLink key={item.id} item={item} active={active === item.id} alert={item.id === 'sources' && sourcesAlert} />
           ))}
+        </div>
+        {/* 跳转、主题是工具按钮：并排成一行小图标，不占主导航的位置（样张底部只有设置） */}
+        <div className="cw-nav-mini">
           <button type="button" className="cw-nav-item" title="跳转（Ctrl K）" aria-label="跳转（Ctrl K）" onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))}>
             <Search aria-hidden="true" />
-            <span className="cw-nav-label">跳转</span>
           </button>
           <ThemeToggle />
         </div>
