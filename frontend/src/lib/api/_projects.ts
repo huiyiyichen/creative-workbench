@@ -68,6 +68,7 @@ export interface ProjectView extends ProjectSummary {
   idea: IdeaState;
   ai_draft?: { run_id?: number; status?: string; reason?: string | null };
   platform_rewrite?: { run_id?: number; status?: string; reason?: string | null; kinds?: string[] };
+  pipeline?: PipelineView;
   sources: ProjectSource[];
   running_tasks: number;
   draft_token: string | null;
@@ -221,6 +222,19 @@ export type ApiError = Error & { status?: number; code?: string; data?: Record<s
 
 const j = (body: unknown) => JSON.stringify(body);
 
+export type PipelineStage = 'research' | 'draft' | 'awaiting_finalize' | 'producing' | 'done' | 'failed' | 'stopped';
+export interface PipelineView {
+  stage?: PipelineStage;
+  stage_label?: string;
+  outputs?: string[];
+  gates?: { choose?: boolean; accept?: boolean };
+  runs?: { research?: number; draft?: number; produce?: number[]; platforms?: number };
+  direction?: { title: string; intent?: string };
+  reason?: string | null;
+  problems?: string[];
+  partial?: boolean;
+}
+
 export const projectsApi = {
   list(params: { stage?: ProjectStage; q?: string; archived?: boolean } = {}): Promise<{ items: ProjectSummary[] }> {
     const sp = new URLSearchParams();
@@ -269,6 +283,13 @@ export const projectsApi = {
   /** AI 写初稿：启动成稿流程（写手 → 审校 → 写手修改），返回运行 id */
   aiDraft(id: number): Promise<{ run_id: number; status: string }> {
     return request(`/projects/${id}/draft/generate`, { method: 'POST', body: j({ mode: 'ai' }), timeoutMs: 60_000 });
+  },
+  /** 一键全流程：选题研究 → 成稿 →〔定稿〕→ 讲解视频 + 平台改写 */
+  startPipeline(id: number, body: { outputs: string[]; choose_gate: boolean; accept_gate: boolean }): Promise<PipelineView> {
+    return request(`/projects/${id}/pipeline`, { method: 'POST', body: j(body), timeoutMs: 60_000 });
+  },
+  stopPipeline(id: number): Promise<PipelineView> {
+    return request(`/projects/${id}/pipeline/stop`, { method: 'POST' });
   },
   /** 生成平台版本：启动平台改写流程（平台编辑按平台并行 → 规则校验），返回运行 id */
   rewritePlatforms(id: number, kinds: string[], outputIds: Record<string, number> = {}): Promise<{ run_id: number; status: string }> {

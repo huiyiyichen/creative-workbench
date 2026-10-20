@@ -75,6 +75,14 @@ class PlatformRewrite(BoundedModel):
     output_ids: dict[str, int] = Field(default_factory=dict)
 
 
+class PipelineStart(BoundedModel):
+    outputs: list[Literal["video", "xhs", "zhihu", "wechat"]] = Field(
+        default_factory=lambda: ["video", "xhs", "zhihu", "wechat"], max_length=4
+    )
+    choose_gate: bool = True
+    accept_gate: bool = True
+
+
 class VersionCreate(BoundedModel):
     reason: str = Field(default="manual", max_length=50)
 

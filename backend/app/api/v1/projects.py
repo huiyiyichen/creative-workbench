@@ -16,6 +16,7 @@ from app.schemas.projects import (
     FinalizeRequest,
     OutputCreate,
     OutputPatch,
+    PipelineStart,
     PlatformRewrite,
     ProjectCreate,
     ProjectPatch,
@@ -25,7 +26,13 @@ from app.schemas.projects import (
     SuggestionCreate,
     VersionCreate,
 )
-from app.services import output_service as out_svc, platform_flow, project_service as svc, suggestion_service as sug_svc
+from app.services import (
+    output_service as out_svc,
+    pipeline_service,
+    platform_flow,
+    project_service as svc,
+    suggestion_service as sug_svc,
+)
 
 router = APIRouter(tags=["projects"], dependencies=[Depends(get_current_user)])
 
@@ -116,6 +123,19 @@ async def generate_draft(project_id: int, request: DraftGenerate, db: AsyncSessi
 async def rewrite_platforms(project_id: int, request: PlatformRewrite, db: AsyncSession = Depends(get_db)):
     """生成平台版本：启动平台改写流程（平台编辑按平台并行 → 规则校验），返回运行 id。"""
     return await platform_flow.start_platform_rewrite(db, project_id, list(request.kinds), request.output_ids)
+
+
+@router.post("/projects/{project_id}/pipeline")
+async def start_pipeline(project_id: int, request: PipelineStart, db: AsyncSession = Depends(get_db)):
+    """一键全流程：选题研究 →〔选方向〕→ 成稿 →〔接受〕→〔定稿〕→ 讲解视频 + 平台改写。"""
+    return await pipeline_service.start(
+        db, project_id, outputs=list(request.outputs), choose_gate=request.choose_gate, accept_gate=request.accept_gate
+    )
+
+
+@router.post("/projects/{project_id}/pipeline/stop")
+async def stop_pipeline(project_id: int, db: AsyncSession = Depends(get_db)):
+    return await pipeline_service.stop(db, project_id)
 
 
 @router.get("/projects/{project_id}/versions")

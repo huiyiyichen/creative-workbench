@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 import re
 import uuid
 from copy import deepcopy
@@ -43,6 +44,8 @@ from app.schemas.projects import (
     SourceAdd,
 )
 from app.schemas.studio import StudioBrief, StudioDraft
+
+logger = logging.getLogger(__name__)
 
 MAX_REFERENCES = 9
 MAX_MOODBOARD = 30
@@ -248,6 +251,7 @@ async def project_view(db: AsyncSession, project_id: int) -> dict:
         "idea": spec.get("idea") or {},
         "ai_draft": spec.get("ai_draft") or {},
         "platform_rewrite": spec.get("platform_rewrite") or {},
+        "pipeline": _pipeline_view(spec),
         "sources": sources,
         "running_tasks": running,
         "draft_token": project.draft_token,
@@ -655,6 +659,13 @@ async def finalize(db: AsyncSession, project_id: int, version: int | None = None
     project.finalized_version = project.version
     project.stage = "outputs"
     await db.commit()
+    from app.services import pipeline_service
+
+    try:  # 全流程在等定稿时，定稿后自动开始制作与平台改写
+        await pipeline_service.on_finalized(db, project_id)
+    except Exception:  # noqa: BLE001
+        await db.rollback()
+        logger.warning("pipeline after finalize failed", exc_info=True)
     return await project_view(db, project_id)
 
 
@@ -911,11 +922,17 @@ async def generate_draft(db: AsyncSession, project_id: int, mode: str) -> dict:
     return await draft_view(db, project_id)
 
 
+def _pipeline_view(spec: dict) -> dict:
+    from app.services.pipeline_service import view
+
+    return view(spec)
+
+
 # ── 创意方向 ─────────────────────────────────────────────────────────
 
 
-async def start_directions(db: AsyncSession, project_id: int) -> dict:
-    """启动选题研究流程（研究员 → 汇总 → 策划），不停在关卡；方向卡由前端从运行产物读取。"""
+async def start_directions(db: AsyncSession, project_id: int, *, choose_gate: bool = False) -> dict:
+    """启动选题研究流程（研究员 → 汇总 → 策划）；默认不停在关卡，方向卡由前端从运行产物读取。全流程会保留关卡。"""
     from app.services.flows import engine
 
     project = await get_project(db, project_id)
@@ -935,7 +952,7 @@ async def start_directions(db: AsyncSession, project_id: int) -> dict:
                 "notes": brief.get("intent") or None,
             },
             title=f"方向 · {topic}"[:300],
-            gates={"choose": False},
+            gates={"choose": choose_gate},
             project_id=project_id,
             trigger="project",
         )

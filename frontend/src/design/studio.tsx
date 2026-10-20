@@ -7,7 +7,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Input, Modal, message } from 'antd';
+import { Checkbox, Input, Modal, Switch, message } from 'antd';
 import { Lock, Pencil } from 'lucide-react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Button, Cover } from './components';
@@ -17,7 +17,7 @@ import { platformName } from './discover';
 import { discoverApi, type ItemCard } from '@/lib/api/_discover';
 import { libraryApi, libraryFileUrl, type LibraryItem } from '@/lib/api/_library';
 import { mediaUrl } from '@/lib/api/_collection';
-import { projectsApi, type OutputKind, type ProjectAsset, type ProjectMode, type ProjectSource, type ProjectView } from '@/lib/api/_projects';
+import { projectsApi, type PipelineView, type OutputKind, type ProjectAsset, type ProjectMode, type ProjectSource, type ProjectView } from '@/lib/api/_projects';
 import { runsApi, type RunDetail } from '@/lib/api/_runs';
 import { ACTIVE_RUN, flowStages, type FlowStage } from '@/lib/projects';
 import { METRIC_LABEL, compactNumber } from '@/lib/collection';
@@ -133,6 +133,102 @@ function StatusMark({ project, unsaved }: { project: ProjectView; unsaved: boole
   return <span className="cw-pstatus">草稿{project.version ? ` v${project.version}` : ''}</span>;
 }
 
+const PIPE_ACTIVE = ['research', 'draft', 'awaiting_finalize', 'producing'];
+const PIPE_OUTPUTS = [
+  { value: 'video', label: '讲解视频' },
+  { value: 'xhs', label: '小红书' },
+  { value: 'zhihu', label: '知乎' },
+  { value: 'wechat', label: '公众号' },
+];
+
+function pipelineRun(p: PipelineView): number | undefined {
+  const r = p.runs || {};
+  if (p.stage === 'research') return r.research;
+  if (p.stage === 'draft' || p.stage === 'awaiting_finalize') return r.draft;
+  return r.platforms ?? r.produce?.[0] ?? r.draft;
+}
+
+/** 一键全流程：启动弹窗 + 进度条（运行中每 4 秒刷新项目） */
+function Pipeline() {
+  const { project, reload } = useProject();
+  const [open, setOpen] = useState(false);
+  const [outputs, setOutputs] = useState<string[]>(PIPE_OUTPUTS.map((o) => o.value));
+  const [choose, setChoose] = useState(true);
+  const [accept, setAccept] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const p = project?.pipeline || {};
+  const active = PIPE_ACTIVE.includes(p.stage || '');
+  useEffect(() => {
+    if (!active || p.stage === 'awaiting_finalize') return;
+    const t = setInterval(() => void reload(), 4000);
+    return () => clearInterval(t);
+  }, [active, p.stage, reload]);
+  if (!project) return null;
+  const start = async () => {
+    setBusy(true);
+    try {
+      await projectsApi.startPipeline(project.id, { outputs, choose_gate: choose, accept_gate: accept });
+      setOpen(false);
+      await reload();
+    } catch (err) {
+      message.error(apiError(err, '全流程没有启动'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const stop = async () => {
+    try {
+      await projectsApi.stopPipeline(project.id);
+      await reload();
+    } catch (err) {
+      message.error(apiError(err));
+    }
+  };
+  const runId = p.stage ? pipelineRun(p) : undefined;
+  return (
+    <>
+      {p.stage ? (
+        <span className="cw-pipe" data-stage={p.stage} title={p.reason || undefined}>
+          <i aria-hidden />
+          全流程 · {p.stage_label}
+          {p.stage === 'awaiting_finalize' ? (
+            <Link className="cw-link-btn" href={`/projects/${project.id}/draft`}>
+              去定稿
+            </Link>
+          ) : null}
+          {runId ? (
+            <Link className="cw-link-btn" href={`/runs/${runId}`}>
+              {p.stage === 'research' ? '选方向 / 过程' : '过程'}
+            </Link>
+          ) : null}
+          {active ? (
+            <button type="button" className="cw-link-btn" onClick={stop}>
+              停止
+            </button>
+          ) : null}
+        </span>
+      ) : null}
+      {!active && !project.finalized_version ? (
+        <button type="button" className="cw-pbar-link cw-link-btn" onClick={() => setOpen(true)}>
+          一键全流程
+        </button>
+      ) : null}
+      <Modal title="一键全流程" open={open} onCancel={() => setOpen(false)} onOk={start} okText="开始" cancelText="取消" confirmLoading={busy} okButtonProps={{ disabled: !outputs.length }}>
+        <p className="cw-muted">选题研究 → 选方向 → 成稿 → 接受 → 你来定稿 → 讲解视频与平台版本同时开始。定稿始终由你确认。</p>
+        <div className="cw-stack" style={{ display: 'grid', gap: 12 }}>
+          <Checkbox.Group value={outputs} onChange={(v) => setOutputs(v as string[])} options={PIPE_OUTPUTS} />
+          <label className="cw-row" style={{ gap: 8 }}>
+            <Switch size="small" checked={choose} onChange={setChoose} /> 停下来让我选方向（关闭则用第一个方向）
+          </label>
+          <label className="cw-row" style={{ gap: 8 }}>
+            <Switch size="small" checked={accept} onChange={setAccept} /> 成稿后让我确认是否接受（关闭则直接写成新版本）
+          </label>
+        </div>
+      </Modal>
+    </>
+  );
+}
+
 export function ProjectShell({ children }: { children: ReactNode }) {
   const { project, error, setProject, unsaved } = useProject();
   const pathname = usePathname();
@@ -185,6 +281,7 @@ export function ProjectShell({ children }: { children: ReactNode }) {
           )}
           <StatusMark project={project} unsaved={unsaved} />
           <span className="cw-grow" />
+          <Pipeline />
           <Link className="cw-pbar-link" href={`/runs?project=${project.id}`}>
             过程
           </Link>

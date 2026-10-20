@@ -225,3 +225,9 @@
 - `POST /projects/{id}/platforms/rewrite {kinds, output_ids}` → 运行 id；运行中重复点击复用同一运行；项目视图带 `platform_rewrite` 状态，结束回调更新。
 - 前端：产出页左栏「AI 生成平台版本」（选平台弹窗）、运行阶段条与「查看过程」，结束后刷新产出物列表。
 - 验证：tests/test_stage5_platform_flow.py 3 项（模板、三平台并行 + 小红书超限重写 + 写入指定 / 新建产出物 + 知乎补来源 + 公众号清洗 + 校验报告、空稿与非法平台）；tsc、eslint、ruff、分层检查通过。
+
+### 阶段 5 · 第 ② 步：一键全流程（2026-10-20）
+- `pipeline_service.py`：选题研究 →〔选方向〕→ 成稿 →〔接受〕→〔定稿〕→ 讲解视频 + 平台改写。各段是独立流程运行，用项目 `spec.pipeline`（stage / runs / outputs / gates / direction / problems）串起来；引擎结束回调在专属回调之后统一调用 `pipeline_service.on_run_finished` 推进；选方向结果（或关卡关闭时第一张方向卡、或自定义方向）写进设定的主题与创作思路；成稿完成后停在「等你定稿」并发通知；`finalize` 后自动建讲解视频并开始制作、启动平台改写；某一路启动失败记为问题、其他照常，全部结束后标记完成（部分完成写明原因）。可停止（停掉在跑的运行）；运行中重复启动返回当前状态；已定稿不能从头跑。
+- 接口：`POST /projects/{id}/pipeline {outputs, choose_gate, accept_gate}`、`POST /projects/{id}/pipeline/stop`；项目视图带 `pipeline`。`start_directions` 支持保留选方向关卡。
+- 前端：项目栏「一键全流程」（产出勾选、两个关卡开关）与状态胶囊（阶段、去定稿、选方向 / 过程、停止；运行中每 4 秒刷新）。
+- 验证：tests/test_stage5_pipeline.py 2 项（关卡选第二个方向 → 成稿 → 等定稿 → 定稿后视频启动失败记问题、平台改写完成 → 部分完成；关卡关闭取第一张、停止后定稿不再触发）；阶段 3 / 4 / 5 流程与项目测试 40 项通过。

@@ -569,12 +569,16 @@ async def _run_finish_hook(run_id: int) -> None:
             if run is None or run.status in ACTIVE or run.status == "waiting":
                 return
             target = FINISH_HOOKS.get(run.flow_key)
-            if not target:
-                return
-            import importlib
+            if target:
+                import importlib
 
-            mod, fn = target.split(":")
-            await getattr(importlib.import_module(mod), fn)(db, run)
+                mod, fn = target.split(":")
+                await getattr(importlib.import_module(mod), fn)(db, run)
+            if run.project_id:  # 一键全流程：推进到下一段
+                from app.services import pipeline_service
+
+                run = await db.get(AgentRun, run_id, populate_existing=True)
+                await pipeline_service.on_run_finished(db, run)
     except Exception:  # noqa: BLE001
         logger.warning("finish hook failed for run %s", run_id, exc_info=True)
 
