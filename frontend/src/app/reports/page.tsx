@@ -4,6 +4,7 @@
  * 报告（改造方案 5.4）：归档日历（每天的头条、未采集）、日报 / 周刊 / 月刊入口、空档回看、任意时间段、全文搜索。
  */
 
+import { ScanSkeleton } from '@/design/instrument';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { DatePicker, Input, message } from 'antd';
@@ -252,7 +253,7 @@ function Periods({ focusGap }: { focusGap: string | null }) {
         </span>
       </div>
       {!items ? (
-        <div className="cw-empty">加载中…</div>
+        <ScanSkeleton height={160} />
       ) : items.length === 0 ? (
         <div className="cw-empty">还没有空档回看或时间段报告</div>
       ) : (

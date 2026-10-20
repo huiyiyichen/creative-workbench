@@ -2,6 +2,7 @@
 
 /** 产出物工作区（设计文档 6.1–6.4）：平台版本、视频提示词包、讲解视频 / MV 的制作参数与历史。 */
 
+import { ScanSkeleton } from '@/design/instrument';
 import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import { Input, Select, Switch, message } from 'antd';
 import { Button, Card } from '@/design/components';
@@ -815,7 +816,7 @@ export default function OutputWorkspace({ params }: { params: Promise<{ outputId
       .catch((err) => setError(apiError(err, '产出物加载失败')));
   }, [outputId]);
   if (error) return <div className="cw-error">{error}</div>;
-  if (!output || !project) return <div className="cw-empty">加载中…</div>;
+  if (!output || !project) return <ScanSkeleton height={160} />;
   const saved = (o: OutputView) => {
     setOutput(o);
     void reload();

@@ -5,6 +5,7 @@
  * 每天的条目数、一行采集概况；标注生成时的数据完整度，可重新生成（旧版本保留）。
  */
 
+import { ScanSkeleton } from '@/design/instrument';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { message } from 'antd';
@@ -46,7 +47,7 @@ export default function PeriodReportPage() {
   };
 
   if (error) return <CwPage><div className="cw-error">{error}</div></CwPage>;
-  if (!data) return <CwPage><div className="cw-empty">加载中…</div></CwPage>;
+  if (!data) return <CwPage><ScanSkeleton height={160} /></CwPage>;
   const s = data.sections;
   const c = data.completeness;
 

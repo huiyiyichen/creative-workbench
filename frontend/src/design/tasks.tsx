@@ -11,7 +11,7 @@ import { TASK_STATUS_LABEL, TASK_TYPE_LABEL, fmtDuration, groupTasks, subscribeT
 import { onTasksChanged } from '@/lib/events';
 import { LANE_ORDER, batchClips, laneClips } from '@/lib/task-lanes';
 import { CN_OFFSET_MS, cnParts, fmtHM } from '@/lib/time-cn';
-import { StatusLamp, type LampTone } from './instrument';
+import { StatusLamp, type LampTone , ScanSkeleton } from './instrument';
 
 const LAMP: Record<TaskStatus, LampTone> = { running: 'run', waiting: 'warn', failed: 'bad', done: 'ok', stopped: 'off' };
 
@@ -144,7 +144,7 @@ export function TaskDrawer({ open, onClose }: { open: boolean; onClose: () => vo
         </Link>
       }
     >
-      {items === null ? <p className="cw-muted">加载中…</p> : null}
+      {items === null ? <ScanSkeleton height={120} /> : null}
       {items && !items.length ? <p className="cw-muted">最近两天没有任务。</p> : null}
       {groups.map((g) => (
         <section key={g.id} className="cw-task-group">

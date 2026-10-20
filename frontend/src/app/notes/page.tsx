@@ -5,6 +5,7 @@
  * 支持 #标签、[[双链]]、粘贴图片、录音（千问转写）；保存后显示相关的收藏和热点。
  */
 
+import { EmptyInstrument, ScanSkeleton } from '@/design/instrument';
 import { parseUTC } from '@/lib/datetime';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -75,16 +76,20 @@ function NotesPage() {
             ) : null}
           </div>
           {!data ? (
-            <div className="cw-empty">加载中…</div>
+            <ScanSkeleton height={200} />
           ) : data.days.length === 0 ? (
-            <div className="cw-empty">{tag || q ? '没有匹配的随笔' : '最近没有随笔'}</div>
+            tag || q ? (
+              <EmptyInstrument kind="dark" title="没有匹配的随笔" />
+            ) : (
+              <EmptyInstrument kind="flat" title="最近没有随笔" reason="想到什么随手记一句：任何页面按 Alt+N 打开随笔框，记下的可以一键用于新项目。" />
+            )
           ) : (
             data.days.map((d) => (
               <div key={d.date} className="cw-note-day">
                 <h3 className="cw-num">{d.date}</h3>
                 {d.notes.map((n) => (
                   <article key={n.id} id={`note-${n.id}`} className="cw-note" data-focus={String(n.id) === focus ? 'true' : undefined}>
-                    <span className="cw-note-time cw-num">{parseUTC(n.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
+                    <span className="cw-note-time cw-num">{parseUTC(n.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Shanghai' })}</span>
                     <div className="cw-note-body">
                       {editing === n.id ? (
                         <>

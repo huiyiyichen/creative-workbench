@@ -2,6 +2,7 @@
 
 /** 设置 · 飞书（改造方案 10.2）：自建应用凭证、多维表格链接、字段映射、自动写入。单向写入，飞书里的修改不回写。 */
 
+import { ScanSkeleton } from '@/design/instrument';
 import { AutoComplete, Input, Switch, message } from 'antd';
 import { useEffect, useState } from 'react';
 import { Button, Card } from '@/design/components';
@@ -59,7 +60,7 @@ export default function FeishuSettingsPage() {
       setBusy(null);
     }
   };
-  if (!s) return <p className="cw-muted">加载中…</p>;
+  if (!s) return <ScanSkeleton height={120} />;
   return (
     <div className="cw-stack">
       <Card title="飞书多维表格" extra={s.configured ? <small className="cw-muted">已连接 · {s.table_id}</small> : <small className="cw-muted">未连接</small>}>

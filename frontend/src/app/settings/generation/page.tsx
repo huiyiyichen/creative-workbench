@@ -2,6 +2,7 @@
 
 /** 设置 · 生成服务（改造方案第 8 节）：名称、类型、接口格式、地址、Key（本地加密）、模型、能力、单价、每日上限。 */
 
+import { ScanSkeleton } from '@/design/instrument';
 import { Input, InputNumber, Modal, Select, Switch, message } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 import { Button, Card } from '@/design/components';
@@ -152,7 +153,7 @@ export default function GenerationSettingsPage() {
       </Card>
       <Card title="生成服务" extra={<Button onClick={() => edit()}>添加服务</Button>}>
         {items === null ? (
-          <p className="cw-muted">加载中…</p>
+          <ScanSkeleton height={120} />
         ) : items.length ? (
           <table className="cw-table">
             <thead>

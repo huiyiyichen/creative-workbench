@@ -2,6 +2,7 @@
 
 /** 设置 · 备份：一键备份数据库与素材目录、下载、删除；每周日 03:30 自动备份，保留最近 10 份。 */
 
+import { ScanSkeleton } from '@/design/instrument';
 import { Switch } from 'antd';
 import { Download, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
@@ -62,7 +63,7 @@ export default function BackupSettingsPage() {
       </Card>
       <Card title="备份记录">
         {items === null ? (
-          <p className="cw-muted">加载中…</p>
+          <ScanSkeleton height={120} />
         ) : items.length === 0 ? (
           <p className="cw-muted">还没有备份。</p>
         ) : (

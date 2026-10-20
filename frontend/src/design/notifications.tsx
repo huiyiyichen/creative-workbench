@@ -2,6 +2,7 @@
 
 /** 通知中心：导航底部铃铛（带未读数）+ 抽屉。来源：采集自动处理、日报 / 周刊、流程等你处理、全流程进度。 */
 
+import { ScanSkeleton } from './instrument';
 import Link from 'next/link';
 import { Drawer } from 'antd';
 import { Bell } from 'lucide-react';
@@ -96,7 +97,7 @@ export function NotificationDrawer({ open, onClose, onChanged }: { open: boolean
         </span>
       }
     >
-      {items === null ? <p className="cw-muted">加载中…</p> : null}
+      {items === null ? <ScanSkeleton height={120} /> : null}
       {items && !items.length ? <p className="cw-empty">{unreadOnly ? '没有未读通知。' : '还没有通知。采集自动处理、报告生成、流程等你处理时会出现在这里。'}</p> : null}
       <ul className="cw-notify-list">
         {items?.map((n) => {

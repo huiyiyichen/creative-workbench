@@ -2,6 +2,7 @@
 
 /** 流程运行（改造方案 2.2）：发起选题研究；列出所有运行，可打开节点图、时间线、调用树。 */
 
+import { ScanSkeleton } from '@/design/instrument';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Input, InputNumber, Switch, message } from 'antd';
@@ -139,7 +140,7 @@ function RunsInner() {
           title="运行记录"
           extra={<Segmented value={filter} label="按状态筛选" options={FILTERS.map((f) => ({ value: f.value, label: f.label }))} onChange={setFilter} />}
         >
-          {runs === null ? <p className="cw-muted">加载中…</p> : null}
+          {runs === null ? <ScanSkeleton height={120} /> : null}
           {runs?.length === 0 ? <p className="cw-muted">还没有运行</p> : null}
           {runs?.length ? (
             <table className="cw-table">

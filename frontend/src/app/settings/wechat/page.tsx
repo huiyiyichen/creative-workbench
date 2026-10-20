@@ -2,6 +2,7 @@
 
 /** 设置 · 公众号：AppID / AppSecret、默认作者与原文链接，用于把「公众号版」直接推到草稿箱。 */
 
+import { ScanSkeleton } from '@/design/instrument';
 import { Input, Switch } from 'antd';
 import { useEffect, useState } from 'react';
 import { Button, Card } from '@/design/components';
@@ -51,7 +52,7 @@ export default function WechatSettingsPage() {
       setBusy(null);
     }
   };
-  if (!s) return <p className="cw-muted">加载中…</p>;
+  if (!s) return <ScanSkeleton height={120} />;
   return (
     <div className="cw-stack">
       <Card

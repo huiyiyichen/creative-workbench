@@ -2,6 +2,7 @@
 
 /** 图谱（6.7）：全部收藏、随笔、专题、风格 / 模板和它们之间的关联；点节点看详情、打开或「用于新项目」。 */
 
+import { ScanSkeleton } from '@/design/instrument';
 import Link from 'next/link';
 import { message } from 'antd';
 import { useEffect, useMemo, useState } from 'react';
@@ -96,7 +97,7 @@ export default function GraphPage() {
           ) : data ? (
             <LibraryGraph data={data} height={640} onSelect={setPicked} selected={picked?.key} />
           ) : (
-            <div className="cw-empty">加载中…</div>
+            <ScanSkeleton height={160} />
           )}
         </section>
         <aside className="cw-today-side">

@@ -2,6 +2,7 @@
 
 /** 专题页（5.5）：时间线、热度曲线、各平台首次出现、提到它的报告、相关收藏、状态与结论。 */
 
+import { ScanSkeleton } from '@/design/instrument';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { message } from 'antd';
@@ -50,7 +51,7 @@ export default function DossierPage() {
   };
 
   if (error) return <CwPage><div className="cw-error">{error}</div></CwPage>;
-  if (!data) return <CwPage><div className="cw-empty">加载中…</div></CwPage>;
+  if (!data) return <CwPage><ScanSkeleton height={160} /></CwPage>;
 
   const timeline = [...data.timeline].reverse();
   return (

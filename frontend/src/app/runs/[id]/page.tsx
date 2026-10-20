@@ -2,6 +2,7 @@
 
 /** 运行视图（创作工作台设计 7.1）：节点图 / 时间线 / 调用树，节点详情，人工关卡；SSE 实时更新。 */
 
+import { ScanSkeleton } from '@/design/instrument';
 import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import { InputNumber, Modal, message } from 'antd';
@@ -76,7 +77,7 @@ export default function RunPage() {
     return (
       <CwPage>
         <TopBar title="运行" />
-        <p className="cw-muted">加载中…</p>
+        <ScanSkeleton height={120} />
       </CwPage>
     );
   }
