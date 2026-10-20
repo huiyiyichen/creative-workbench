@@ -1304,3 +1304,25 @@ button.cw-dircard { cursor: pointer; }
 .cw-bundle-md { margin: 0; padding: 12px; max-height: 72vh; overflow: auto; background: var(--cw-deep); border: 1px solid var(--cw-grat); border-radius: 8px; font-size: 12px; white-space: pre-wrap; word-break: break-word; }
 .cw-production { display: grid; gap: 14px; }
 @media (max-width: 1279px) { .cw-platform { grid-template-columns: minmax(0, 1fr) 320px; } .cw-phone { width: 300px; } .cw-brief { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* 流程阶段条（成稿 / 成片） */
+.cw-runstages { display: flex; flex-direction: column; gap: 8px; }
+.cw-runstages ol { display: flex; gap: 6px; list-style: none; margin: 0; padding: 0; flex-wrap: wrap; }
+.cw-runstages li { position: relative; display: grid; grid-template-columns: 10px auto; column-gap: 6px; row-gap: 2px; align-items: center; min-width: 120px; flex: 1; padding: 8px 10px; border: 1px solid var(--cw-line); border-radius: 8px; background: var(--cw-panel); font-size: 12px; }
+.cw-runstages li[data-gate] { border-style: dashed; }
+.cw-runstages li[data-status='running'] { border-color: var(--cw-cy); }
+.cw-runstages li[data-status='waiting'] { border-color: var(--cw-yl); animation: cw-pulse 1.4s ease-in-out infinite; }
+.cw-runstages li[data-status='failed'] { border-color: var(--cw-rd); }
+.cw-runstages li small, .cw-runstages li em { grid-column: 2; }
+.cw-runstages li em { font-style: normal; color: var(--cw-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 220px; }
+.cw-runstage-dot { width: 8px; height: 8px; border-radius: 50%; }
+.cw-runstages-foot { display: flex; align-items: center; gap: 10px; font-size: 12px; }
+@keyframes cw-pulse { 50% { box-shadow: 0 0 0 3px rgba(255, 210, 80, 0.18); } }
+.cw-qa { display: grid; grid-template-columns: auto 1fr auto; gap: 4px 12px; font-size: 13px; margin: 0; }
+.cw-qa dt { color: var(--cw-dim); }
+.cw-qa dd { margin: 0; }
+.cw-qa [data-tone='ok'] { color: var(--cw-gr); }
+.cw-qa [data-tone='bad'] { color: var(--cw-rd); }
+.cw-qa [data-tone='skip'] { color: var(--cw-dim); }
+.cw-prodbar { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+.cw-prodbar progress { flex: 1; height: 6px; accent-color: var(--cw-cy); }

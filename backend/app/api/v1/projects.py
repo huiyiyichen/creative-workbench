@@ -244,3 +244,18 @@ async def output_bundle(
     return Response(
         data, media_type=media, headers={"Content-Disposition": f"attachment; filename*=UTF-8''{quote(name)}"}
     )
+
+
+# ── 制作（讲解视频 / MV 成片流程）──
+@router.post("/outputs/{output_id}/render")
+async def render_output(output_id: int, db: AsyncSession = Depends(get_db)):
+    from app.services import production_service
+
+    return await production_service.start_render(db, output_id)
+
+
+@router.get("/production/executors")
+async def production_executors():
+    from app.services import agent_adapters
+
+    return {"items": agent_adapters.status()}

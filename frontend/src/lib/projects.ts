@@ -388,3 +388,60 @@ export class AutosaveQueue<T> {
     this.stopped = true;
   }
 }
+
+// ── 流程阶段条（成稿 / 成片）──
+
+export interface FlowStage {
+  id: string;
+  label: string;
+  type: 'role' | 'gate';
+  status: 'pending' | 'running' | 'done' | 'failed' | 'waiting' | 'reused' | 'stopped';
+  round: number;
+  rounds: number;
+  executor: string | null;
+  summary: string | null;
+  error: string | null;
+}
+
+interface StageStep {
+  node: string;
+  status: string;
+  round: number;
+  executor: string;
+  error: string | null;
+  meta: { summary?: string } & Record<string, unknown>;
+}
+
+/** 按模板节点顺序汇总步骤：取每个节点最新一轮（退回循环时轮次 > 1） */
+export function flowStages(
+  graph: { nodes: { id: string; label: string; type: 'role' | 'gate'; enabled?: boolean }[] } | null | undefined,
+  steps: StageStep[],
+): FlowStage[] {
+  if (!graph) return [];
+  return graph.nodes
+    .filter((n) => n.type !== 'gate' || n.enabled !== false || steps.some((s) => s.node === n.id))
+    .map((n) => {
+      const mine = steps.filter((s) => s.node === n.id);
+      const last = mine[mine.length - 1];
+      const rounds = mine.reduce((m, s) => Math.max(m, s.round || 1), 0);
+      return {
+        id: n.id,
+        label: n.label,
+        type: n.type,
+        status: (last?.status as FlowStage['status']) || 'pending',
+        round: last?.round || 0,
+        rounds,
+        executor: last && last.executor !== 'internal' && last.executor !== 'human' ? last.executor : null,
+        summary: (last?.meta?.summary as string | undefined) || null,
+        error: last?.error || null,
+      };
+    });
+}
+
+export const ACTIVE_RUN = ['queued', 'running', 'waiting'];
+
+/** 质检报告里每项的显示：通过 / 不通过 / 跳过 */
+export function qaMark(ok: boolean | null): { text: string; tone: 'ok' | 'bad' | 'skip' } {
+  if (ok === null) return { text: '跳过', tone: 'skip' };
+  return ok ? { text: '通过', tone: 'ok' } : { text: '不通过', tone: 'bad' };
+}

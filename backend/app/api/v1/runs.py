@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
@@ -53,6 +53,7 @@ class ForkBody(BaseModel):
     node: str
     prompt_extra: str | None = Field(default=None, max_length=2000)
     routing_group: str | None = Field(default=None, max_length=50)
+    executor: Literal["internal", "deepseek_harness", "claude_code", "codex"] | None = None
 
 
 class TokenBody(BaseModel):
@@ -162,7 +163,7 @@ async def stop_run(run_id: int, db: AsyncSession = Depends(get_db)):
 async def fork_run(run_id: int, body: ForkBody, db: AsyncSession = Depends(get_db)):
     try:
         run = await engine.fork_run(
-            db, run_id, body.node, {"prompt_extra": body.prompt_extra, "routing_group": body.routing_group}
+            db, run_id, body.node, {"prompt_extra": body.prompt_extra, "routing_group": body.routing_group, "executor": body.executor}
         )
     except engine.FlowError as exc:
         raise _bad(exc) from exc

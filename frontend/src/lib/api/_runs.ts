@@ -21,7 +21,7 @@ export interface FlowGraph {
   name: string;
   version: number;
   nodes: FlowGraphNode[];
-  edges: { from: string; to: string }[];
+  edges: { from: string; to: string; loop?: boolean; max_loops?: number }[];
 }
 
 export interface FlowInputMeta {
@@ -237,7 +237,7 @@ export const runsApi = {
   stop(id: number): Promise<RunView> {
     return request(`/runs/${id}/stop`, { method: 'POST' });
   },
-  fork(id: number, body: { node: string; prompt_extra?: string; routing_group?: string }): Promise<RunView> {
+  fork(id: number, body: { node: string; prompt_extra?: string; routing_group?: string; executor?: string }): Promise<RunView> {
     return request(`/runs/${id}/fork`, { method: 'POST', body: JSON.stringify(body) });
   },
   lineage(artifactId: number): Promise<{ artifact: ArtifactView; sources: LineageNode[]; used_by: { id: number; kind: string; title: string; version: number }[] }> {

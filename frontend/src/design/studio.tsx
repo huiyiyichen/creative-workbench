@@ -9,7 +9,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Input, Modal, message } from 'antd';
 import { Lock, Pencil } from 'lucide-react';
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Button, Cover } from './components';
 import { color, mediaColor } from './tokens';
 import { platformName } from './discover';
@@ -17,7 +17,8 @@ import { discoverApi, type ItemCard } from '@/lib/api/_discover';
 import { libraryApi, libraryFileUrl, type LibraryItem } from '@/lib/api/_library';
 import { mediaUrl } from '@/lib/api/_collection';
 import { projectsApi, type OutputKind, type ProjectAsset, type ProjectMode, type ProjectSource, type ProjectView } from '@/lib/api/_projects';
-import { runsApi } from '@/lib/api/_runs';
+import { runsApi, type RunDetail } from '@/lib/api/_runs';
+import { ACTIVE_RUN, flowStages, type FlowStage } from '@/lib/projects';
 import { METRIC_LABEL, compactNumber } from '@/lib/collection';
 
 export const MODE_LABEL: Record<ProjectMode, string> = {
@@ -631,3 +632,95 @@ export function useDirectionRun(runId: number | undefined) {
   return state;
 }
 
+
+// ── 流程运行：轮询 + 阶段条（成稿 / 成片）──
+
+/** 运行中每 2 秒刷新一次；结束时回调一次。 */
+export function useRunWatch(runId: number | undefined | null, onFinish?: (d: RunDetail) => void) {
+  const [detail, setDetail] = useState<RunDetail | null>(null);
+  const finishRef = useRef(onFinish);
+  useEffect(() => {
+    finishRef.current = onFinish;
+  }, [onFinish]);
+  useEffect(() => {
+    if (!runId) {
+      setDetail(null);
+      return;
+    }
+    let stop = false;
+    let wasActive = false;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const tick = async () => {
+      try {
+        const d = await runsApi.get(runId);
+        if (stop) return;
+        setDetail(d);
+        const active = ACTIVE_RUN.includes(d.run.status) && d.run.status !== 'waiting';
+        if (active) {
+          wasActive = true;
+          timer = setTimeout(tick, 2000);
+        } else if (d.run.status === 'waiting') {
+          timer = setTimeout(tick, 5000);
+        } else if (wasActive) {
+          finishRef.current?.(d);
+        }
+      } catch {
+        if (!stop) timer = setTimeout(tick, 5000);
+      }
+    };
+    void tick();
+    return () => {
+      stop = true;
+      if (timer) clearTimeout(timer);
+    };
+  }, [runId]);
+  return detail;
+}
+
+const STAGE_COLOR: Record<FlowStage['status'], string> = {
+  pending: color.dim,
+  running: color.cy,
+  waiting: color.yl,
+  done: color.gr,
+  reused: color.bl,
+  failed: color.rd,
+  stopped: color.dim,
+};
+const STAGE_TEXT: Record<FlowStage['status'], string> = {
+  pending: '等待',
+  running: '进行中',
+  waiting: '等你处理',
+  done: '完成',
+  reused: '复用',
+  failed: '失败',
+  stopped: '已停止',
+};
+
+export function RunStages({ detail, compact = false }: { detail: RunDetail; compact?: boolean }) {
+  const stages = flowStages(detail.graph, detail.steps);
+  return (
+    <div className="cw-runstages" aria-live="polite">
+      <ol>
+        {stages.map((s) => (
+          <li key={s.id} data-status={s.status} data-gate={s.type === 'gate' || undefined} title={s.error || s.summary || undefined}>
+            <span className="cw-runstage-dot" style={{ background: STAGE_COLOR[s.status] }} />
+            <b>{s.label}</b>
+            <small style={{ color: STAGE_COLOR[s.status] }}>
+              {STAGE_TEXT[s.status]}
+              {s.rounds > 1 ? ` · 第 ${s.round} 轮` : ''}
+            </small>
+            {!compact && s.summary ? <em>{s.summary}</em> : null}
+          </li>
+        ))}
+      </ol>
+      <div className="cw-runstages-foot">
+        <span className="cw-num">¥{detail.run.cost.toFixed(2)}</span>
+        {detail.run.status_reason ? <span className="cw-muted">{detail.run.status_reason}</span> : null}
+        <span className="cw-grow" />
+        <Link className="cw-link-btn" href={`/runs/${detail.run.id}`}>
+          查看过程
+        </Link>
+      </div>
+    </div>
+  );
+}

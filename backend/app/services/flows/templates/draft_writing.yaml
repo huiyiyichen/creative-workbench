@@ -1,0 +1,42 @@
+# 成稿（创作工作台设计 7.1）：写手 → 审校 → 写手修改 →〔接受〕→ 写入文稿
+key: draft_writing
+name: 成稿
+version: 1
+description: 写手按设定、来源和所选方向写初稿，审校逐段提意见，写手据此修改；接受后写成文稿的新版本。
+inputs:
+  project_id: {type: string, required: true, label: 项目}
+  topic: {type: string, label: 主题}
+budget:
+  cost: 2.0
+  seconds: 1200
+  steps: 10
+nodes:
+  - id: write
+    role: writer
+    label: 写手
+    routing_group: default
+    params: {mode: draft}
+  - id: review
+    role: reviewer
+    label: 审校
+    after: [write]
+    routing_group: default
+  - id: revise
+    role: writer
+    label: 写手修改
+    after: [review]
+    reads: [write]
+    routing_group: default
+    params: {mode: revise}
+  - id: accept
+    type: gate
+    label: 接受
+    after: [revise]
+    gate:
+      kind: accept
+      can_disable: true
+      enabled: true
+  - id: apply
+    role: apply_draft
+    label: 写入文稿
+    after: [accept]

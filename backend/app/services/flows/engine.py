@@ -86,6 +86,8 @@ class FlowState(TypedDict, total=False):
     inputs: dict
     outputs: Annotated[dict, merge_outputs]
     decisions: Annotated[dict, merge_dict]
+    rounds: Annotated[dict, merge_dict]  # 节点 → 已执行轮次（退回循环用）
+    verdicts: Annotated[dict, merge_dict]  # 节点 → 最近一次产物的 passed
     branch: str | None
 
 
@@ -140,18 +142,34 @@ def set_checkpointer(saver: Any) -> None:
 
 
 def _input_ids(spec: FlowSpec, node: NodeSpec, state: FlowState) -> list[int]:
+    """上游节点的全部产物 + reads 节点的最新一个产物（退回时的反馈、成稿修改时的原稿）。"""
     outs = state.get("outputs") or {}
     ids: list[int] = []
+
+    def upstream(nid: str) -> list[int]:
+        n = spec.node(nid)
+        if n.type == "gate":  # 关卡不产出产物：把它上游的产物传下去
+            return [i for g in n.after for i in upstream(g)]
+        return list(outs.get(nid, []))
+
     for a in node.after:
-        ids.extend(i for i in outs.get(a, []) if i not in ids)
+        ids.extend(i for i in upstream(a) if i not in ids)
+    for a in node.reads:
+        latest = (outs.get(a) or [])[-1:]
+        ids.extend(i for i in latest if i not in ids)
     return ids
 
 
 async def _artifact_views(db: AsyncSession, ids: list[int]) -> list[dict[str, Any]]:
     if not ids:
         return []
+    from app.models.agent_run import ArtifactLink
+
     rows = {a.id: a for a in (await db.execute(select(Artifact).where(Artifact.id.in_(ids)))).scalars()}
-    return [trace_service.artifact_view(rows[i]) for i in ids if i in rows]
+    links: dict[int, list[ArtifactLink]] = {}
+    for ln in (await db.execute(select(ArtifactLink).where(ArtifactLink.artifact_id.in_(ids)))).scalars():
+        links.setdefault(ln.artifact_id, []).append(ln)
+    return [trace_service.artifact_view(rows[i], links.get(i)) for i in ids if i in rows]
 
 
 async def _check_budget(db: AsyncSession, run: AgentRun) -> None:
@@ -192,6 +210,7 @@ def _make_role_node(spec: FlowSpec, node: NodeSpec):
         inputs = state.get("inputs") or {}
         branch = state.get("branch") if node.parallel else None
         input_ids = _input_ids(spec, node, state)
+        rnd = int((state.get("rounds") or {}).get(node.id) or 0) + 1
         async with _session() as db:
             run = await db.get(AgentRun, run_id, populate_existing=True)
             if run is None or run.status == "stopped":
@@ -211,7 +230,7 @@ def _make_role_node(spec: FlowSpec, node: NodeSpec):
                     status="reused",
                 )
                 await trace_service.finish_step(db, step, status="reused", output_artifact_ids=list(reuse))
-                return {"outputs": {node.id: list(reuse)}}
+                return {"outputs": {node.id: list(reuse)}, "rounds": {node.id: rnd}}
             await _check_budget(db, run)
             override = (inputs.get("_overrides") or {}).get(node.id) or {}
             step = await trace_service.start_step(
@@ -220,8 +239,9 @@ def _make_role_node(spec: FlowSpec, node: NodeSpec):
                 node=node.id,
                 role=node.role or "",
                 label=node.label,
-                executor=node.executor,
+                executor=_executor(node, inputs, override),
                 branch=branch,
+                round=rnd,
                 input_artifact_ids=input_ids,
                 meta={
                     "params": node.params,
@@ -239,6 +259,9 @@ def _make_role_node(spec: FlowSpec, node: NodeSpec):
                     branch=branch,
                     input_artifacts=await _artifact_views(db, input_ids),
                     override=override,
+                    decisions=dict(state.get("decisions") or {}),
+                    round=rnd,
+                    executor=_executor(node, inputs, override),
                 )
                 outs = await ROLE_IMPLS[node.role or ""](ctx)
                 ids = []
@@ -255,13 +278,18 @@ def _make_role_node(spec: FlowSpec, node: NodeSpec):
                     )
                     ids.append(art.id)
                 summary = None
+                update: dict[str, Any] = {"outputs": {node.id: ids}, "rounds": {node.id: rnd}}
                 if outs:
                     c = outs[0].content
                     summary = c.get("summary") or (f"{len(c.get('cards') or [])} 个方向" if "cards" in c else None)
+                    if "passed" in c:
+                        update["verdicts"] = {node.id: bool(c["passed"])}
+                elif ctx.summary:
+                    summary = ctx.summary
                 await trace_service.finish_step(
                     db, step, output_artifact_ids=ids, meta={"summary": summary} if summary else None
                 )
-                return {"outputs": {node.id: ids}}
+                return update
             except asyncio.CancelledError:
                 await db.rollback()
                 await trace_service.finish_step(db, step, status="stopped", error="运行被停止")
@@ -275,7 +303,12 @@ def _make_role_node(spec: FlowSpec, node: NodeSpec):
     return run_node
 
 
-def gate_options(arts: list[dict[str, Any]]) -> list[dict[str, Any]]:
+ACCEPT_OPTIONS = [{"id": "accept", "title": "接受"}, {"id": "reject", "title": "不接受"}]
+
+
+def gate_options(arts: list[dict[str, Any]], kind: str | None = None) -> list[dict[str, Any]]:
+    if kind == "accept":
+        return [dict(o) for o in ACCEPT_OPTIONS]
     for a in reversed(arts):
         if a["kind"] == "direction_cards":
             return [{**c, "artifact_id": a["id"]} for c in (a.get("content") or {}).get("cards") or []]
@@ -291,7 +324,7 @@ def _make_gate_node(spec: FlowSpec, node: NodeSpec):
         enabled = (inputs.get("_gates") or {}).get(node.id, node.gate.get("enabled", True))
         input_ids = _input_ids(spec, node, state)
         async with _session() as db:
-            options = gate_options(await _artifact_views(db, input_ids))
+            options = gate_options(await _artifact_views(db, input_ids), node.gate.get("kind"))
             if not enabled:
                 step = await trace_service.start_step(
                     db,
@@ -303,7 +336,8 @@ def _make_gate_node(spec: FlowSpec, node: NodeSpec):
                     input_artifact_ids=input_ids,
                     meta={"auto": True},
                 )
-                await trace_service.finish_step(db, step, meta={"summary": "关卡已关闭，保留全部方向"})
+                auto = "关卡已关闭，自动接受" if node.gate.get("kind") == "accept" else "关卡已关闭，保留全部方向"
+                await trace_service.finish_step(db, step, meta={"summary": auto})
                 return {"decisions": {node.id: {"auto": True}}}
             # interrupt 恢复时节点会从头再跑一遍：复用已在等待的步骤
             step = (
@@ -389,15 +423,38 @@ def compile_graph(spec: FlowSpec, checkpointer: Any) -> Any:
             g.add_conditional_edges(n.after[0] if n.after else START, route, [n.id])
         elif not n.after:
             g.add_edge(START, n.id)
+        elif any(spec.node(a).loop_to for a in n.after):
+            if len(n.after) > 1:
+                raise FlowSpecError(f"节点 {n.id} 接在退回节点后面时只能有一个上游")
+            # 边由退回节点的条件路由给出
         elif len(n.after) == 1:
             g.add_edge(n.after[0], n.id)
         else:
             g.add_edge(n.after, n.id)
     upstream = {a for n in spec.nodes for a in n.after}
     for n in spec.nodes:
+        if n.loop_to:
+            downstream = [m.id for m in spec.nodes if n.id in m.after]
+            if any(m.parallel for m in spec.nodes if m.id in downstream):
+                raise FlowSpecError(f"退回节点 {n.id} 的下游不能是并行节点")
+
+            def loop_route(state: FlowState, n: NodeSpec = n, downstream: list[str] = downstream) -> Any:
+                passed = (state.get("verdicts") or {}).get(n.id, True)
+                done = int((state.get("rounds") or {}).get(n.loop_to) or 0)
+                if not passed and done <= n.max_loops:
+                    return n.loop_to
+                return downstream or END
+
+            g.add_conditional_edges(n.id, loop_route, [n.loop_to, *(downstream or [END])])
+            continue
         if n.id not in upstream:
             g.add_edge(n.id, END)
     return g.compile(checkpointer=checkpointer)
+
+
+def _executor(node: NodeSpec, inputs: dict[str, Any], override: dict[str, Any]) -> str:
+    """执行者：重跑设置 > 运行输入里按节点指定（例如产出物的执行者设置）> 模板。"""
+    return str(override.get("executor") or (inputs.get("_executors") or {}).get(node.id) or node.executor)
 
 
 async def get_graph(spec: FlowSpec) -> Any:
@@ -469,9 +526,22 @@ async def _drive(run_id: int, command: Any) -> None:
                     run.status = "waiting"
                     await db.commit()
             return
-        await _set_status(
-            run_id, "done", None, finished_at=datetime.now(UTC), outputs=await _final_outputs(run_id, snap.values)
-        )
+        failed_loops = [
+            n.label for n in spec.nodes if n.loop_to and (snap.values.get("verdicts") or {}).get(n.id) is False
+        ]
+        if failed_loops:
+            await _set_status(
+                run_id,
+                "failed",
+                f"{'、'.join(failed_loops)}退回 {max(n.max_loops for n in spec.nodes if n.loop_to)} 次后仍未通过，已停下。"
+                "可以在节点图里查看问题，或从「制作」重跑。",
+                finished_at=datetime.now(UTC),
+                outputs=await _final_outputs(run_id, snap.values),
+            )
+        else:
+            await _set_status(
+                run_id, "done", None, finished_at=datetime.now(UTC), outputs=await _final_outputs(run_id, snap.values)
+            )
     except BudgetExceeded as exc:
         await _set_status(run_id, "paused", f"超出预算：{exc}。可以追加预算后继续，或停止。")
     except (asyncio.CancelledError, RunStopped):
@@ -481,6 +551,31 @@ async def _drive(run_id: int, command: Any) -> None:
         await _set_status(run_id, "failed", str(exc) or exc.__class__.__name__, finished_at=datetime.now(UTC))
     finally:
         _tasks.pop(run_id, None)
+        await _run_finish_hook(run_id)
+
+
+# 流程结束（完成 / 失败 / 停止 / 暂停）时的业务回调：按流程 key 懒加载，避免引擎依赖业务服务
+FINISH_HOOKS: dict[str, str] = {
+    "video_production": "app.services.production_service:on_run_finished",
+    "draft_writing": "app.services.draft_flow:on_run_finished",
+}
+
+
+async def _run_finish_hook(run_id: int) -> None:
+    try:
+        async with _session() as db:
+            run = await db.get(AgentRun, run_id, populate_existing=True)
+            if run is None or run.status in ACTIVE or run.status == "waiting":
+                return
+            target = FINISH_HOOKS.get(run.flow_key)
+            if not target:
+                return
+            import importlib
+
+            mod, fn = target.split(":")
+            await getattr(importlib.import_module(mod), fn)(db, run)
+    except Exception:  # noqa: BLE001
+        logger.warning("finish hook failed for run %s", run_id, exc_info=True)
 
 
 def _launch(run_id: int, command: Any) -> asyncio.Task:
@@ -675,7 +770,7 @@ async def fork_run(
     inputs = {k: v for k, v in (parent.inputs or {}).items() if k not in ("_reuse", "_overrides")}
     inputs["_reuse"] = reuse
     clean_override = {
-        k: v for k, v in (override or {}).items() if k in ("prompt_extra", "routing_group") and str(v or "").strip()
+        k: v for k, v in (override or {}).items() if k in ("prompt_extra", "routing_group", "executor") and str(v or "").strip()
     }
     if clean_override:
         inputs["_overrides"] = {node_id: clean_override}

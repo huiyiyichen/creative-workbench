@@ -51,6 +51,13 @@ class RoleContext:
     branch: str | None = None
     input_artifacts: list[dict[str, Any]] = field(default_factory=list)
     override: dict[str, Any] = field(default_factory=dict)
+    decisions: dict[str, Any] = field(default_factory=dict)
+    round: int = 1
+    executor: str = "internal"
+    summary: str | None = None  # 没有产物时的步骤摘要
+
+    def latest(self, kind: str) -> dict[str, Any] | None:
+        return next((a for a in reversed(self.input_artifacts) if a["kind"] == kind), None)
 
     @property
     def routing_group(self) -> str:
@@ -373,4 +380,12 @@ async def planner(ctx: RoleContext) -> list[ArtifactOut]:
     return [ArtifactOut("direction_cards", f"方向卡 · {topic}"[:300], {"topic": topic, "cards": cards}, links)]
 
 
-ROLE_IMPLS = {"researcher": researcher, "aggregator": aggregator, "planner": planner}
+ROLE_IMPLS: dict[str, Any] = {"researcher": researcher, "aggregator": aggregator, "planner": planner}
+
+
+def _register_creative_roles() -> None:
+    from app.services.flows import roles_draft, roles_video
+
+    ROLE_IMPLS.update(roles_draft.ROLES)
+    ROLE_IMPLS.update(roles_video.ROLES)
+_register_creative_roles()

@@ -138,7 +138,7 @@ def test_spec_loads_and_validates():
     g = spec.graph_view({"choose": False})
     assert {"from": "plan", "to": "choose"} in g["edges"] and g["nodes"][-1]["enabled"] is False
     with pytest.raises(FlowSpecError):
-        parse_spec({"key": "x", "nodes": [{"id": "a", "role": "writer"}]})
+        parse_spec({"key": "x", "nodes": [{"id": "a", "role": "editor"}]})
     with pytest.raises(FlowSpecError):
         parse_spec({"key": "x", "nodes": [{"id": "a", "role": "planner", "after": ["b"]}]})
     with pytest.raises(FlowSpecError):

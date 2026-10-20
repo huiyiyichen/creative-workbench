@@ -9,7 +9,21 @@ from typing import Any
 import yaml
 
 TEMPLATE_DIR = Path(__file__).parent / "templates"
-ROLES = {"researcher", "aggregator", "planner"}
+ROLES = {
+    "researcher",
+    "aggregator",
+    "planner",
+    # 成稿流程
+    "writer",
+    "reviewer",
+    "apply_draft",
+    # 讲解视频流程
+    "storyboarder",
+    "artist",
+    "producer",
+    "qa",
+}
+GATE_KINDS = {"choose_direction", "accept"}
 EXECUTORS = {"internal", "deepseek_harness", "claude_code", "codex"}
 
 
@@ -30,6 +44,8 @@ class NodeSpec:
     params: dict[str, Any] = field(default_factory=dict)
     gate: dict[str, Any] = field(default_factory=dict)
     max_loops: int = 0
+    loop_to: str | None = None  # 本节点产物 passed=False 时退回到哪个节点（最多 max_loops 次）
+    reads: list[str] = field(default_factory=list)  # 除上游外还要读取哪些节点的产物（不构成边）
 
 
 @dataclass
@@ -77,10 +93,14 @@ class FlowSpec:
                     "routing_group": n.routing_group,
                     "enabled": enabled,
                     "can_disable": bool(n.gate.get("can_disable")) if n.type == "gate" else False,
+                    "gate_kind": n.gate.get("kind") if n.type == "gate" else None,
+                    "max_loops": n.max_loops,
                 }
             )
             for a in n.after:
                 edges.append({"from": a, "to": n.id})
+            if n.loop_to:
+                edges.append({"from": n.id, "to": n.loop_to, "loop": True, "max_loops": n.max_loops})
         return {"key": self.key, "name": self.name, "version": self.version, "nodes": nodes, "edges": edges}
 
 
@@ -104,6 +124,16 @@ def parse_spec(data: dict[str, Any]) -> FlowSpec:
         for a in after:
             if a not in seen:
                 raise FlowSpecError(f"节点 {nid} 依赖的 {a} 必须写在它前面")
+        if ntype == "gate" and (raw.get("gate") or {}).get("kind") not in GATE_KINDS:
+            raise FlowSpecError(f"关卡 {nid} 的类型未知")
+        reads = [str(a) for a in raw.get("reads") or []]  # 可以读后面的节点（退回时的反馈）
+        loop_to = raw.get("loop_to")
+        if loop_to is not None:
+            loop_to = str(loop_to)
+            if loop_to not in seen:
+                raise FlowSpecError(f"节点 {nid} 退回的 {loop_to} 必须写在它前面")
+            if int(raw.get("max_loops") or 0) < 1:
+                raise FlowSpecError(f"节点 {nid} 有退回时 max_loops 至少为 1")
         nodes.append(
             NodeSpec(
                 id=nid,
@@ -117,9 +147,16 @@ def parse_spec(data: dict[str, Any]) -> FlowSpec:
                 params=dict(raw.get("params") or {}),
                 gate=dict(raw.get("gate") or {}),
                 max_loops=int(raw.get("max_loops") or 0),
+                loop_to=loop_to,
+                reads=reads,
             )
         )
         seen.add(nid)
+    ids = {n.id for n in nodes}
+    for n in nodes:
+        for a in n.reads:
+            if a not in ids or a == n.id:
+                raise FlowSpecError(f"节点 {n.id} 读取的 {a} 不存在")
     return FlowSpec(
         key=str(data["key"]),
         name=str(data.get("name") or data["key"]),

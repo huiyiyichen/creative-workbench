@@ -5,10 +5,11 @@
 import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import { Input, Select, Switch, message } from 'antd';
 import { Button, Card } from '@/design/components';
-import { OUTPUT_STATUS, apiError, useProject } from '@/design/studio';
+import { OUTPUT_STATUS, RunStages, apiError, useProject, useRunWatch } from '@/design/studio';
+import { runsApi } from '@/lib/api/_runs';
 import { libraryApi, type StyleEntry } from '@/lib/api/_library';
 import { projectsApi, type OutputView } from '@/lib/api/_projects';
-import { PLATFORM_LIMITS, platformIssues, stripTags, textLen } from '@/lib/projects';
+import { PLATFORM_LIMITS, fmtClock, platformIssues, qaMark, stripTags, textLen } from '@/lib/projects';
 import { useOutputs } from '../_ctx';
 
 async function copy(text: string, what: string) {
@@ -311,9 +312,56 @@ const EXECUTORS = [
   { value: 'codex', label: 'Codex' },
 ];
 
+interface QaReport {
+  passed: boolean;
+  checks: { key: string; label: string; ok: boolean | null; detail: string }[];
+  issues: { id: string; check: string; shot?: number; problem: string }[];
+}
+
+function QaView({ qa }: { qa: QaReport }) {
+  return (
+    <div>
+      <dl className="cw-qa">
+        {qa.checks.map((c) => {
+          const m = qaMark(c.ok);
+          return (
+            <div key={c.key} style={{ display: 'contents' }}>
+              <dt>{c.label}</dt>
+              <dd>{c.detail}</dd>
+              <dd data-tone={m.tone}>{m.text}</dd>
+            </div>
+          );
+        })}
+      </dl>
+      {qa.issues.length ? (
+        <ul className="cw-muted" style={{ fontSize: 12, margin: '6px 0 0', paddingLeft: 18 }}>
+          {qa.issues.slice(0, 8).map((i) => (
+            <li key={i.id}>{i.shot ? `第 ${i.shot} 镜：` : ''}{i.problem}</li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 function ProductionWorkspace({ output, onSaved }: { output: OutputView; onSaved: (o: OutputView) => void }) {
   const s = output.settings as { style_id?: string | null; presentation?: string | null; aspect_ratio?: string; bilingual?: boolean; executor?: string };
   const styles = useStyles();
+  const [executors, setExecutors] = useState<{ key: string; label: string; available: boolean; hint: string | null }[]>([]);
+  const [busy, setBusy] = useState(false);
+  const runId = (output.content?.run_id as number | undefined) || null;
+  const refresh = useCallback(async () => onSaved(await projectsApi.output(output.id)), [output.id, onSaved]);
+  const run = useRunWatch(runId, () => void refresh());
+  const active = Boolean(run && ['queued', 'running', 'waiting'].includes(run.run.status));
+  // 制作中每 3 秒刷新一次产出物，拿到制作阶段与百分比
+  useEffect(() => {
+    if (!active) return;
+    const t = setInterval(() => void refresh().catch(() => {}), 3000);
+    return () => clearInterval(t);
+  }, [active, refresh]);
+  useEffect(() => {
+    projectsApi.executors().then((r) => setExecutors(r.items)).catch(() => {});
+  }, []);
   const patch = async (v: Record<string, unknown>) => {
     try {
       onSaved(await projectsApi.patchOutput(output.id, { settings: v }));
@@ -321,50 +369,117 @@ function ProductionWorkspace({ output, onSaved }: { output: OutputView; onSaved:
       message.error(apiError(err));
     }
   };
+  const start = async () => {
+    setBusy(true);
+    try {
+      const r = await projectsApi.render(output.id);
+      onSaved(r.output);
+      message.success('已开始制作');
+    } catch (err) {
+      message.error(apiError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const resume = async () => {
+    if (!runId) return;
+    setBusy(true);
+    try {
+      await runsApi.continue(runId);
+      await refresh();
+    } catch (err) {
+      message.error(apiError(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const stop = async () => {
+    if (!runId || !window.confirm('停止这次制作？')) return;
+    await runsApi.stop(runId).catch((err) => message.error(apiError(err)));
+    await refresh();
+  };
+  const current = output.artifacts?.find((a) => a.id === output.content?.artifact_id) || output.artifacts?.[0];
+  const prog = (current?.progress || {}) as { stage?: string; percent?: number | null; elapsed_seconds?: number; qa?: QaReport };
+  const execOptions = EXECUTORS.map((e) => {
+    const st = executors.find((x) => x.key === e.value);
+    return { ...e, label: st && !st.available ? `${e.label}（未安装）` : e.label, title: st?.hint || undefined };
+  });
+  const execHint = executors.find((x) => x.key === (s.executor || 'deepseek_harness'));
   return (
     <div className="cw-production">
       <Card title="制作参数" extra={<small>属于制作层：修改不影响定稿</small>}>
         <div className="cw-brief">
           <label>
             <span>视觉风格</span>
-            <Select allowClear value={s.style_id || undefined} placeholder="不指定" options={styles.map((x) => ({ value: x.key, label: x.name }))} onChange={(v) => patch({ style_id: v ?? null })} />
+            <Select allowClear value={s.style_id || undefined} placeholder="不指定" options={styles.map((x) => ({ value: x.key, label: x.name }))} onChange={(v) => patch({ style_id: v ?? null })} disabled={active} />
           </label>
           {output.kind === 'video' ? (
             <label>
               <span>表现方案</span>
-              <Select value={s.presentation || 'kinetic'} options={PRESENTATIONS} onChange={(v) => patch({ presentation: v })} />
+              <Select value={s.presentation || 'kinetic'} options={PRESENTATIONS} onChange={(v) => patch({ presentation: v })} disabled={active} />
             </label>
           ) : null}
           <label>
             <span>画幅</span>
-            <Select value={s.aspect_ratio || '16:9'} options={['16:9', '9:16', '1:1'].map((v) => ({ value: v, label: v }))} onChange={(v) => patch({ aspect_ratio: v })} />
+            <Select value={s.aspect_ratio || '16:9'} options={['16:9', '9:16', '1:1'].map((v) => ({ value: v, label: v }))} onChange={(v) => patch({ aspect_ratio: v })} disabled={active} />
           </label>
           <label>
             <span>执行者</span>
-            <Select value={s.executor || 'deepseek_harness'} options={EXECUTORS} onChange={(v) => patch({ executor: v })} />
+            <Select value={s.executor || 'deepseek_harness'} options={execOptions} onChange={(v) => patch({ executor: v })} disabled={active} />
           </label>
           <label className="cw-inline">
-            <Switch size="small" checked={Boolean(s.bilingual)} onChange={(v) => patch({ bilingual: v })} /> 中英字幕卡
+            <Switch size="small" checked={Boolean(s.bilingual)} onChange={(v) => patch({ bilingual: v })} disabled={active} /> 中英字幕卡
           </label>
         </div>
+        {execHint && !execHint.available ? <p className="cw-error" style={{ fontSize: 12 }}>{execHint.hint}</p> : null}
         <div className="cw-row" style={{ marginTop: 12 }}>
-          <span className="cw-muted">基于 v{output.based_on_version ?? '—'}</span>
+          <span className="cw-muted">基于 v{output.based_on_version ?? output.latest_finalized ?? '—'}</span>
           <span className="cw-grow" />
-          <Button variant="primary" disabled title="讲解视频流程（分镜 → 美术 → 制作 → 质检）在下一步接入">
-            开始制作
+          {active ? (
+            <Button onClick={stop}>停止</Button>
+          ) : run && ['failed', 'paused'].includes(run.run.status) ? (
+            <Button onClick={resume} disabled={busy}>从失败处继续</Button>
+          ) : null}
+          <Button variant="primary" onClick={start} disabled={!output.can_start || active || busy} title={output.can_start ? '分镜 → 美术 → 制作 → 质检' : '定稿后可制作'}>
+            {active ? '制作中…' : output.status === 'done' || output.status === 'failed' ? '重新制作' : '开始制作'}
           </Button>
         </div>
       </Card>
+      {run ? (
+        <Card title="本次制作" extra={<small className="cw-num">#{run.run.id}</small>}>
+          <RunStages detail={run} />
+          {active && prog.stage ? (
+            <div className="cw-prodbar" style={{ marginTop: 10 }}>
+              <span>{prog.stage}</span>
+              <progress max={100} value={prog.percent ?? undefined} />
+              <span className="cw-num">{prog.percent != null ? `${prog.percent}%` : ''}</span>
+              <span className="cw-num cw-muted">{prog.elapsed_seconds != null ? fmtClock(prog.elapsed_seconds) : ''}</span>
+            </div>
+          ) : null}
+          {prog.qa ? (
+            <div style={{ marginTop: 10 }}>
+              <h4 style={{ margin: '0 0 6px', fontSize: 13 }}>质检报告 {prog.qa.passed ? '· 通过' : '· 未通过'}</h4>
+              <QaView qa={prog.qa} />
+            </div>
+          ) : null}
+          {current?.preview_path && current.status === 'done' ? (
+            <video src={current.preview_path} controls style={{ width: '100%', marginTop: 10, borderRadius: 8, background: '#000' }} />
+          ) : null}
+        </Card>
+      ) : null}
       <Card title="历史成片">
         {output.artifacts?.length ? (
           <ul className="cw-hist">
             {output.artifacts.map((a) => {
-              const [label, c] = OUTPUT_STATUS[a.status] || [a.status, '#8d96a3'];
+              const [label, c] = OUTPUT_STATUS[a.status === 'error' ? 'failed' : a.status] || [a.status, '#8d96a3'];
+              const qa = (a.progress as { qa?: QaReport })?.qa;
               return (
                 <li key={a.id}>
                   <span className="cw-num">#{a.id} v{a.version}</span>
                   <span style={{ color: c }}>{label}</span>
                   {a.settings?.style_id ? <span className="cw-muted">{String(a.settings.style_id)}</span> : null}
+                  {a.settings?.executor ? <span className="cw-muted">{String(a.settings.executor)}</span> : null}
+                  {qa ? <span style={{ color: qa.passed ? '#6ccf68' : '#ff6159' }}>质检{qa.passed ? '通过' : '未通过'}</span> : null}
                   {a.preview_path ? (
                     <a className="cw-link-btn" href={a.preview_path} target="_blank" rel="noreferrer">
                       预览

@@ -66,6 +66,7 @@ export interface IdeaState {
 export interface ProjectView extends ProjectSummary {
   brief: CopyBrief;
   idea: IdeaState;
+  ai_draft?: { run_id?: number; status?: string; reason?: string | null };
   sources: ProjectSource[];
   running_tasks: number;
   draft_token: string | null;
@@ -261,8 +262,19 @@ export const projectsApi = {
   saveDraft(id: number, draft: Draft, draft_token: string | null, force = false): Promise<{ draft_token: string; version: number; saved_at: string }> {
     return request(`/projects/${id}/draft`, { method: 'PUT', body: j({ draft, draft_token, force }) });
   },
-  generate(id: number, mode: 'blank' | 'template' | 'ai'): Promise<DraftView> {
+  generate(id: number, mode: 'blank' | 'template'): Promise<DraftView> {
     return request(`/projects/${id}/draft/generate`, { method: 'POST', body: j({ mode }), timeoutMs: 120_000 });
+  },
+  /** AI 写初稿：启动成稿流程（写手 → 审校 → 写手修改），返回运行 id */
+  aiDraft(id: number): Promise<{ run_id: number; status: string }> {
+    return request(`/projects/${id}/draft/generate`, { method: 'POST', body: j({ mode: 'ai' }), timeoutMs: 60_000 });
+  },
+  /** 讲解视频 / MV：启动成片流程（分镜 → 美术 → 制作 → 质检） */
+  render(oid: number): Promise<{ run_id: number; output: OutputView }> {
+    return request(`/outputs/${oid}/render`, { method: 'POST', timeoutMs: 60_000 });
+  },
+  executors(): Promise<{ items: { key: string; label: string; available: boolean; hint: string | null }[] }> {
+    return request('/production/executors');
   },
   versions(id: number): Promise<{ finalized_version: number | null; items: VersionItem[] }> {
     return request(`/projects/${id}/versions`);

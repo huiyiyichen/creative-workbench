@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { Input, Modal, message } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/design/components';
-import { MODE_LABEL, apiError, useProject } from '@/design/studio';
+import { MODE_LABEL, RunStages, apiError, useProject, useRunWatch } from '@/design/studio';
 import { AssistantPanel, ScriptTable, SourcesPanel, SuggestionReview, VersionsPanel } from '@/design/studio-draft';
 import {
   AutosaveQueue,
@@ -80,6 +80,16 @@ export default function DraftPage() {
     window.addEventListener('beforeunload', onLeave);
     return () => window.removeEventListener('beforeunload', onLeave);
   }, []);
+
+  // 「AI 写初稿」的成稿流程：进行中显示阶段条，结束后载入新版本
+  const aiRunId = project?.ai_draft?.run_id;
+  const aiRun = useRunWatch(aiRunId, (d) => {
+    if (d.run.status === 'done') message.success('AI 初稿已写入文稿');
+    void reload();
+    void load();
+    setRefreshKey((k) => k + 1);
+  });
+  const aiActive = Boolean(aiRun && ['queued', 'running', 'waiting'].includes(aiRun.run.status));
 
   const locked = Boolean(project?.finalized_version);
   const isVideo = view ? view.brief.mode !== 'article' : false;
@@ -212,6 +222,14 @@ export default function DraftPage() {
           <Button onClick={() => resolveConflict(false)}>载入最新</Button>
           <Button onClick={() => resolveConflict(true)}>用我的覆盖</Button>
           <small className="cw-muted">覆盖前会先把对方的内容存成一个版本</small>
+        </div>
+      ) : null}
+      {aiRun && (aiActive || aiRun.run.status === 'failed') ? (
+        <div className="cw-banner" data-tone={aiRun.run.status === 'failed' ? 'warn' : undefined}>
+          <span>{aiActive ? 'AI 正在写初稿，完成后会写成新版本；现在的修改会被它覆盖（旧内容留在版本里）。' : 'AI 写初稿没有完成。'}</span>
+          <div style={{ flexBasis: '100%' }}>
+            <RunStages detail={aiRun} compact />
+          </div>
         </div>
       ) : null}
       {locked ? (

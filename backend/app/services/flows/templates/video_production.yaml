@@ -1,0 +1,36 @@
+# 讲解视频 / MV 一键成片（创作工作台设计 6.2）：分镜 → 美术 → 制作 → 质检（不通过退回制作，最多 2 次）
+key: video_production
+name: 成片
+version: 1
+description: 分镜按定稿细化镜头，美术给每个镜头出关键帧，制作按执行者生成工程并渲染，质检检查时长、字幕、黑帧、静音和分镜一致性。
+inputs:
+  project_id: {type: string, required: true, label: 项目}
+  output_id: {type: string, required: true, label: 产出物}
+  topic: {type: string, label: 主题}
+budget:
+  cost: 3.0
+  seconds: 3600
+  steps: 16
+nodes:
+  - id: storyboard
+    role: storyboarder
+    label: 分镜
+    routing_group: default
+  - id: art
+    role: artist
+    label: 美术
+    after: [storyboard]
+    routing_group: default
+  - id: produce
+    role: producer
+    label: 制作
+    executor: deepseek_harness
+    after: [art]
+    reads: [storyboard, qa]
+  - id: qa
+    role: qa
+    label: 质检
+    after: [produce]
+    reads: [storyboard]
+    loop_to: produce
+    max_loops: 2

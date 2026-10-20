@@ -105,6 +105,10 @@ def creative_text(text: str) -> str:
         kept = kept.strip().rstrip("；;，,")
         if kept:
             cleaned.append(kept)
+        elif not paragraph.strip() and cleaned and cleaned[-1] != "":
+            cleaned.append("")  # 保留段落之间的空行（段落 id 按空行分段）
+    while cleaned and cleaned[-1] == "":
+        cleaned.pop()
     return "\n".join(cleaned)
 
 

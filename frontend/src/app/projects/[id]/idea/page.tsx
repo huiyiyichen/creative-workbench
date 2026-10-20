@@ -66,6 +66,14 @@ export default function IdeaPage() {
       await reload();
       router.push(`/projects/${project.id}/draft`);
     });
+  const aiDraft = () =>
+    guard('ai', async () => {
+      if (!brief.theme.trim()) throw new Error('先写一个主题');
+      await save();
+      await projectsApi.aiDraft(project.id);
+      await reload();
+      router.push(`/projects/${project.id}/draft`);
+    });
   const empty = !project.sources.length && !brief.theme;
   return (
     <div className="cw-idea">
@@ -194,8 +202,8 @@ export default function IdeaPage() {
               <Button onClick={() => start('template')} disabled={busy !== null}>
                 按模板生成结构
               </Button>
-              <Button variant="primary" disabled title="成稿流程（写手 → 审校 → 写手修改）接入后可用">
-                AI 写初稿
+              <Button variant="primary" onClick={aiDraft} disabled={busy !== null} title="写手 → 审校 → 写手修改，完成后写成文稿的新版本">
+                {busy === 'ai' ? '启动中…' : 'AI 写初稿'}
               </Button>
             </>
           )}

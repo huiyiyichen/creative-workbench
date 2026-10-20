@@ -7,7 +7,7 @@
  */
 
 import Link from 'next/link';
-import { Input, Modal, message } from 'antd';
+import { Input, message, Modal, Select } from 'antd';
 import { Background, Handle, Position, ReactFlow, type Edge, type Node, type NodeProps } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
 import { Bot, ChevronDown, ChevronRight, GitBranch, User, Wrench } from 'lucide-react';
@@ -135,6 +135,19 @@ function RunNodeCard({ data }: NodeProps<Node<RunNodeData>>) {
 
 const NODE_TYPES = { run: RunNodeCard };
 
+/** 连线标注传递的产物（按上游角色） */
+const EDGE_LABEL: Record<string, string> = {
+  researcher: '研究简报',
+  aggregator: '研究简报',
+  planner: '方向卡',
+  writer: '文稿',
+  reviewer: '审校意见',
+  storyboarder: '分镜',
+  artist: '关键帧',
+  producer: '成片',
+  qa: '质检报告',
+};
+
 /** 按拓扑深度分列；并行节点每个分支一个卡片竖向排开。返回 [节点, 边]。 */
 export function layoutRunGraph(
   graph: FlowGraph,
@@ -144,7 +157,7 @@ export function layoutRunGraph(
 ): [Node<RunNodeData>[], Edge[]] {
   const depth = new Map<string, number>();
   for (const n of graph.nodes) {
-    const preds = graph.edges.filter((e) => e.to === n.id).map((e) => depth.get(e.from) ?? 0);
+    const preds = graph.edges.filter((e) => e.to === n.id && !e.loop).map((e) => depth.get(e.from) ?? 0);
     depth.set(n.id, preds.length ? Math.max(...preds) + 1 : 0);
   }
   const rendered = new Map<string, string[]>();
@@ -172,14 +185,14 @@ export function layoutRunGraph(
         draggable: false,
         data: {
           label: b ? `${n.label} · ${BRANCH_LABEL[b] || b}` : n.label,
-          sub: n.type === 'gate' ? '人工关卡' : EXECUTOR_LABEL[n.executor] || n.executor,
+          sub: n.type === 'gate' ? '人工关卡' : EXECUTOR_LABEL[last?.executor || n.executor] || last?.executor || n.executor,
           status: nodeStatus(mine),
           gate: n.type === 'gate',
           disabled: n.type === 'gate' && !n.enabled,
           round: last?.round || 1,
           attempt: Math.max(1, ...mine.map((s) => s.attempt)),
           selected: selected === id,
-          executor: n.executor,
+          executor: last?.executor || n.executor,
         },
       });
     });
@@ -188,7 +201,7 @@ export function layoutRunGraph(
   const edges: Edge[] = [];
   for (const e of graph.edges) {
     const fromNode = graph.nodes.find((n) => n.id === e.from);
-    const label = fromNode?.role === 'planner' ? '方向卡' : fromNode?.role ? '研究简报' : '';
+    const label = e.loop ? `退回（最多 ${e.max_loops ?? 1} 次）` : EDGE_LABEL[fromNode?.role || ''] ?? '';
     for (const s of rendered.get(e.from) || []) {
       for (const t of rendered.get(e.to) || []) {
         const done = nodes.find((n) => n.id === s)?.data.status;
@@ -198,7 +211,10 @@ export function layoutRunGraph(
           target: t,
           label: (rendered.get(e.from) || []).length > 1 ? undefined : label,
           animated: done === 'running',
-          style: { stroke: done === 'done' || done === 'reused' ? color.dim : color.line, strokeWidth: 1.5 },
+          type: e.loop ? 'smoothstep' : undefined,
+          style: e.loop
+            ? { stroke: color.yl, strokeWidth: 1.2, strokeDasharray: '4 4' }
+            : { stroke: done === 'done' || done === 'reused' ? color.dim : color.line, strokeWidth: 1.5 },
           labelStyle: { fill: color.dim, fontSize: 11 },
           labelBgStyle: { fill: color.base },
         });
@@ -548,6 +564,7 @@ export function StepDetailPanel({
   const [forkOpen, setForkOpen] = useState(false);
   const [extra, setExtra] = useState('');
   const [group, setGroup] = useState('');
+  const [executor, setExecutor] = useState('');
 
   useEffect(() => {
     setD(null);
@@ -561,7 +578,12 @@ export function StepDetailPanel({
   const tools = d.children.filter((c) => c.kind === 'tool');
   const fork = async () => {
     try {
-      const r = await runsApi.fork(runId, { node: d.node, prompt_extra: extra || undefined, routing_group: group || undefined });
+      const r = await runsApi.fork(runId, {
+        node: d.node,
+        prompt_extra: extra || undefined,
+        routing_group: group || undefined,
+        executor: executor || undefined,
+      });
       setForkOpen(false);
       onForked(r.id);
     } catch (err) {
@@ -675,6 +697,20 @@ export function StepDetailPanel({
         <p className="cw-muted">会新建一个分叉运行：上游步骤直接复用这次的产物，从这个节点起按下面的设置重新执行。原运行保留。</p>
         <Input.TextArea rows={3} placeholder="给这个角色的额外要求（可选）" value={extra} onChange={(e) => setExtra(e.target.value)} />
         <Input style={{ marginTop: 8 }} placeholder="换模型组（可选，例如 quality）" value={group} onChange={(e) => setGroup(e.target.value)} />
+        {d.role === 'producer' ? (
+          <Select
+            style={{ marginTop: 8, width: '100%' }}
+            value={executor}
+            onChange={setExecutor}
+            aria-label="换执行者"
+            options={[
+              { value: '', label: '执行者不变' },
+              { value: 'deepseek_harness', label: 'DeepSeek Harness' },
+              { value: 'claude_code', label: 'Claude Code' },
+              { value: 'codex', label: 'Codex' },
+            ]}
+          />
+        ) : null}
       </Modal>
     </div>
   );

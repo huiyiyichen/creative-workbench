@@ -246,6 +246,7 @@ async def project_view(db: AsyncSession, project_id: int) -> dict:
         **project_summary(project, dirty=dirty),
         "brief": copy_brief(spec.get("brief")),
         "idea": spec.get("idea") or {},
+        "ai_draft": spec.get("ai_draft") or {},
         "sources": sources,
         "running_tasks": running,
         "draft_token": project.draft_token,
@@ -855,6 +856,10 @@ async def generate_draft(db: AsyncSession, project_id: int, mode: str) -> dict:
     """blank：空文稿；template：按内容模板生成骨架（compile_draft）。ai 模式走成稿流程（runs）。"""
     from app.services.studio_catalog import catalog_for_user, compile_draft, resolve
 
+    if mode == "ai":
+        from app.services.draft_flow import start_ai_draft
+
+        return await start_ai_draft(db, project_id)
     project = await get_project(db, project_id, lock=True)
     if project.finalized_version:
         raise conflict("finalized", "已定稿，点「继续修改」后才能重写")
