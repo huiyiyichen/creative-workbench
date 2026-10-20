@@ -8,8 +8,11 @@
 import { Input, InputNumber, Modal, message } from 'antd';
 import { LineageDrawer } from './lineage';
 import type { LineageQuery } from '@/lib/api/_runs';
-import { ArrowDown, ArrowUp, Copy, Plus, Trash2 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Copy, GripVertical, Plus, Trash2 } from 'lucide-react';
+import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
+import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { useCallback, useEffect, useMemo, useState, type HTMLAttributes, type ReactNode } from 'react';
 import { Button } from './components';
 import { apiError, reasonLabel } from './studio';
 import { platformName } from './discover';
@@ -68,8 +71,22 @@ export function ScriptTable({
   const dup = (i: number) => onChange([...shots.slice(0, i + 1), { ...shots[i] }, ...shots.slice(i + 1)]);
   const del = (i: number) => onChange(shots.filter((_, k) => k !== i));
   const pct = target > 0 ? Math.min(100, (total / target) * 100) : 0;
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const ids = shots.map((_, i) => `shot-${i}`);
+  const onDragEnd = (e: DragEndEvent) => {
+    if (!e.over || e.active.id === e.over.id) return;
+    const from = ids.indexOf(String(e.active.id));
+    const to = ids.indexOf(String(e.over.id));
+    onChange(moveItem(shots, from, to));
+    onSelect([to]);
+  };
   return (
     <div className="cw-script">
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={() => setOpen(null)} onDragEnd={onDragEnd}>
+      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
       <table className="cw-shots">
         <thead>
           <tr>
@@ -84,7 +101,9 @@ export function ScriptTable({
         <tbody>
           {shots.map((s, i) => (
             <FragmentRow key={i}>
-              <tr
+              <SortableTr
+                id={ids[i]}
+                disabled={readOnly}
                 data-selected={selected.includes(i) || undefined}
                 onClick={(e) => onSelect(e.shiftKey || e.metaKey || e.ctrlKey ? Array.from(new Set([...selected, i])) : [i])}
                 onKeyDown={(e) => {
@@ -100,7 +119,10 @@ export function ScriptTable({
                   }
                 }}
               >
+                {(handle) => (
+                <>
                 <td className="cw-num">
+                  {handle}
                   <button type="button" className="cw-link-btn" onClick={() => setOpen(open === i ? null : i)} aria-expanded={open === i} title="展开全部字段">
                     {i + 1}
                   </button>
@@ -133,12 +155,6 @@ export function ScriptTable({
                 <td className="cw-shot-actions">
                   {!readOnly ? (
                     <>
-                      <button type="button" aria-label="上移" disabled={i === 0} onClick={() => onChange(moveItem(shots, i, i - 1))}>
-                        <ArrowUp size={13} />
-                      </button>
-                      <button type="button" aria-label="下移" disabled={i === shots.length - 1} onClick={() => onChange(moveItem(shots, i, i + 1))}>
-                        <ArrowDown size={13} />
-                      </button>
                       <button type="button" aria-label="在后面插入" onClick={() => insert(i)}>
                         <Plus size={13} />
                       </button>
@@ -151,7 +167,9 @@ export function ScriptTable({
                     </>
                   ) : null}
                 </td>
-              </tr>
+                </>
+                )}
+              </SortableTr>
               {open === i ? (
                 <tr className="cw-shot-more">
                   <td />
@@ -171,6 +189,8 @@ export function ScriptTable({
           ))}
         </tbody>
       </table>
+      </SortableContext>
+      </DndContext>
       {!readOnly ? (
         <Button onClick={() => insert(shots.length - 1)} icon={<Plus size={14} />}>
           加一镜
@@ -189,6 +209,31 @@ export function ScriptTable({
 
 function FragmentRow({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
+}
+
+/** 可拖动的分镜行：拖动柄放在镜号前；键盘可用空格拿起、方向键移动、空格放下。 */
+function SortableTr({
+  id,
+  disabled,
+  children,
+  ...rest
+}: { id: string; disabled?: boolean; children: (handle: ReactNode) => ReactNode } & Omit<HTMLAttributes<HTMLTableRowElement>, 'children'>) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
+  const handle = disabled ? null : (
+    <button type="button" className="cw-drag" aria-label="拖动排序" title="拖动排序" {...attributes} {...listeners}>
+      <GripVertical size={13} />
+    </button>
+  );
+  return (
+    <tr
+      ref={setNodeRef}
+      style={{ transform: CSS.Translate.toString(transform), transition, position: 'relative', zIndex: isDragging ? 2 : undefined }}
+      data-dragging={isDragging || undefined}
+      {...rest}
+    >
+      {children(handle)}
+    </tr>
+  );
 }
 
 // ── 建议审阅（修订样式）──

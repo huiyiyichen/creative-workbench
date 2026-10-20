@@ -43,7 +43,7 @@
 | 工作台按 `content_id` 带入来源失败 | 旧 `/studio` 只做跳转，来源改为 `/projects/new?source=content:<id>` 按 id 直接读取 | `src/lib/__tests__/studio-redirect.test.ts` |
 | 模板 / 风格 / 收藏读取上限 200 | `studio_catalog` 分页读全量 | `test_studio_presets` |
 | 测试顺序污染（post-sync 任务引用） | 更新同步后处理引用、隔离事件循环连接；全量顺序下通过 | `test_analysis_recovery::test_post_sync_pipeline_task_reference_clears_when_done` |
-| `npm run lint` 扫描构建产物、`src` 有 `react-hooks/refs` 问题 | 忽略 `.next-local/**`，逐条修掉 | `npx eslint src`（0 问题） |
+| `npm run lint` 扫描构建产物、`src` 有 `react-hooks/refs` 问题 | 忽略 `.next-local/**`，逐条修掉 | `npx eslint src`（0 错误） |
 | 日报异步生成的占位记录与后台结果错位 | 后台按请求返回的记录 id 更新 | `test_daily_generation_task` |
 | Windows 下 Alembic 以 GBK 读取 UTF-8 ini 失败 | `alembic.ini` 改为 ASCII | 启动迁移冒烟 |
 | 提交源码的 `start.cmd` 在新目录无法启动 | 入口改为 ASCII/CRLF，首次启动准备依赖与独立数据库 | 新目录冷启动与重复启动 |
