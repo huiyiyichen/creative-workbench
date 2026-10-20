@@ -2,15 +2,16 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { CW_NAV, CW_NAV_BOTTOM, activeNavId, type CwNavItem } from './nav';
-import { Moon, Sun } from 'lucide-react';
+import { Moon, Search, Sun } from 'lucide-react';
 import { cwAntdThemeFor } from './antd-theme';
 import { useCwTheme } from './theme';
 import { QuickNote } from './notes';
 import { TaskDrawer, useTaskCount } from './tasks';
+import { CommandPalette, OPEN_EVENT } from './command';
 
 /** 已按调色台重做的路由；其余旧页面（管理页、日报 / 周刊 / 月刊）包在 .cw-legacy 里，调色板换成 --cw-* 变量跟随主题 */
 export const CW_ROUTES = ['/', '/sources', '/hot', '/reports', '/dossiers', '/items', '/settings', '/library', '/notes', '/runs', '/projects', '/tasks', '/works'];
@@ -91,8 +92,10 @@ export default function AppShell({
   const pathname = usePathname() || '/';
   const active = activeNavId(pathname);
   const cw = isCwRoute(pathname);
-  const [mode] = useCwTheme();
+  const [mode, setMode] = useCwTheme();
   const [tasksOpen, setTasksOpen] = useState(false);
+  const toggleTheme = useCallback(() => setMode(mode === 'light' ? 'dark' : 'light'), [mode, setMode]);
+  const openTasks = useCallback(() => setTasksOpen(true), []);
 
   return (
     <div className="cw-app cw-shell">
@@ -114,6 +117,10 @@ export default function AppShell({
           {CW_NAV_BOTTOM.map((item) => (
             <NavLink key={item.id} item={item} active={active === item.id} alert={item.id === 'sources' && sourcesAlert} />
           ))}
+          <button type="button" className="cw-nav-item" title="跳转（Ctrl K）" aria-label="跳转（Ctrl K）" onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))}>
+            <Search aria-hidden="true" />
+            <span className="cw-nav-label">跳转</span>
+          </button>
           <ThemeToggle />
         </div>
       </nav>
@@ -132,6 +139,7 @@ export default function AppShell({
       <ConfigProvider theme={cwAntdThemeFor(mode)} locale={zhCN}>
         <QuickNote />
         <TaskDrawer open={tasksOpen} onClose={() => setTasksOpen(false)} />
+        <CommandPalette onToggleTheme={toggleTheme} onOpenTasks={openTasks} />
       </ConfigProvider>
     </div>
   );

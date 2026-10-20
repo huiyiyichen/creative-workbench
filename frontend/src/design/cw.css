@@ -1538,3 +1538,16 @@ button.cw-dircard { cursor: pointer; }
 .cw-outline-tree li .cw-drag { opacity: 0; }
 .cw-outline-tree li:hover .cw-drag, .cw-outline-tree li .cw-drag:focus-visible { opacity: 1; }
 .cw-outline-tree li[data-dragging] { background: var(--cw-raise); border-radius: 4px; }
+
+/* 全局跳转（Ctrl+K）与快捷键 */
+.cw-cmd .ant-modal-content { padding: 0; overflow: hidden; }
+.cw-cmd-input { width: 100%; border: 0; border-bottom: 1px solid var(--cw-line); background: transparent; color: var(--cw-text); font-size: 15px; padding: 14px 16px; outline: none; }
+.cw-cmd-list { list-style: none; margin: 0; padding: 6px; max-height: 360px; overflow: auto; }
+.cw-cmd-list li { display: flex; justify-content: space-between; align-items: center; padding: 8px 10px; border-radius: 6px; cursor: pointer; color: var(--cw-text); }
+.cw-cmd-list li[aria-selected='true'] { background: var(--cw-raise); }
+.cw-cmd-list li small { color: var(--cw-faint); font-size: 12px; }
+.cw-cmd-foot { border-top: 1px solid var(--cw-grat); padding: 8px 14px; font-size: 12px; color: var(--cw-faint); }
+.cw-keys { margin: 0; display: grid; gap: 8px; }
+.cw-keys > div { display: grid; grid-template-columns: 130px 1fr; align-items: center; }
+.cw-keys dd { margin: 0; color: var(--cw-dim); }
+.cw-keys kbd { display: inline-block; min-width: 22px; padding: 1px 6px; margin-right: 4px; border: 1px solid var(--cw-line); border-bottom-width: 2px; border-radius: 4px; font: 12px/1.6 var(--cw-mono, monospace); text-align: center; color: var(--cw-text); }
