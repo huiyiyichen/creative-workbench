@@ -216,3 +216,11 @@ async def test_auto_on_worth(feishu, test_session_factory):
         await fs.on_verdicts(db, [c.id])  # 已写过不重复
         await fs.drain()
         assert len(feishu.records) == 1
+
+
+def test_api_base(monkeypatch):
+    monkeypatch.delenv("CW_FEISHU_API_BASE", raising=False)
+    assert fs.api_base({"table_url": "https://a.feishu.cn/base/x?table=t"}) == fs.API_BASE
+    assert fs.api_base({"table_url": "https://a.larksuite.com/base/x?table=t"}) == fs.LARK_BASE
+    monkeypatch.setenv("CW_FEISHU_API_BASE", "http://127.0.0.1:9/open-apis/")
+    assert fs.api_base({}) == "http://127.0.0.1:9/open-apis"

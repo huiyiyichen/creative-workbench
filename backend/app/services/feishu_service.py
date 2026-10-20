@@ -33,6 +33,20 @@ logger = logging.getLogger(__name__)
 
 SETTING_KEY = "feishu_bitable"
 API_BASE = "https://open.feishu.cn/open-apis"
+LARK_BASE = "https://open.larksuite.com/open-apis"
+
+
+def api_base(data: dict[str, Any]) -> str:
+    """飞书或 Lark 国际版：按表格链接的域名选接口；CW_FEISHU_API_BASE 可覆盖（本地联调用）。"""
+    import os
+
+    env = os.environ.get("CW_FEISHU_API_BASE", "").strip()
+    if env:
+        return env.rstrip("/")
+    host = urlparse(data.get("table_url") or "").netloc
+    return LARK_BASE if host.endswith("larksuite.com") else API_BASE
+
+
 FIELDS: list[tuple[str, str]] = [
     ("title", "标题"),
     ("url", "链接"),
@@ -152,7 +166,10 @@ async def save_settings(db: AsyncSession, values: dict[str, Any]) -> dict[str, A
 
 
 class Client:
-    def __init__(self, app_id: str, app_secret: str, *, transport: httpx.AsyncBaseTransport | None = None):
+    def __init__(
+        self, app_id: str, app_secret: str, *, transport: httpx.AsyncBaseTransport | None = None, base: str = API_BASE
+    ):
+        self.base = base
         self.app_id = app_id
         self.app_secret = app_secret
         self.transport = transport
@@ -185,7 +202,7 @@ class Client:
             return cached[0]
         async with self._http() as c:
             r = await c.post(
-                f"{API_BASE}/auth/v3/tenant_access_token/internal",
+                f"{self.base}/auth/v3/tenant_access_token/internal",
                 json={"app_id": self.app_id, "app_secret": self.app_secret},
             )
         body = self._check(r, "获取应用凭证")
@@ -198,7 +215,7 @@ class Client:
     async def _req(self, method: str, path: str, what: str, **kw: Any) -> dict[str, Any]:
         tok = await self.token()
         async with self._http() as c:
-            r = await c.request(method, f"{API_BASE}{path}", headers={"Authorization": f"Bearer {tok}"}, **kw)
+            r = await c.request(method, f"{self.base}{path}", headers={"Authorization": f"Bearer {tok}"}, **kw)
         return self._check(r, what)
 
     async def wiki_obj_token(self, node_token: str) -> str:
@@ -254,7 +271,9 @@ async def _client(db: AsyncSession, data: dict[str, Any] | None = None) -> tuple
     data = data if data is not None else await _load(db)
     if not (data.get("app_id") and data.get("app_secret_enc") and data.get("table_id")):
         raise ValidationError("先在「设置 · 飞书」填好 App ID、App Secret 和表格链接")
-    client = Client(data["app_id"], decrypt_secret(data["app_secret_enc"]) or "", transport=TRANSPORT)
+    client = Client(
+        data["app_id"], decrypt_secret(data["app_secret_enc"]) or "", transport=TRANSPORT, base=api_base(data)
+    )
     if not data.get("app_token"):
         if data.get("link_kind") == "wiki" and data.get("link_token"):
             data["app_token"] = await client.wiki_obj_token(data["link_token"])

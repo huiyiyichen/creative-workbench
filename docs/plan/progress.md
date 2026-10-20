@@ -269,3 +269,5 @@
 - 前端：设置 · 飞书（凭证、表格链接、测试连接、字段映射带列名补全、自动写入开关）；FeishuButton。
 - 测试：tests/test_stage6_feishu.py（模拟飞书接口）；全量 pytest、vitest 208、tsc、eslint、ruff、分层检查通过；设置页深浅色截图。
 - 待验收：需要真实飞书应用 App ID / Secret 与多维表格。
+- 补充：支持 Lark 国际版（larksuite.com 链接走 open.larksuite.com）；`CW_FEISHU_API_BASE` 可指向本地模拟服务 `scripts/dev/fake_feishu.py` 联调。
+- 本地联调（模拟飞书服务 + 浏览器）：设置页保存与测试连接 → 条目「记入飞书」→ 项目「记入飞书」→ 定稿后状态列变「创作中」→ 公众号版填发布链接后变「已产出」，任务中心显示对应记录。注意：本机有 HTTP 代理时，联调要设 NO_PROXY=127.0.0.1,localhost。

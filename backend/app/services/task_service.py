@@ -285,6 +285,9 @@ async def _feishu(db: AsyncSession, since: datetime, limit: int) -> list[dict[st
         if r.object_type == "content":
             c = await db.get(ContentItem, r.object_id)
             title = c.title if c else title
+        else:
+            proj = await db.get(StudioProject, r.object_id)
+            title = proj.title if proj else title
         rows.append(
             _row(
                 key=f"feishu:{r.id}",

@@ -28,7 +28,7 @@
 | 9 | 创作工作台 | 见 §五 |
 | 10 | 前端 | `npx tsc --noEmit`、`npm test` |
 
-最近结果：2026-10-16 测试精简前，后端全量 757 passed / 26 failed，另有 23 个模块导入失败；前端 vitest 189 passed / 11 failed。精简后待复跑全量。
+最近结果：2026-10-20 阶段 6 提交后（bd563e0），后端全量通过（1 skipped）；前端 vitest 208 passed，`tsc`、`npx eslint src`、ruff、分层检查通过。全量 pytest 未装 xdist，不要加 `-n`。
 
 ## 三、待处理缺陷
 
@@ -76,3 +76,16 @@
 | DeepSeek Harness + Remotion 制作 | 独立作品目录生成源码，工作台渲染 MP4；MP4 与工程 ZIP 分开下载 | `test_studio_tts::test_remotion_preview_and_source_use_separate_files` |
 | 趋势刷新 | `POST /api/v1/trends/refresh` 从已分析内容生成快照 | `test_trends_api::test_refresh_trends_builds_snapshots` |
 | 创作者与榜单信源识别 | B 站主页 / 搜索 / 热门，抖音热榜 | `test_recognizer` |
+| 灵感库、随笔、Obsidian 双向同步 | 阶段 3 | `test_stage3_library` `test_stage3_obsidian` |
+| 评论采集与折叠区 | 阶段 3 | `test_stage3_comments` |
+| 流程引擎、角色、运行记录 | 阶段 3–4 | `test_stage3_flows` `test_stage4_flows` |
+| 项目、来源、定稿分层、修改建议 | 阶段 4 | `test_stage4_projects` `test_stage4_suggestions` |
+| 成稿 / 成片、产出物、溯源 | 阶段 4 | `test_stage4_outputs` |
+| 生图服务与生成任务 | 阶段 4 | `test_stage4_generation` |
+| 抖音 / 小红书采集 | 阶段 4 | `test_stage4_platforms` |
+| 平台改写流程、一键全流程、重跑对比 | 阶段 5 | `test_stage5_platform_flow` `test_stage5_pipeline` |
+| 任务中心（运行 / 生成 / 同步 / 分析 / 飞书） | 阶段 5–6 | `test_stage5_tasks` |
+| 作品库 | 阶段 5 | `test_stage5_works` |
+| 提示词包与外部 agent 回传 | 阶段 5 | `test_stage5_delivery` |
+| 视频生成接口（异步厂商任务、预算） | 阶段 5 | `test_stage5_video_generation` |
+| 飞书多维表格（记入、状态列更新、自动写入、失败重试） | 阶段 6，迁移 `c3e5a7b9d104` | `test_stage6_feishu`（模拟飞书接口；真实联调待凭证） |
