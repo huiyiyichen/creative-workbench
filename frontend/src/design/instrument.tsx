@@ -33,7 +33,7 @@ export function useCountUp(target: number | null | undefined, ms = 600): number 
   const done = useRef(false);
   useEffect(() => {
     if (target === null || target === undefined) return;
-    if (reduce || done.current) {
+    if (reduce || done.current || target === 0) {
       setV(target);
       return;
     }
@@ -123,7 +123,8 @@ export function Readout({
   value: ReactNode;
   unit?: ReactNode;
   sub?: ReactNode;
-  tone?: 'up' | 'down' | 'warn';
+  /** good 绿 / bad 红 / warn 黄（不要用 up/down 表示好坏：花费涨是坏事，播放涨是好事） */
+  tone?: 'good' | 'bad' | 'warn' | 'up' | 'down';
   count?: number | null;
   children?: ReactNode;
 }) {

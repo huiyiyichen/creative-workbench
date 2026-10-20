@@ -43,7 +43,7 @@ export default function TasksPage() {
       .catch(() => setProjects([]));
   }, []);
   const counts = data?.counts;
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState<number | null>(null);
   useEffect(() => setNow(Date.now()), [data]);
   const items = data ? sortTasks(data.items) : [];
   const failed = counts?.failed ?? 0;
@@ -71,11 +71,11 @@ export default function TasksPage() {
         <Instrument title="任务泳道" legend={<span className="cw-muted" style={{ fontSize: 12 }}>片段长度 = 实际耗时 · 红色发光 = 失败 · 青色脉冲 = 进行中</span>}>
           <Readouts>
             <Readout label="进行中" value="0" count={data.active} sub={counts && counts.waiting ? `其中 ${counts.waiting} 个等你处理` : undefined} tone={counts && counts.waiting ? 'warn' : undefined} />
-            <Readout label="失败" value="0" count={failed} tone={failed ? 'up' : undefined} sub={failed ? '可以在下面重试' : '没有失败'} />
+            <Readout label="失败" value="0" count={failed} tone={failed ? 'bad' : 'good'} sub={failed ? '可以在下面重试' : '没有失败'} />
             <Readout label="完成" value="0" count={counts?.done ?? 0} />
             <Readout label="花费" value={`¥${totalCost.toFixed(2)}`} sub="生成与流程运行" />
           </Readouts>
-          <TaskLanes items={data.items} hours={days * 24} now={now} />
+          {now ? <TaskLanes items={data.items} hours={days * 24} now={now} /> : null}
         </Instrument>
       )}
       <div className="cw-row cw-task-filters" style={{ marginTop: 20 }}>

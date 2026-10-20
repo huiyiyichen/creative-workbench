@@ -79,8 +79,18 @@ export function Segmented<T extends string>({
   const ref = useRef<HTMLDivElement>(null);
   const [thumb, setThumb] = useState<{ x: number; w: number } | null>(null);
   useLayoutEffect(() => {
-    const el = ref.current?.querySelector<HTMLElement>('[aria-pressed="true"]');
-    setThumb(el ? { x: el.offsetLeft, w: el.offsetWidth } : null);
+    const host = ref.current;
+    if (!host) return;
+    const measure = () => {
+      const el = host.querySelector<HTMLElement>('[aria-pressed="true"]');
+      setThumb(el ? { x: el.offsetLeft, w: el.offsetWidth } : null);
+    };
+    measure();
+    // 字体晚到、窗口缩放、计数变化都会改宽度：跟着重量
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(measure) : null;
+    ro?.observe(host);
+    void document.fonts?.ready.then(measure);
+    return () => ro?.disconnect();
   }, [value, options.length]);
   return (
     <div className="cw-seg" role="group" aria-label={label} ref={ref} data-slide={thumb ? 'true' : undefined}>

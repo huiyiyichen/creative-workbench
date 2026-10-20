@@ -30,3 +30,24 @@ export function sortTasks(items: TaskView[]): TaskView[] {
   const rank: Record<TaskStatus, number> = { failed: 0, running: 1, waiting: 1, done: 2, stopped: 3 };
   return [...items].sort((a, b) => rank[a.status] - rank[b.status] || (b.started_at || b.created_at).localeCompare(a.started_at || a.created_at));
 }
+
+export type LaneBatch = { key: string; left: number; width: number; status: TaskStatus; count: number; failed: number; clips: LaneClip[] };
+
+/** 把挨得很近（间隔小于 gap，窗口比例）的片段合成一个批次块；批次里有失败就算失败，失败批次排在最后画（压在上面）。 */
+export function batchClips(clips: LaneClip[], gap = 0.006): LaneBatch[] {
+  const out: LaneBatch[] = [];
+  for (const c of clips) {
+    const last = out[out.length - 1];
+    if (last && c.left <= last.left + last.width + gap) {
+      last.width = Math.max(last.width, c.left + c.width - last.left);
+      last.clips.push(c);
+      last.count += 1;
+      if (c.status === 'failed') last.failed += 1;
+      if (c.status === 'running' || c.status === 'waiting') last.status = c.status;
+    } else {
+      out.push({ key: c.key, left: c.left, width: c.width, status: c.status, count: 1, failed: c.status === 'failed' ? 1 : 0, clips: [c] });
+    }
+  }
+  for (const b of out) if (b.failed && b.status !== 'running') b.status = 'failed';
+  return out.sort((a, b) => Number(a.status === 'failed') - Number(b.status === 'failed'));
+}

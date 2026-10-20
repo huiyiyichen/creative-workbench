@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TaskView } from './api/_tasks';
-import { laneClips, sortTasks } from './task-lanes';
+import { batchClips, laneClips, sortTasks } from './task-lanes';
 
 const t = (key: string, type: string, status: string, s: string, e: string | null): TaskView =>
   ({ key, type, status, title: key, created_at: s, started_at: s, finished_at: e, duration_ms: null }) as unknown as TaskView;
@@ -31,5 +31,15 @@ describe('task-lanes', () => {
   it('失败排前', () => {
     const s = sortTasks([t('x', 'sync', 'done', '2026-10-21T05:00:00Z', null), t('y', 'sync', 'failed', '2026-10-21T01:00:00Z', null), t('z', 'sync', 'running', '2026-10-21T02:00:00Z', null)]);
     expect(s.map((x) => x.key)).toEqual(['y', 'z', 'x']);
+  });
+});
+
+describe('batchClips', () => {
+  it('挨着的合成批次，失败压上面', () => {
+    const c = (key: string, left: number, status: string) => ({ key, left, width: 0.001, status, title: key, task: {} }) as never;
+    const b = batchClips([c('a', 0.1, 'done'), c('b', 0.102, 'failed'), c('c', 0.5, 'done')]);
+    expect(b.length).toBe(2);
+    expect(b[1].status).toBe('failed');
+    expect(b[1].count).toBe(2);
   });
 });

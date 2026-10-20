@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { useEffect, useState, type CSSProperties } from 'react';
 import { Card, CwPage, Segmented, TopBar } from '@/design/components';
 import { toast } from '@/design/feedback';
+import { EmptyInstrument, Readout, ScanSkeleton } from '@/design/instrument';
 import { costsApi, type CostSummary } from '@/lib/api/_costs';
 import { GROUP_ORDER, groupColor, stackDays, vsAvg, yuan } from '@/lib/costs';
 
@@ -74,16 +75,6 @@ function DailyBars({ data }: { data: CostSummary }) {
   );
 }
 
-function Readout({ label, value, sub, tone }: { label: string; value: string; sub?: React.ReactNode; tone?: 'up' | 'down' }) {
-  return (
-    <div className="cw-readout">
-      <span>{label}</span>
-      <b className="cw-num">{value}</b>
-      {sub ? <small data-tone={tone}>{sub}</small> : null}
-    </div>
-  );
-}
-
 function BudgetMeter({ budget }: { budget: CostSummary['analysis_budget'] }) {
   const ratio = budget.budget > 0 ? Math.min(1, budget.spent / budget.budget) : 0;
   const tone = ratio >= 1 ? 'rd' : ratio >= 0.8 ? 'yl' : 'gr';
@@ -134,22 +125,37 @@ export default function CostsPage() {
         <Segmented label="时间范围" value={days} onChange={setDays} options={RANGES} />
       </TopBar>
 
-      <section className="cw-instrument cw-cost-hero" aria-label="花费读数">
+      {data && empty ? (
+        <EmptyInstrument
+          kind="unplugged"
+          title={`近 ${data.days} 天还没有花费`}
+          reason={`分析、写稿、日报、生图、视频生成的费用都会记在这里，按天、按用途、按项目分开看。今日分析预算 ${yuan(data.analysis_budget.budget)}。`}
+          actions={
+            <>
+              <Link className="cw-btn" data-variant="primary" href="/admin/model-eval">
+                配置模型
+              </Link>
+              <Link className="cw-link-btn" href="/settings/generation">
+                配置生成服务
+              </Link>
+            </>
+          }
+        />
+      ) : null}
+      <section className="cw-instrument cw-cost-hero" data-hero="true" aria-label="花费读数" hidden={Boolean(data && empty)}>
         {!data ? (
-          <div className="cw-tl-scan" aria-busy="true">
-            <i />
-          </div>
+          <ScanSkeleton height={220} />
         ) : (
           <>
             <div className="cw-readouts">
               <Readout label={`近 ${data.days} 天`} value={yuan(data.total)} sub={`模型 ${yuan(data.llm)} · 生成 ${yuan(data.generation)}`} />
-              <Readout label="今天" value={yuan(data.today)} sub={delta ? `比 7 日均值 ${delta.text}` : '没有可比的均值'} tone={delta ? (delta.up ? 'up' : 'down') : undefined} />
+              <Readout label="今天" value={yuan(data.today)} sub={delta ? `比 7 日均值 ${delta.text}` : '没有可比的均值'} tone={delta ? (delta.up ? 'bad' : 'good') : undefined} />
               <BudgetMeter budget={data.analysis_budget} />
               <Readout
                 label="调用 / 任务"
                 value={`${data.calls.toLocaleString('zh-CN')} / ${data.jobs.toLocaleString('zh-CN')}`}
                 sub={data.failed ? `${data.failed} 次失败` : '没有失败'}
-                tone={data.failed ? 'up' : undefined}
+                tone={data.failed ? 'bad' : undefined}
               />
             </div>
             {empty ? (

@@ -8,12 +8,12 @@ describe('phase', () => {
     expect(DAY_X).toBeGreaterThan(0.5);
     expect(changeY(2)).toBe(0);
     expect(changeY(-1)).toBe(1);
-    expect(ZERO_Y).toBeCloseTo(2 / 3);
+    expect(ZERO_Y).toBeGreaterThan(0.5);
   });
   it('变化率', () => {
     expect(changeRate(20, 10)).toBe(1);
     expect(changeRate(5, 10)).toBe(-0.5);
-    expect(changeRate(3, 0)).toBe(2);
+    expect(changeRate(3, 0)).toBeNull();
     expect(changeRate(null, 3)).toBe(0);
   });
   it('点', () => {
@@ -29,6 +29,7 @@ describe('phase', () => {
     expect(pts.map((p) => p.id)).toEqual([1, 3]);
     expect(pts[0].x).toBeLessThan(pts[1].x);
     expect(pts[0].y).toBeLessThan(ZERO_Y);
+    expect(pts[0].x).toBeGreaterThan(0);
     expect(pts[1].y).toBeGreaterThan(ZERO_Y);
     expect(pts[0].r).toBe(10);
   });

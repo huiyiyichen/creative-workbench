@@ -9,7 +9,7 @@ import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { Button } from './components';
 import { TASK_STATUS_LABEL, TASK_TYPE_LABEL, fmtDuration, groupTasks, subscribeTasks, tasksApi, type TaskStatus, type TaskType, type TaskView } from '@/lib/api/_tasks';
 import { onTasksChanged } from '@/lib/events';
-import { LANE_ORDER, laneClips } from '@/lib/task-lanes';
+import { LANE_ORDER, batchClips, laneClips } from '@/lib/task-lanes';
 import { CN_OFFSET_MS, cnParts, fmtHM } from '@/lib/time-cn';
 import { StatusLamp, type LampTone } from './instrument';
 
@@ -59,9 +59,13 @@ export function TaskRow({ task, onChanged, onOpen }: { task: TaskView; onChanged
           </p>
         ) : null}
       </div>
-      <span className="cw-task-status" style={{ color: TASK_STATUS_COLOR[task.status] }}>
-        {TASK_STATUS_LABEL[task.status]}
-      </span>
+      {task.status === 'failed' || task.status === 'waiting' ? (
+        <span className="cw-task-status" style={{ color: TASK_STATUS_COLOR[task.status] }}>
+          {TASK_STATUS_LABEL[task.status]}
+        </span>
+      ) : (
+        <span />
+      )}
       <span className="cw-num cw-muted cw-task-dur">{fmtDuration(task.duration_ms)}</span>
       <span className="cw-num cw-muted cw-task-at">
         {fmtHM(at)}
@@ -182,7 +186,7 @@ export function TaskLanes({ items, hours, now }: { items: TaskView[]; hours: num
             ))}
           </div>
         </div>
-        {LANE_ORDER.map((type) => {
+        {LANE_ORDER.filter((type) => (lanes.get(type) || []).length).map((type) => {
           const clips = lanes.get(type) || [];
           const Icon = TYPE_ICON[type] || Bot;
           return (
@@ -195,22 +199,30 @@ export function TaskLanes({ items, hours, now }: { items: TaskView[]; hours: num
                 {ticks.map((tk) => (
                   <i key={tk.pos} className="cw-lane-tick" style={{ left: `${tk.pos * 100}%` }} />
                 ))}
-                {clips.map((c) => (
-                  <Link
-                    key={c.key}
-                    href={c.task.href}
-                    className="cw-taskclip"
-                    data-status={c.status}
-                    title={`${c.task.kind_label} · ${c.title} · ${TASK_STATUS_LABEL[c.status]}${c.task.duration_ms ? ` · ${fmtDuration(c.task.duration_ms)}` : ''}`}
-                    style={{ left: `${c.left * 100}%`, width: `max(4px, ${c.width * 100}%)`, '--c': TASK_STATUS_COLOR[c.status] } as CSSProperties}
-                  />
-                ))}
+                {batchClips(clips).map((b) => {
+                  const c = b.clips[0];
+                  const label = b.count > 1 ? `${b.count} 个${TASK_TYPE_LABEL[type]}任务${b.failed ? `，${b.failed} 个失败` : ''}` : `${c.task.kind_label} · ${c.title} · ${TASK_STATUS_LABEL[c.status]}${c.task.duration_ms ? ` · ${fmtDuration(c.task.duration_ms)}` : ''}`;
+                  return (
+                    <Link
+                      key={b.key}
+                      href={b.failed ? (b.clips.find((x) => x.status === 'failed')?.task.href ?? c.task.href) : c.task.href}
+                      className="cw-taskclip"
+                      data-status={b.status}
+                      data-batch={b.count > 1 ? 'true' : undefined}
+                      title={label}
+                      style={{ left: `${b.left * 100}%`, width: `max(${b.count > 1 ? 14 : 4}px, ${b.width * 100}%)`, '--c': TASK_STATUS_COLOR[b.status] } as CSSProperties}
+                    >
+                      {b.count > 1 ? <b className="cw-num">{b.count}</b> : null}
+                    </Link>
+                  );
+                })}
               </div>
             </div>
           );
         })}
-        <div className="cw-playhead" style={{ left: 'calc(var(--cw-track-w) + (100% - var(--cw-track-w)) * 1)' }}>
-          <span className="cw-num" style={{ transform: 'translateX(-100%)', whiteSpace: 'nowrap' }}>
+        {lanes.size === 0 ? <div className="cw-tl-empty">这段时间没有任务</div> : null}
+        <div className="cw-playhead" data-edge="right" style={{ left: 'calc(var(--cw-track-w) + (100% - var(--cw-track-w)) * 1)' }}>
+          <span className="cw-num">
             现在
           </span>
         </div>

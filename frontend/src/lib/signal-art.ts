@@ -77,19 +77,24 @@ export function artSpec(title: string, kind: ArtKind): ArtSpec {
   const spec: ArtSpec = { traces: [], rects: [], dots: [], lines: [] };
   switch (kind) {
     case 'video': {
-      spec.traces.push({ d: tracePath(seed + 7, { base: 48, amp: 9, freq: 13, noise: 5 }), strong: false });
-      spec.traces.push({ d: tracePath(seed, { base: 40, amp: 16, freq: 9, noise: 8 }), strong: true });
+      // 标题哈希同时决定基线、振幅、频率，同形态的封面也一眼能分开
+      spec.traces.push({ d: tracePath(seed + 7, { base: 44 + r() * 14, amp: 6 + r() * 8, freq: 10 + r() * 6, noise: 5 }), strong: false });
+      spec.traces.push({ d: tracePath(seed, { base: 30 + r() * 24, amp: 9 + r() * 14, freq: 6 + r() * 8, noise: 4 + r() * 8 }), strong: true });
       spec.progress = 0.2 + r() * 0.6;
       break;
     }
     case 'article': {
-      let y = 26;
-      for (let i = 0; i < 5; i += 1) {
-        const w = i === 0 ? 70 + r() * 30 : 96 + r() * 44;
-        spec.rects.push({ x: 12, y, w: Math.min(w, ART_W - 24), h: i === 0 ? 6 : 3, o: i === 0 ? 0.55 : 0.18 + r() * 0.12 });
+      const lines = 3 + Math.floor(r() * 4);
+      const twoCol = r() > 0.6;
+      const colW = twoCol ? (ART_W - 36) / 2 : ART_W - 24;
+      let y = 22 + r() * 8;
+      for (let i = 0; i < lines; i += 1) {
+        const w = i === 0 ? colW * (0.5 + r() * 0.4) : colW * (0.65 + r() * 0.35);
+        spec.rects.push({ x: 12, y, w, h: i === 0 ? 6 : 3, o: i === 0 ? 0.55 : 0.18 + r() * 0.12 });
+        if (twoCol && i > 0) spec.rects.push({ x: 24 + colW, y, w: colW * (0.5 + r() * 0.5), h: 3, o: 0.14 + r() * 0.1 });
         y += i === 0 ? 12 : 8;
       }
-      spec.traces.push({ d: tracePath(seed, { base: 74, amp: 5, freq: 11, noise: 3 }), strong: true });
+      spec.traces.push({ d: tracePath(seed, { base: Math.max(y + 10, 62 + r() * 18), amp: 3 + r() * 9, freq: 8 + r() * 8, noise: 2 + r() * 4 }), strong: true });
       break;
     }
     case 'image': {

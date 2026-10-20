@@ -208,6 +208,21 @@ function TodayPage() {
         </section>
 
         <aside className="cw-today-side">
+          <Card title="采集" extra={<Link href="/sources" className="cw-muted">查看信源</Link>}>
+            {healthy ? (
+              <Readouts>
+                <Readout label="今日新增" value="—" count={healthy.today_new.value} />
+                <Readout
+                  label="7 天成功率"
+                  value={healthy.success_rate_7d.value === null ? '—' : `${Math.round(healthy.success_rate_7d.value)}%`}
+                  sub={`待分析 ${healthy.pending_analysis.value ?? '—'} · 漏采 ${healthy.missed.value ?? '—'}`}
+                  tone={healthy.missed.value ? 'warn' : undefined}
+                />
+              </Readouts>
+            ) : (
+              <ScanSkeleton height={80} />
+            )}
+          </Card>
           <Card title="追踪词" extra={<small className="cw-muted">近 24 小时</small>}>
             {!side ? (
               <ScanSkeleton height={120} />
@@ -252,21 +267,6 @@ function TodayPage() {
           </Card>
           <Card title="跨平台共振" extra={<small className="cw-muted">近 48 小时</small>}>
             {side ? <ResonanceTable data={side.resonance} onOpen={setOpenId} /> : <ScanSkeleton height={120} />}
-          </Card>
-          <Card title="采集" extra={<Link href="/sources" className="cw-muted">查看信源</Link>}>
-            {healthy ? (
-              <Readouts>
-                <Readout label="今日新增" value="—" count={healthy.today_new.value} />
-                <Readout
-                  label="7 天成功率"
-                  value={healthy.success_rate_7d.value === null ? '—' : `${Math.round(healthy.success_rate_7d.value)}%`}
-                  sub={`待分析 ${healthy.pending_analysis.value ?? '—'} · 漏采 ${healthy.missed.value ?? '—'}`}
-                  tone={healthy.missed.value ? 'warn' : undefined}
-                />
-              </Readouts>
-            ) : (
-              <ScanSkeleton height={80} />
-            )}
           </Card>
           {signals && signals.tracks.length ? (
             <div className="cw-muted" style={{ fontSize: 12 }}>

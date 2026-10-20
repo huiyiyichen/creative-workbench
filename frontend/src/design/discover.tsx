@@ -217,7 +217,7 @@ function FeedActions({ item }: { item: ItemCard }) {
       >
         <Bookmark size={15} fill={fav ? 'currentColor' : 'none'} aria-hidden />
       </button>
-      <Link className="cw-btn" data-variant="primary" href={`/projects/new?source=content:${item.id}`}>
+      <Link className="cw-btn cw-item-create" href={`/projects/new?source=content:${item.id}`}>
         开始创作
       </Link>
     </div>
@@ -294,7 +294,7 @@ export function SignalTimeline({
     <section className="cw-timeline" aria-label={title}>
       <div className="cw-tl-head">
         <h2>{title}</h2>
-        {data ? <span className="cw-tl-count cw-num">{count}</span> : null}
+        {data ? <span className="cw-tl-count cw-num" title="这个时间段里发布的条数（采集到的总数见信号流）">{count} 条发布</span> : null}
         {legend}
         {onRange ? (
           <>

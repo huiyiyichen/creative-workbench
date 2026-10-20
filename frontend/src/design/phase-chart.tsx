@@ -5,19 +5,14 @@
 import { useState, type CSSProperties } from 'react';
 import type { TopicStatus } from '@/lib/api/_discover';
 import { STATUS_COLOR, STATUS_LABEL } from '@/lib/discover';
-import { DAY_X, ZERO_Y, phasePoints, type PhaseInput } from '@/lib/phase';
+import { BAND, DAY_X, ZERO_Y, ageX as ageNorm, phasePoints, plotX, type PhaseInput } from '@/lib/phase';
 import { useReducedMotion } from './instrument';
 
 type Row = PhaseInput & { title: string; status: TopicStatus };
 
 const W = 1000;
 const H = 260;
-const QUADS: { status: TopicStatus; label: string; x: number; y: number; anchor: 'start' | 'end' }[] = [
-  { status: 'new', label: '新出现', x: 12, y: 22, anchor: 'start' },
-  { status: 'rising', label: '升温', x: W - 12, y: 22, anchor: 'end' },
-  { status: 'cooling', label: '降温', x: W - 12, y: H - 12, anchor: 'end' },
-  { status: 'steady', label: '持续', x: 12, y: H - 12, anchor: 'start' },
-];
+const STATUSES: TopicStatus[] = ['new', 'rising', 'steady', 'peak', 'cooling'];
 const TICKS = [
   { h: 1, l: '1 小时' },
   { h: 6, l: '6 小时' },
@@ -45,16 +40,17 @@ export function PhaseChart({
   const [hover, setHover] = useState<number | null>(null);
   const h = hover !== null ? byId.get(hover) : null;
   const hp = hover !== null ? pts.find((p) => p.id === hover) : null;
-  const ageX = (hours: number) => (Math.log1p(hours) / Math.log1p(168)) * W;
+  const ageX = (hours: number) => plotX(ageNorm(hours)) * W;
   return (
     <div className="cw-phase">
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="话题热度相位图">
-        <rect className="cw-phase-q" data-on={active === 'new' || active === '' ? 'true' : undefined} x="0" y="0" width={DAY_X * W} height={ZERO_Y * H} />
-        <rect className="cw-phase-q" data-hot="true" x={DAY_X * W} y="0" width={(1 - DAY_X) * W} height={ZERO_Y * H} />
+        <rect className="cw-phase-band" x="0" y="0" width={W} height={BAND * H} />
+        <text className="cw-phase-bandlab" x="8" y={BAND * H - 8}>首次观测</text>
+        <rect className="cw-phase-q" data-hot="true" x={DAY_X * W} y={BAND * H} width={(1 - DAY_X) * W} height={ZERO_Y * H - BAND * H} />
         <line className="cw-phase-axis" x1="0" x2={W} y1={ZERO_Y * H} y2={ZERO_Y * H} />
-        <line className="cw-phase-axis" x1={DAY_X * W} x2={DAY_X * W} y1="0" y2={H} />
+        <line className="cw-phase-axis" x1={DAY_X * W} x2={DAY_X * W} y1={BAND * H} y2={H} />
         {TICKS.map((t) => (
-          <line key={t.h} className="cw-phase-tick" x1={ageX(t.h)} x2={ageX(t.h)} y1="0" y2={H} />
+          <line key={t.h} className="cw-phase-tick" x1={ageX(t.h)} x2={ageX(t.h)} y1={BAND * H} y2={H} />
         ))}
         {pts.map((p, i) => {
           const row = byId.get(p.id)!;
@@ -64,6 +60,7 @@ export function PhaseChart({
               key={p.id}
               className="cw-phase-pt"
               data-dim={dim ? 'true' : undefined}
+              data-first={p.first ? 'true' : undefined}
               data-hover={hover === p.id ? 'true' : undefined}
               cx={p.x * W}
               cy={p.y * H}
@@ -76,20 +73,22 @@ export function PhaseChart({
           );
         })}
       </svg>
-      {QUADS.map((q) => (
-        <button
-          key={q.status}
-          type="button"
-          className="cw-phase-label"
-          aria-pressed={active === q.status}
-          style={{ [q.x > W / 2 ? 'right' : 'left']: 12, [q.y > H / 2 ? 'bottom' : 'top']: 10, '--c': STATUS_COLOR[q.status] } as CSSProperties}
-          onClick={() => onPick(active === q.status ? '' : q.status)}
-        >
-          <i />
-          {q.label}
-          <small className="cw-num">{rows.filter((r) => r.status === q.status).length}</small>
-        </button>
-      ))}
+      <div className="cw-phase-legend" role="group" aria-label="按状态筛选">
+        {STATUSES.map((st) => (
+          <button
+            key={st}
+            type="button"
+            className="cw-phase-label"
+            aria-pressed={active === st}
+            style={{ '--c': STATUS_COLOR[st] } as CSSProperties}
+            onClick={() => onPick(active === st ? '' : st)}
+          >
+            <i />
+            {STATUS_LABEL[st]}
+            <small className="cw-num">{rows.filter((r) => r.status === st).length}</small>
+          </button>
+        ))}
+      </div>
       <div className="cw-phase-x cw-num" aria-hidden>
         {TICKS.map((t) => (
           <span key={t.h} style={{ left: `${(ageX(t.h) / W) * 100}%` }}>
@@ -104,8 +103,7 @@ export function PhaseChart({
         <div className="cw-tip cw-phase-tip" style={{ left: `${hp.x * 100}%`, top: `${(hp.y * H * 100) / H}%`, position: 'absolute' }}>
           {h.title}
           <small>
-            {STATUS_LABEL[h.status]} · {h.content_count} 条 · {hp.change >= 0 ? '+' : ''}
-            {Math.round(hp.change * 100)}%
+            {STATUS_LABEL[h.status]} · {h.content_count} 条 · {hp.change === null ? '首次观测' : `${hp.change >= 0 ? '+' : ''}${Math.round(hp.change * 100)}%`}
           </small>
         </div>
       ) : null}

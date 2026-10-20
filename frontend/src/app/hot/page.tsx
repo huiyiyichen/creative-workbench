@@ -261,7 +261,8 @@ function Rising({ onOpen }: { onOpen: (id: number) => void }) {
   const router = useRouter();
   const [status, setStatus] = useState<'' | TopicStatus>('');
   const [board, setBoard] = useState<RisingBoard | null>(null);
-  const [now] = useState(() => Date.now());
+  const [now, setNow] = useState(0);
+  useEffect(() => setNow(Date.now()), [board]);
 
   const load = useCallback(() => {
     discoverApi
@@ -290,15 +291,6 @@ function Rising({ onOpen }: { onOpen: (id: number) => void }) {
   return (
     <>
       <div className="cw-filters">
-        <Segmented
-          label="状态"
-          value={status}
-          onChange={setStatus}
-          options={STATUS_FILTERS.map((f) => ({
-            value: f.value,
-            label: f.value && board?.status_counts[f.value] ? `${f.label} ${board.status_counts[f.value]}` : f.label,
-          }))}
-        />
         <span className="cw-grow" />
         <span className="cw-muted">{board?.computed_at ? `每小时计算 · ${relativeTime(board.computed_at)}` : ''}</span>
       </div>
