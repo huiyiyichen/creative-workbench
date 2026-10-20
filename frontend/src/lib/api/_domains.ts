@@ -15,17 +15,8 @@ export type { SourceBatchImportItem } from './_sources';
 
 export { contentsApi, contentCategoriesApi } from './_contents';
 
-export { dailyReportApi, studioApi } from './_daily-reports';
+export { dailyReportApi } from './_daily-reports';
 export type { WebhookDeliveryLogItem } from './_daily-reports';
-export type {
-  StudioCatalog,
-  StudioBrief,
-  StudioDraft,
-  StudioProject,
-  StudioShot,
-  StudioCue,
-  StudioArtifact,
-} from './_daily-reports';
 
 export { favoritesApi, topicsApi, analysesApi, evidenceApi, contentEventsAdminApi } from './_admin-api';
 export type {

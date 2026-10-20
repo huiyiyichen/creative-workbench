@@ -22,7 +22,7 @@ export default function StudioVoice() {
   const [preview, setPreview] = useState('');
   useEffect(() => {
     let active = true;
-    void request<VoiceSettings>('/studio/tts').then((value) => {
+    void request<VoiceSettings>('/voice/tts').then((value) => {
       if (active) {setSettings(value); setVoice(value.voice);}
     }).catch(() => {});
     return () => {active = false;};
@@ -31,7 +31,7 @@ export default function StudioVoice() {
   const save = async () => {
     setBusy(true);
     try {
-      const next = await request<VoiceSettings>('/studio/tts', {
+      const next = await request<VoiceSettings>('/voice/tts', {
         method: 'PUT', body: JSON.stringify({api_key: key || undefined, voice}),
       });
       setSettings(next); setKey(''); setOpen(false);
@@ -42,7 +42,7 @@ export default function StudioVoice() {
   const audition = async () => {
     setBusy(true);
     try {
-      const response = await fetch(`${BASE_URL}/studio/tts/preview`, {method: 'POST'});
+      const response = await fetch(`${BASE_URL}/voice/tts/preview`, {method: 'POST'});
       if (!response.ok) {
         const error = await response.json();
         throw new Error(error.error || formatApiErrorDetail(error.detail) || '试听失败');

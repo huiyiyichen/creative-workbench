@@ -124,9 +124,73 @@
   display: flex;
   flex-direction: column;
   height: 100dvh;
-  background: #f7f7f8;
-  color: #1a1a2e;
-  color-scheme: light;
+  background: var(--cw-base);
+  color: var(--cw-text);
+}
+/*
+ * 旧页面（管理页、日报 / 周刊 / 月刊、统计）跟随主题：把 Tailwind 调色板换成 --cw-* 变量，
+ * 白底卡片变面板色、灰阶按主题翻转、品牌浅色底变半透明色调。新样式仍只写 --cw-*。
+ */
+.cw-legacy,
+.cw-legacy-area {
+  --color-page: var(--cw-base);
+  --color-surface: var(--cw-base);
+  --color-text: var(--cw-text);
+  --color-white: var(--cw-panel);
+  --color-gray-50: var(--cw-raise);
+  --color-gray-100: var(--cw-raise);
+  --color-gray-200: var(--cw-grat);
+  --color-gray-300: var(--cw-line);
+  --color-gray-400: var(--cw-faint);
+  --color-gray-500: var(--cw-dim);
+  --color-gray-600: color-mix(in srgb, var(--cw-dim) 55%, var(--cw-text));
+  --color-gray-700: color-mix(in srgb, var(--cw-dim) 35%, var(--cw-text));
+  --color-gray-800: color-mix(in srgb, var(--cw-dim) 15%, var(--cw-text));
+  --color-gray-900: var(--cw-text);
+  --color-primary: var(--cw-bl);
+  --color-primary-hover: color-mix(in srgb, var(--cw-bl) 85%, var(--cw-text));
+  --color-primary-solid: var(--cw-bl);
+  --color-primary-text: var(--cw-bl);
+  --color-primary-light: color-mix(in srgb, var(--cw-bl) 12%, transparent);
+  --color-primary-soft: color-mix(in srgb, var(--cw-bl) 20%, transparent);
+  --color-primary-border: color-mix(in srgb, var(--cw-bl) 40%, transparent);
+  --color-teal: var(--cw-cy);
+  --color-teal-hover: color-mix(in srgb, var(--cw-cy) 85%, var(--cw-text));
+  --color-teal-text: var(--cw-cy);
+  --color-teal-light: color-mix(in srgb, var(--cw-cy) 12%, transparent);
+  --color-teal-border: color-mix(in srgb, var(--cw-cy) 40%, transparent);
+  --color-amber: var(--cw-yl);
+  --color-amber-light: color-mix(in srgb, var(--cw-yl) 14%, transparent);
+  --color-amber-border: color-mix(in srgb, var(--cw-yl) 40%, transparent);
+  --color-red: var(--cw-rd);
+  --color-red-light: color-mix(in srgb, var(--cw-rd) 14%, transparent);
+  --color-purple: var(--cw-mg);
+  --color-purple-light: color-mix(in srgb, var(--cw-mg) 12%, transparent);
+  --color-purple-border: color-mix(in srgb, var(--cw-mg) 40%, transparent);
+  --color-blue-50: color-mix(in srgb, var(--cw-bl) 12%, transparent);
+  --color-indigo-50: color-mix(in srgb, var(--cw-bl) 12%, transparent);
+  --color-emerald-50: color-mix(in srgb, var(--cw-gr) 12%, transparent);
+  --color-green-100: color-mix(in srgb, var(--cw-gr) 16%, transparent);
+  --color-red-50: color-mix(in srgb, var(--cw-rd) 12%, transparent);
+  --color-amber-50: color-mix(in srgb, var(--cw-yl) 12%, transparent);
+}
+/* text-white 和 bg-white 共用 --color-white：彩色按钮上的白字保持白色 */
+.cw-legacy .text-white,
+.cw-legacy .hover\:text-white:hover,
+.cw-legacy-area .text-white {
+  color: #fff;
+}
+.cw-legacy input,
+.cw-legacy select,
+.cw-legacy textarea,
+.cw-legacy-area input,
+.cw-legacy-area select,
+.cw-legacy-area textarea {
+  color: var(--cw-text);
+}
+.cw-legacy select option,
+.cw-legacy-area select option {
+  background: var(--cw-panel);
 }
 .cw-legacy-body {
   flex: 1;

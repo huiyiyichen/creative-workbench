@@ -78,7 +78,7 @@ export default function SelectedDrawer({
       {/* 抽屉面板 */}
       <aside
         className={cx(
-          'fixed right-0 top-0 z-50 flex h-full w-full max-w-[560px] flex-col bg-[#F7F8FA] shadow-2xl transition-transform duration-300',
+          'fixed right-0 top-0 z-50 flex h-full w-full max-w-[560px] flex-col bg-gray-50 shadow-2xl transition-transform duration-300',
         )}
         role="dialog"
         aria-label="今日已选"

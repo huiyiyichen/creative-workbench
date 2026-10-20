@@ -3,7 +3,6 @@
 import React from 'react';
 import { usePathname } from 'next/navigation';
 import NotificationBell from '@/components/NotificationBell';
-import ProductionStatus from '@/components/ProductionStatus';
 import AppShell from '@/design/AppShell';
 import { useSourcesAlert } from '@/design/useSourcesAlert';
 import { AppProvider, useAuthContext, useAppContext } from '@/providers/AppProvider';
@@ -42,7 +41,6 @@ function LayoutChrome({ children }: { children: React.ReactNode }) {
 
   const legacyBar = isAdminPath ? null : (
     <div className="flex h-12 shrink-0 items-center justify-end border-b border-gray-100 bg-white px-6">
-      <ProductionStatus />
       {currentUser && <NotificationBell />}
     </div>
   );

@@ -493,7 +493,7 @@ export default function DailyReportPage() {
       </div>
 
       {/* 主区域 */}
-      <div className="h-[calc(100%-40px)] overflow-y-auto bg-[linear-gradient(180deg,#F8FAFC_0%,#F4F6F8_44%,#EEF2F5_100%)]">
+      <div className="h-[calc(100%-40px)] overflow-y-auto bg-page">
         <div className="mx-auto max-w-[920px] px-4 py-4 sm:px-6">
           {loading ? (
             <ReportStatusPanel icon={FileText}>正在加载日报...</ReportStatusPanel>

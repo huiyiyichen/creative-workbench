@@ -12,7 +12,7 @@ import { useCwTheme } from './theme';
 import { QuickNote } from './notes';
 import { TaskDrawer, useTaskCount } from './tasks';
 
-/** 已按调色台重做的路由；其余仍是旧页面，包在浅色容器里直到阶段 2 替换 */
+/** 已按调色台重做的路由；其余旧页面（管理页、日报 / 周刊 / 月刊）包在 .cw-legacy 里，调色板换成 --cw-* 变量跟随主题 */
 export const CW_ROUTES = ['/', '/sources', '/hot', '/reports', '/dossiers', '/items', '/settings', '/library', '/notes', '/runs', '/projects', '/tasks', '/works'];
 
 export function isCwRoute(pathname: string): boolean {
@@ -121,10 +121,12 @@ export default function AppShell({
         {cw ? (
           children
         ) : (
-          <div className="cw-legacy">
-            {legacyBar}
-            <div className="cw-legacy-body">{children}</div>
-          </div>
+          <ConfigProvider theme={cwAntdThemeFor(mode)} locale={zhCN}>
+            <div className="cw-legacy">
+              {legacyBar}
+              <div className="cw-legacy-body">{children}</div>
+            </div>
+          </ConfigProvider>
         )}
       </main>
       <ConfigProvider theme={cwAntdThemeFor(mode)} locale={zhCN}>

@@ -233,7 +233,6 @@ export {
   topicsApi,
   analysesApi,
   dailyReportApi,
-  studioApi,
   evidenceApi,
   contentEventsAdminApi,
 } from './api/_domains';
@@ -250,13 +249,6 @@ export type {
   ContentEventMutationResponse,
   ContentEventNormalizeRequest,
   ContentEventNormalizeResponse,
-  StudioCatalog,
-  StudioBrief,
-  StudioDraft,
-  StudioProject,
-  StudioShot,
-  StudioCue,
-  StudioArtifact,
 } from './api/_domains';
 export { settingsApi, statsApi, statsJobsApi, trendsApi, feedbackApi, productFeedbackApi, adminPromptsApi, scoringDashboardApi } from './api/_analytics';
 export type { PromptRegistryItem, PromptRegistryListResponse, PromptDetailResponse, ScoringDashboardSummary, ScoringDashboardResponse } from './api/_analytics';
