@@ -70,5 +70,7 @@ async def test_tasks_merge_filter_and_hint(test_session_factory):
         summ = await task_service.summary(db)
         assert summ["active"] == 2 and all(r["status"] == "running" for r in summ["items"])
 
-        with pytest.raises(Exception):
+        from app.services.flows import engine
+
+        with pytest.raises(engine.FlowError):
             await task_service.stop(db, "sync:1")

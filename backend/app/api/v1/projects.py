@@ -125,6 +125,30 @@ async def rewrite_platforms(project_id: int, request: PlatformRewrite, db: Async
     return await platform_flow.start_platform_rewrite(db, project_id, list(request.kinds), request.output_ids)
 
 
+@router.get("/works")
+async def list_works(
+    q: str | None = None, kind: str | None = None, project: int | None = None, db: AsyncSession = Depends(get_db)
+):
+    """作品库：按项目归档的产出物（完成 / 已导出 / 已发布自动收录，草稿可手动加入）与旧成片。"""
+    from app.services import works_service
+
+    return await works_service.list_works(db, q=(q or "")[:100] or None, kind=kind, project_id=project)
+
+
+@router.post("/outputs/{output_id}/works")
+async def add_to_works(output_id: int, db: AsyncSession = Depends(get_db)):
+    from app.services import works_service
+
+    return await works_service.set_in_works(db, output_id, True)
+
+
+@router.delete("/outputs/{output_id}/works")
+async def remove_from_works(output_id: int, db: AsyncSession = Depends(get_db)):
+    from app.services import works_service
+
+    return await works_service.set_in_works(db, output_id, False)
+
+
 @router.post("/projects/{project_id}/pipeline")
 async def start_pipeline(project_id: int, request: PipelineStart, db: AsyncSession = Depends(get_db)):
     """一键全流程：选题研究 →〔选方向〕→ 成稿 →〔接受〕→〔定稿〕→ 讲解视频 + 平台改写。"""

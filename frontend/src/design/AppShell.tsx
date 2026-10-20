@@ -13,7 +13,7 @@ import { QuickNote } from './notes';
 import { TaskDrawer, useTaskCount } from './tasks';
 
 /** 已按调色台重做的路由；其余仍是旧页面，包在浅色容器里直到阶段 2 替换 */
-export const CW_ROUTES = ['/', '/sources', '/hot', '/reports', '/dossiers', '/items', '/settings', '/library', '/notes', '/runs', '/projects', '/tasks'];
+export const CW_ROUTES = ['/', '/sources', '/hot', '/reports', '/dossiers', '/items', '/settings', '/library', '/notes', '/runs', '/projects', '/tasks', '/works'];
 
 export function isCwRoute(pathname: string): boolean {
   return CW_ROUTES.some((p) => pathname === p || (p !== '/' && pathname.startsWith(`${p}/`)));

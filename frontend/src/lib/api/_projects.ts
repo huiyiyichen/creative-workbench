@@ -235,6 +235,37 @@ export interface PipelineView {
   partial?: boolean;
 }
 
+export interface WorkItem {
+  key: string;
+  type: 'output' | 'legacy';
+  id: number;
+  kind: string;
+  title: string;
+  status: string;
+  based_on_version: number | null;
+  excerpt: string;
+  chars: number | null;
+  copy_text: string | null;
+  cover: string | null;
+  preview_path: string | null;
+  download_path: string | null;
+  published_url: string | null;
+  manual: boolean;
+  href: string;
+  updated_at: string | null;
+}
+export interface WorksView {
+  groups: { project: { id: number; title: string; archived: boolean }; items: WorkItem[] }[];
+  total: number;
+}
+
+/** 作品库收录规则（与后端 works_service.included 一致） */
+export function inWorks(o: Pick<OutputView, 'status' | 'settings'>): boolean {
+  const flag = o.settings?.in_works;
+  if (flag === false) return false;
+  return flag === true || ['done', 'exported', 'published'].includes(o.status);
+}
+
 export const projectsApi = {
   list(params: { stage?: ProjectStage; q?: string; archived?: boolean } = {}): Promise<{ items: ProjectSummary[] }> {
     const sp = new URLSearchParams();
@@ -340,6 +371,17 @@ export const projectsApi = {
   },
   output(oid: number): Promise<OutputView> {
     return request(`/outputs/${oid}`);
+  },
+  works(params: { q?: string; kind?: string; project?: number } = {}): Promise<WorksView> {
+    const sp = new URLSearchParams();
+    if (params.q) sp.set('q', params.q);
+    if (params.kind) sp.set('kind', params.kind);
+    if (params.project) sp.set('project', String(params.project));
+    const q = sp.toString();
+    return request(`/works${q ? `?${q}` : ''}`);
+  },
+  setInWorks(oid: number, value: boolean): Promise<OutputView> {
+    return request(`/outputs/${oid}/works`, { method: value ? 'POST' : 'DELETE' });
   },
   patchOutput(oid: number, body: { title?: string; content?: Record<string, unknown>; settings?: Record<string, unknown>; published_url?: string; status?: string }): Promise<OutputView> {
     return request(`/outputs/${oid}`, { method: 'PATCH', body: j(body) });

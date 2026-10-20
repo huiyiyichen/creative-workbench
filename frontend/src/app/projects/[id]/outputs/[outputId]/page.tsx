@@ -14,7 +14,7 @@ import { libraryFileUrl } from '@/lib/api/_library';
 import type { GenTarget } from '@/lib/api/_generations';
 import type { ProjectAsset } from '@/lib/api/_projects';
 import { libraryApi, type StyleEntry } from '@/lib/api/_library';
-import { projectsApi, type OutputView } from '@/lib/api/_projects';
+import { inWorks, projectsApi, type OutputView } from '@/lib/api/_projects';
 import { PLATFORM_LIMITS, fmtClock, platformIssues, qaMark, stripTags, textLen } from '@/lib/projects';
 import { useOutputs } from '../_ctx';
 
@@ -676,6 +676,20 @@ export default function OutputWorkspace({ params }: { params: Promise<{ outputId
         <span className="cw-muted">{output.based_on_version ? `基于 v${output.based_on_version}` : '基于工作副本'}</span>
         {output.stale ? <span className="cw-outstale">文稿已更新到 v{output.latest_finalized}，可重新生成</span> : null}
         <span className="cw-grow" />
+        <button
+          type="button"
+          className="cw-link-btn"
+          onClick={async () => {
+            try {
+              saved(await projectsApi.setInWorks(output.id, !inWorks(output)));
+              message.success(inWorks(output) ? '已移出作品库' : '已加入作品库');
+            } catch (err) {
+              message.error(apiError(err));
+            }
+          }}
+        >
+          {inWorks(output) ? '移出作品库' : '加入作品库'}
+        </button>
         <button type="button" className="cw-link-btn" onClick={remove}>
           删除
         </button>

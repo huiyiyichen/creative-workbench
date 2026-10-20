@@ -22,6 +22,6 @@ describe('主导航', () => {
     expect(activeNavId('/stats/jobs')).toBe('tasks');
     expect(activeNavId('/runs/3')).toBe('tasks');
     expect(activeNavId('/admin/contents')).toBe('sources');
-    expect(activeNavId('/works')).toBeNull();
+    expect(activeNavId('/works')).toBe('works');
   });
 });
