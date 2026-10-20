@@ -5,7 +5,7 @@
  */
 
 import { request, type RequestOptions } from './_core';
-import type { ContentAnalysis, PaginatedResponse, TopicInfo, TopicFilterParams, FavoriteItem, FavoriteStatus, FavoriteTargetType } from '@/types';
+import type { ContentAnalysis, PaginatedResponse, TopicFilterParams, FavoriteItem, FavoriteStatus, FavoriteTargetType } from '@/types';
 import type { FavoriteCreatePayload, FavoriteTargetState } from '@/lib/favorites';
 import { assertUniqueIds, chunkArray, FAVORITE_STATE_BATCH_SIZE } from './_core';
 import type { TopicGroupResponse } from '@/types/contents';

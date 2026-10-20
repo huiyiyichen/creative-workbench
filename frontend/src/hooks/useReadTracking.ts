@@ -123,6 +123,5 @@ export function useReadTracking(
       flush(sessionRef.current);
     };
     // targetKey / targetType / targetId 变化时重置会话
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetType, targetKey, targetId]);
 }

@@ -1,12 +1,10 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ArrowRight,
   BarChart3,
   Beaker,
   BrainCircuit,
-  CheckCircle2,
   Clock3,
   Coins,
   FlaskConical,
@@ -14,56 +12,28 @@ import {
   History,
   KeyRound,
   Layers3,
-  Loader2,
-  Play,
-  Plus,
-  Power,
   RefreshCw,
   Settings2,
   ShieldCheck,
-  SlidersHorizontal,
-  Trash2,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { Badge, Button, Panel, Toolbar, cx } from '@/components/ui';
-import { EmptyState, LoadingState } from '@/components/StateView';
+import { Button, Panel, cx } from '@/components/ui';
+import { LoadingState } from '@/components/StateView';
 import { AdminPageShell, AdminPageHeader } from '@/components/admin-ui';
 import { modelsApi } from '@/lib/api';
 import type {
-  EvalResult,
-  EvalRun,
   LlmModelItem,
-  LlmModelPresetCatalog,
-  LlmModelPresetItem,
   ModelUsageSummary,
 } from '@/lib/api';
 import {
   type Tab,
-  type Tone,
-  PROVIDER_PRESETS,
-  promptTypeLabel,
-  toneClasses,
-  formatNumber,
   formatTokens,
   formatCurrency,
-  formatPerMillion,
-  formatPresetValue,
-  presetRequires,
-  presetNumberDefault,
-  parameterMeta,
-  parameterChangeHint,
-  parseOptionalNumber,
 } from './_model-eval-utils';
 import {
-  FieldLabel,
-  InfoCell,
-  SelectInput,
   StatTile,
-  StatusPill,
   Surface,
-  TextInput,
 } from './_components';
-import { ModelEditForm } from './ModelEditForm';
 import { ModelsTab } from './ModelsTab';
 import { EvaluateTab } from './EvaluateTab';
 import { UsageTab } from './UsageTab';

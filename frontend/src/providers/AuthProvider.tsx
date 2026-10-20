@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useStore } from 'zustand';
 import type { AuthUser } from '@/types';
 import { createAuthStore, type AuthStore, type AuthState, type AuthContextType } from '@/stores/authStore';

@@ -6,7 +6,7 @@
 import { request } from './_core';
 export type FeedbackType = 'like' | 'dislike' | 'skip' | 'not_relevant' | 'outdated' | 'great_pick';
 import type { IssueFeedbackItem, IssueFeedbackListResponse, IssueFeedbackSeverity, IssueFeedbackStatus, ProductUpdateEntry, ProductUpdateItem, ProductUpdateKind, ProductUpdateListResponse, ProductUpdateStatus } from '@/types/product-feedback';
-import type { JobStatsByJobKey, JobStatsResponse, RSSHubInstance, StatsCategoryItem, StatsDashboard, StatsOverview, StatsSourceItem, StatsTrendItem } from '@/types/stats';
+import type { JobStatsResponse, RSSHubInstance, StatsCategoryItem, StatsDashboard, StatsOverview, StatsSourceItem, StatsTrendItem } from '@/types/stats';
 import type {
   TrendEvidenceFilter,
   TrendEvidenceResponse,

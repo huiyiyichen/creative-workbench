@@ -78,6 +78,8 @@ export function useFetch<T>(
   // 卸载时使后续回调失效
   useEffect(() => {
     return () => {
+      // seqRef 是请求序号计数器，不是 DOM 引用；卸载时递增让在途回调失效，正是要读最新值。
+      // eslint-disable-next-line react-hooks/exhaustive-deps
       seqRef.current++;
     };
   }, []);

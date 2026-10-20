@@ -38,10 +38,8 @@ import {
   type DailyReportData,
   type DateSummary,
   type CalendarDay,
-  type MarkAction,
   type DailyPick,
   EDITION_LABELS,
-  CATEGORY_ORDER,
   CATEGORY_EN,
   localDateString,
   formatDateTime,
@@ -314,9 +312,7 @@ export default function DailyReportPage() {
   const generatedAt = formatDateTime(report?.generated_at || report?.updated_at);
   const keywordList = Array.isArray(keywords) ? keywords as string[] : [];
   const trendList = Array.isArray(trends) ? trends as Array<{ title: string; desc: string; color?: string; momentum?: string }> : [];
-  const pickList = Array.isArray(topPicks)
-    ? topPicks as DailyPick[]
-    : [];
+  const pickList = useMemo(() => (Array.isArray(topPicks) ? (topPicks as DailyPick[]) : []), [topPicks]);
   const platformTipEntries = platformTips && typeof platformTips === 'object'
     ? Object.entries(platformTips as Record<string, unknown>)
     : [];

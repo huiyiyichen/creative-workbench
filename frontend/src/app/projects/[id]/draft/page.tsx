@@ -9,7 +9,7 @@ import { Button } from '@/design/components';
 import { BodyEditor, type BodyEditorHandle } from '@/design/body-editor';
 import { LyricTimeline } from '@/design/lyric-timeline';
 import { MODE_LABEL, RunStages, apiError, useProject, useRunWatch } from '@/design/studio';
-import { AssistantPanel, ScriptTable, SourcesPanel, SuggestionReview, VersionsPanel } from '@/design/studio-draft';
+import { AssistantPanel, OutlineTree, ScriptTable, SourcesPanel, SuggestionReview, VersionsPanel } from '@/design/studio-draft';
 import {
   AutosaveQueue,
   countChars,
@@ -36,6 +36,7 @@ export default function DraftPage() {
   const [scriptTab, setScriptTab] = useState<'narration' | 'table'>('table');
   const [sel, setSel] = useState<number[]>([]);
   const [shotSel, setShotSel] = useState<number[]>([]);
+  const [assistSeed, setAssistSeed] = useState<{ text: string; nonce: number } | null>(null);
   const [review, setReview] = useState<Suggestion | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [finalizeOpen, setFinalizeOpen] = useState(false);
@@ -208,7 +209,7 @@ export default function DraftPage() {
           : save.state === 'error'
             ? `保存失败：${save.error}`
             : view.dirty
-              ? '工作副本有未存为版本的修改'
+              ? '已保存 · 还没存成版本'
               : '已是最新版本';
 
   return (
@@ -253,21 +254,13 @@ export default function DraftPage() {
               ))}
             </ol>
           ) : heads.length ? (
-            <ol>
-              {heads.map((h) => (
-                <li key={h.index} style={{ paddingLeft: (h.level - 1) * 10 }}>
-                  <button
-                    type="button"
-                    className="cw-link-btn"
-                    onClick={() => {
-                      bodyRef.current?.focusParagraph(h.index);
-                    }}
-                  >
-                    {h.text}
-                  </button>
-                </li>
-              ))}
-            </ol>
+            <OutlineTree
+              body={draft.body}
+              heads={heads}
+              readOnly={locked}
+              onJump={(i) => bodyRef.current?.focusParagraph(i)}
+              onChange={(body) => change({ ...draft, body })}
+            />
           ) : (
             <p className="cw-muted">用「## 小标题」分节后这里会出现标题树。共 {paras.length} 段。</p>
           )}
@@ -353,7 +346,14 @@ export default function DraftPage() {
                     <span className="cw-muted">{MODE_LABEL[view.brief.mode]}</span>
                   </div>
                   {scriptTab === 'table' ? (
-                    <ScriptTable shots={draft.shots} target={view.brief.duration_seconds} readOnly={locked} selected={shotSel} onSelect={setShotSel} onChange={(shots) => change({ ...draft, shots })} />
+                    <ScriptTable shots={draft.shots} target={view.brief.duration_seconds} readOnly={locked} selected={shotSel} onSelect={setShotSel}
+                      onChange={(shots) => change({ ...draft, shots })}
+                      onRewrite={(i) => {
+                        setShotSel([i]);
+                        setSide('assist');
+                        setAssistSeed({ text: `改写第 ${i + 1} 镜：`, nonce: Date.now() });
+                      }}
+                    />
                   ) : (
                     <div className="cw-paper">
                       <textarea
@@ -405,6 +405,7 @@ export default function DraftPage() {
                 if (s.status === 'pending' || s.status === 'partial') setReview(s);
               }}
               refreshKey={refreshKey}
+              seed={assistSeed}
             />
           ) : side === 'brief' ? (
             <div className="cw-kv">

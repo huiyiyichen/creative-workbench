@@ -117,10 +117,19 @@ export function ProjectProvider({ id, children }: { id: number; children: ReactN
 // ── 项目栏 ──
 
 function StatusMark({ project, unsaved }: { project: ProjectView; unsaved: boolean }) {
-  if (unsaved || project.status === 'dirty') {
+  // 「未保存」只指工作副本还没写进数据库；自动保存后只是「没存成版本」，两者分开说，避免和底栏的「已自动保存」打架。
+  const base = project.finalized_version ? `已定稿 v${project.finalized_version}` : '草稿';
+  if (unsaved) {
     return (
-      <span className="cw-pstatus" data-tone="dirty" title="有未保存为版本的修改">
-        <i /> {project.finalized_version ? `已定稿 v${project.finalized_version} · 有修改` : '草稿 · 有修改'}
+      <span className="cw-pstatus" data-tone="dirty" title="修改还在写入工作副本">
+        <i /> {base} · 未保存
+      </span>
+    );
+  }
+  if (project.status === 'dirty') {
+    return (
+      <span className="cw-pstatus" data-tone="draft" title="修改已自动保存到工作副本，还没有存成版本">
+        <i /> {base} · 未存版本
       </span>
     );
   }

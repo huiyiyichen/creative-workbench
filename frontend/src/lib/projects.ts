@@ -69,6 +69,33 @@ export function outline(body: string): OutlineEntry[] {
   });
 }
 
+/** 第 h 个标题管辖的段落范围 [start, end)：到下一个同级或更高级标题为止。 */
+export function sectionRange(heads: OutlineEntry[], h: number, paraCount: number): [number, number] {
+  const head = heads[h];
+  const next = heads.slice(h + 1).find((x) => x.level <= head.level);
+  return [head.index, next ? next.index : paraCount];
+}
+
+/**
+ * 大纲拖动：把第 from 个标题连同它下面的内容整节移到第 to 个标题的位置（上移放到它前面，下移放到它后面）。
+ * 只允许同级标题之间换位置；不同级或位置没变时原样返回 null。
+ */
+export function moveSection(body: string, from: number, to: number): string | null {
+  const paras = splitParagraphs(body);
+  const heads = outline(body);
+  const a = heads[from];
+  const b = heads[to];
+  if (!a || !b || from === to || a.level !== b.level) return null;
+  const [as, ae] = sectionRange(heads, from, paras.length);
+  const [bs, be] = sectionRange(heads, to, paras.length);
+  const block = paras.slice(as, ae);
+  const rest = [...paras.slice(0, as), ...paras.slice(ae)];
+  // 在去掉被移动那节之后的列表里找插入点
+  const at = from < to ? be - block.length : bs;
+  const next = [...rest.slice(0, at), ...block, ...rest.slice(at)];
+  return next.join('\n\n');
+}
+
 // ── 建议预览 ──
 
 export type PreviewRow =
@@ -272,6 +299,65 @@ export function moveItem<T>(list: T[], from: number, to: number): T[] {
   const [item] = next.splice(from, 1);
   next.splice(to, 0, item);
   return next;
+}
+
+/** 把一段文字在最靠近中间的句末（。！？；…或换行）断开；没有句末就按字数对半。 */
+export function splitTextNearMiddle(text: string): [string, string] {
+  const t = text.trim();
+  if (t.length < 2) return [t, ''];
+  const mid = t.length / 2;
+  let best = -1;
+  const re = /[。！？!?；;…\n]+/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(t))) {
+    const end = m.index + m[0].length;
+    if (end >= t.length) break;
+    if (best < 0 || Math.abs(end - mid) < Math.abs(best - mid)) best = end;
+  }
+  const cut = best > 0 ? best : Math.ceil(mid);
+  return [t.slice(0, cut).trim(), t.slice(cut).trim()];
+}
+
+const round1 = (n: number) => Math.round(n * 10) / 10;
+
+/** 拆成两镜：时长对半，旁白和字幕在句末断开，画面、运镜、提示词两镜都保留。 */
+export function splitShot(shots: Shot[], i: number): Shot[] {
+  const s = shots[i];
+  if (!s) return shots;
+  const first = Math.max(0.1, round1(s.seconds / 2));
+  const second = Math.max(0.1, round1(s.seconds - first));
+  const [a1, a2] = splitTextNearMiddle(s.audio || '');
+  const [c1, c2] = splitTextNearMiddle(s.caption || '');
+  const head: Shot = { ...s, seconds: first, audio: a1, caption: c1, transition: '直切' };
+  const tail: Shot = { ...s, seconds: second, audio: a2, caption: c2 };
+  return [...shots.slice(0, i), head, tail, ...shots.slice(i + 1)];
+}
+
+function joinField(a: string, b: string, sep: string): string {
+  const x = (a || '').trim();
+  const y = (b || '').trim();
+  if (!x) return y;
+  if (!y || x === y) return x;
+  return x + sep + y;
+}
+
+/** 合并到下一镜：时长相加，文字字段首尾相接（相同的不重复），转场取后一镜的。 */
+export function mergeShotWithNext(shots: Shot[], i: number): Shot[] {
+  const a = shots[i];
+  const b = shots[i + 1];
+  if (!a || !b) return shots;
+  const merged: Shot = {
+    ...a,
+    seconds: round1(a.seconds + b.seconds),
+    beat: joinField(a.beat, b.beat, ' / '),
+    visual: joinField(a.visual, b.visual, '；'),
+    camera: joinField(a.camera, b.camera, ' → '),
+    audio: joinField(a.audio, b.audio, ''),
+    caption: joinField(a.caption, b.caption, ' '),
+    prompt: joinField(a.prompt, b.prompt, '; '),
+    transition: b.transition,
+  };
+  return [...shots.slice(0, i), merged, ...shots.slice(i + 2)];
 }
 
 export function draftEquals(a: Draft, b: Draft): boolean {

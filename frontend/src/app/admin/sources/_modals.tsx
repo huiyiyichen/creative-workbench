@@ -19,7 +19,6 @@ import { Upload } from 'lucide-react';
 import { Badge, Button, Panel } from '@/components/ui';
 import { AdminModal, AdminModalFooter } from '@/components/admin-ui';
 import SourceForm, { type FormState } from '@/components/SourceForm';
-import type { BackendSource } from '@/components/SourceRow';
 import { sourceTypeLabel } from '@/lib/source-sync-board';
 import type { SourceBatchImportItem } from '@/lib/api';
 import { useDialogFocus } from '@/components/useDialogFocus';

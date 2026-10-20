@@ -10,7 +10,6 @@ import type {
   LlmModelCreatePayload,
   LlmModelItem,
   LlmModelPresetCatalog,
-  LlmModelPresetItem,
   ModelCatalogModelsResponse,
   ModelCatalogProvidersResponse,
   ModelCatalogRefreshResponse,

@@ -4,29 +4,12 @@
  */
 
 import type {
-  Source,
   CreateSourceRequest,
   UpdateSourceRequest,
   ContentItem,
-  ContentAnalysis,
-  TopicFilterParams,
-  ContentFilterParams,
-  PaginatedResponse,
-  SyncResult,
-  TopicInfo,
-  FavoriteItem,
-  FavoriteStatus,
-  FavoriteTargetType,
-  MonthlyDigest,
-  MonthlyDigestListResponse,
-  MonthlyDigestMonthsResponse,
-  WeeklyDigest,
-  WeeklyDigestListResponse,
-  WeeklyDigestWeeksResponse,
   AuthUser,
   NotificationListResponse,
 } from '@/types';
-import type { FavoriteCreatePayload, FavoriteTargetState } from '@/lib/favorites';
 import type {
   RSSHubInstance,
   StatsOverview,
@@ -176,8 +159,6 @@ import {
   getAuthTokenExpiresAt,
   setAuthTokenExpiresAt,
   formatApiErrorDetail,
-  assertUniqueIds,
-  chunkArray,
   FAVORITE_STATE_BATCH_SIZE,
 } from './api/_core';
 export { getAuthToken, setAuthToken, getAuthTokenExpiresAt, setAuthTokenExpiresAt, formatApiErrorDetail, FAVORITE_STATE_BATCH_SIZE };

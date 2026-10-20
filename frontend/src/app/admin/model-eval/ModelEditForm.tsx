@@ -281,6 +281,8 @@ export function ModelEditForm({ model, onClose }: { model?: LlmModelItem | null;
     return () => {
       cancelled = true;
     };
+    // presetKey 只在目录首次到达时用来保留当前选择；不能随它重拉目录。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applyPreset, isEdit]);
 
   /**

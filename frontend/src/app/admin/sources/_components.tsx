@@ -10,7 +10,7 @@
  */
 
 import React, { useState } from 'react';
-import { Activity, GripVertical, Network, ShieldCheck, Star } from 'lucide-react';
+import { Network, ShieldCheck, Star } from 'lucide-react';
 import { Badge, Button, Panel, cx } from '@/components/ui';
 import type { BackendSource } from '@/components/SourceRow';
 import { getFavoriteTargetKey } from '@/lib/favorites';

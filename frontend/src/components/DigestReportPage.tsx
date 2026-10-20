@@ -265,7 +265,7 @@ export default function DigestReportPage<TDigest extends DigestRecord, TSummary 
     } finally {
       setLoading(false);
     }
-  }, [api, getDigestKey, periodName]);
+  }, [api, getDigestKey, periodName, onDigestChange]);
 
   // 仅 mount 时加载当前期——不依赖 fetchDigest（其依赖 api/getDigestKey 是父组件
   // 内联传参，每次 render 新引用，若放依赖会重跑此 effect 拉回 current 覆盖用户切换）。

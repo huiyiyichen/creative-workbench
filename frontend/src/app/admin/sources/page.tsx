@@ -1,30 +1,25 @@
 'use client';
 
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Activity, FileSearch, List, Network, Plus, Star, Upload } from 'lucide-react';
+import { Activity, FileSearch, List, Network, Plus, Upload } from 'lucide-react';
 import { favoritesApi, sourcesApi, settingsApi } from '@/lib/api';
 import type { RSSHubInstance, CreateSourceRequest, SourceBatchImportItem, UpdateSourceRequest } from '@/lib/api';
 import { useAppContext } from '@/components/ClientLayout';
-import { timeAgo } from '@/lib/utils';
-import { Badge, Button, Panel, Toolbar, cx } from '@/components/ui';
+import { Button, Toolbar, cx } from '@/components/ui';
 import { AdminPageShell, AdminPageHeader, AdminNoticeBanner } from '@/components/admin-ui';
-import SourceForm, { FormState, emptyForm } from '@/components/SourceForm';
-import SourceRowComponent, { type BackendSource } from '@/components/SourceRow';
-import { Spinner } from '@/components/SourceRow';
+import { FormState, emptyForm } from '@/components/SourceForm';
+import { type BackendSource } from '@/components/SourceRow';
 import SourceSyncBoard from '@/components/SourceSyncBoard';
 import { buildSourceSyncBoard, sourceTypeLabel } from '@/lib/source-sync-board';
 import { getFavoriteTargetKey } from '@/lib/favorites';
 import {
   type SourceTierKey,
-  type DropTarget,
-  sourceTierMeta,
   getSourceTier,
   normalizeRsshubInstanceUrl,
-  isPlainObject,
   validateApiSourceConfig,
 } from './_sources-utils';
 
-import { SourceMapCard, SourceMapView } from './_components';
+import { SourceMapView } from './_components';
 import { AddSourceModal, BatchImportModal, EditSourceModal } from './_modals';
 import { EvidenceProfileModal } from '@/components/EvidenceProfileModal';
 import { RSSHubManager, SourceListPanel } from './_panels';

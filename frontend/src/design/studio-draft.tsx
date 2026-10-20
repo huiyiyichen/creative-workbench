@@ -5,14 +5,14 @@
  * 版本 VersionsPanel、版本对比 VersionCompare、来源 SourcesPanel。
  */
 
-import { Input, InputNumber, Modal, message } from 'antd';
+import { Dropdown, Input, InputNumber, Modal, message } from 'antd';
 import { LineageDrawer } from './lineage';
 import type { LineageQuery } from '@/lib/api/_runs';
-import { Copy, GripVertical, Plus, Trash2 } from 'lucide-react';
+import { Copy, GripVertical, Merge, MoreHorizontal, Plus, Scissors, Trash2, WandSparkles } from 'lucide-react';
 import { DndContext, KeyboardSensor, PointerSensor, closestCenter, useSensor, useSensors, type DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { useCallback, useEffect, useMemo, useState, type HTMLAttributes, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type HTMLAttributes, type ReactNode } from 'react';
 import { Button } from './components';
 import { apiError, reasonLabel } from './studio';
 import { platformName } from './discover';
@@ -23,6 +23,9 @@ import {
   describeShotOp,
   diffCount,
   emptyShot,
+  mergeShotWithNext,
+  moveSection,
+  splitShot,
   fmtClock,
   moveItem,
   overTarget,
@@ -30,6 +33,7 @@ import {
   shotOps,
   shotTotal,
   type AlignedRow,
+  type OutlineEntry,
 } from '@/lib/projects';
 import {
   projectsApi,
@@ -55,6 +59,7 @@ export function ScriptTable({
   selected,
   onSelect,
   onChange,
+  onRewrite,
 }: {
   shots: Shot[];
   target: number;
@@ -62,6 +67,8 @@ export function ScriptTable({
   selected: number[];
   onSelect: (idx: number[]) => void;
   onChange: (shots: Shot[]) => void;
+  /** 「改写这一镜」：选中这一镜并交给 AI 助手。 */
+  onRewrite?: (i: number) => void;
 }) {
   const [open, setOpen] = useState<number | null>(null);
   const total = shotTotal(shots);
@@ -70,6 +77,14 @@ export function ScriptTable({
   const insert = (after: number) => onChange([...shots.slice(0, after + 1), emptyShot(), ...shots.slice(after + 1)]);
   const dup = (i: number) => onChange([...shots.slice(0, i + 1), { ...shots[i] }, ...shots.slice(i + 1)]);
   const del = (i: number) => onChange(shots.filter((_, k) => k !== i));
+  const split = (i: number) => {
+    onChange(splitShot(shots, i));
+    onSelect([i, i + 1]);
+  };
+  const merge = (i: number) => {
+    onChange(mergeShotWithNext(shots, i));
+    onSelect([i]);
+  };
   const pct = target > 0 ? Math.min(100, (total / target) * 100) : 0;
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
@@ -158,12 +173,31 @@ export function ScriptTable({
                       <button type="button" aria-label="在后面插入" onClick={() => insert(i)}>
                         <Plus size={13} />
                       </button>
-                      <button type="button" aria-label="复制" onClick={() => dup(i)}>
-                        <Copy size={13} />
-                      </button>
-                      <button type="button" aria-label="删除" onClick={() => del(i)}>
-                        <Trash2 size={13} />
-                      </button>
+                      <Dropdown
+                        trigger={['click']}
+                        menu={{
+                          items: [
+                            ...(onRewrite ? [{ key: 'rewrite', icon: <WandSparkles size={13} />, label: '改写这一镜' }] : []),
+                            { key: 'split', icon: <Scissors size={13} />, label: '拆成两镜' },
+                            { key: 'merge', icon: <Merge size={13} />, label: '合并到下一镜', disabled: i >= shots.length - 1 },
+                            { type: 'divider' as const },
+                            { key: 'dup', icon: <Copy size={13} />, label: '复制' },
+                            { key: 'del', icon: <Trash2 size={13} />, label: '删除', danger: true },
+                          ],
+                          onClick: ({ key, domEvent }) => {
+                            domEvent.stopPropagation();
+                            if (key === 'rewrite') onRewrite?.(i);
+                            else if (key === 'split') split(i);
+                            else if (key === 'merge') merge(i);
+                            else if (key === 'dup') dup(i);
+                            else if (key === 'del') del(i);
+                          },
+                        }}
+                      >
+                        <button type="button" aria-label={`第 ${i + 1} 镜更多操作`} onClick={(e) => e.stopPropagation()}>
+                          <MoreHorizontal size={13} />
+                        </button>
+                      </Dropdown>
                     </>
                   ) : null}
                 </td>
@@ -233,6 +267,106 @@ function SortableTr({
     >
       {children(handle)}
     </tr>
+  );
+}
+
+// ── 大纲（可拖动整节换位置）──
+
+export function OutlineTree({
+  body,
+  heads,
+  readOnly,
+  onJump,
+  onChange,
+}: {
+  body: string;
+  heads: OutlineEntry[];
+  readOnly: boolean;
+  onJump: (paragraph: number) => void;
+  onChange: (body: string) => void;
+}) {
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
+  const ids = heads.map((h) => `head-${h.index}`);
+  const move = (from: number, to: number) => {
+    const next = moveSection(body, from, to);
+    if (next === null) {
+      if (from !== to) message.info('只能和同级标题换位置');
+      return;
+    }
+    onChange(next);
+  };
+  // 键盘：Alt+↑/↓ 和上一个 / 下一个同级标题换位置
+  const sibling = (h: number, dir: 1 | -1) => {
+    for (let k = h + dir; k >= 0 && k < heads.length; k += dir) {
+      if (heads[k].level < heads[h].level) return -1;
+      if (heads[k].level === heads[h].level) return k;
+    }
+    return -1;
+  };
+  return (
+    <DndContext
+      sensors={sensors}
+      collisionDetection={closestCenter}
+      onDragEnd={(e: DragEndEvent) => {
+        if (!e.over || e.active.id === e.over.id) return;
+        move(ids.indexOf(String(e.active.id)), ids.indexOf(String(e.over.id)));
+      }}
+    >
+      <SortableContext items={ids} strategy={verticalListSortingStrategy}>
+        <ol className="cw-outline-tree">
+          {heads.map((h, k) => (
+            <SortableLi key={ids[k]} id={ids[k]} disabled={readOnly} style={{ paddingLeft: (h.level - 1) * 10 }}>
+              {(handle) => (
+                <>
+                  {handle}
+                  <button
+                    type="button"
+                    className="cw-link-btn"
+                    onClick={() => onJump(h.index)}
+                    onKeyDown={(e) => {
+                      if (!e.altKey || readOnly || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+                      e.preventDefault();
+                      const to = sibling(k, e.key === 'ArrowUp' ? -1 : 1);
+                      if (to >= 0) move(k, to);
+                    }}
+                    title={readOnly ? undefined : '点击跳转；拖动左侧把手或 Alt+↑/↓ 整节移动'}
+                  >
+                    {h.text}
+                  </button>
+                </>
+              )}
+            </SortableLi>
+          ))}
+        </ol>
+      </SortableContext>
+    </DndContext>
+  );
+}
+
+function SortableLi({
+  id,
+  disabled,
+  children,
+  style,
+}: {
+  id: string;
+  disabled?: boolean;
+  children: (handle: ReactNode) => ReactNode;
+  style?: React.CSSProperties;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id, disabled });
+  const handle = disabled ? null : (
+    <button type="button" className="cw-drag" aria-label="拖动整节" title="拖动整节" {...attributes} {...listeners}>
+      <GripVertical size={12} />
+    </button>
+  );
+  return (
+    <li ref={setNodeRef} style={{ ...style, transform: CSS.Translate.toString(transform), transition, position: 'relative', zIndex: isDragging ? 2 : undefined }} data-dragging={isDragging || undefined}>
+      {children(handle)}
+    </li>
   );
 }
 
@@ -365,6 +499,7 @@ export function AssistantPanel({
   beforeSend,
   onSuggestion,
   refreshKey,
+  seed,
 }: {
   projectId: number;
   scope: SuggestionScope;
@@ -372,8 +507,21 @@ export function AssistantPanel({
   beforeSend: () => Promise<{ token: string | null; scope: SuggestionScope }>;
   onSuggestion: (s: Suggestion) => void;
   refreshKey: number;
+  /** 外部预填的指令（例如分镜行菜单「改写这一镜」），nonce 变化时写入输入框并聚焦。 */
+  seed?: { text: string; nonce: number } | null;
 }) {
   const [text, setText] = useState('');
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
+  useEffect(() => {
+    if (!seed) return;
+    setText(seed.text);
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      el.focus();
+      el.setSelectionRange(el.value.length, el.value.length);
+    });
+  }, [seed]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<Suggestion[]>([]);
@@ -424,6 +572,9 @@ export function AssistantPanel({
         ))}
       </div>
       <Input.TextArea
+        ref={(r) => {
+          inputRef.current = r?.resizableTextArea?.textArea ?? null;
+        }}
         value={text}
         onChange={(e) => setText(e.target.value)}
         autoSize={{ minRows: 3, maxRows: 8 }}
