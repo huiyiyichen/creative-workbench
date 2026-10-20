@@ -3,10 +3,12 @@
 /** 作品库（改造方案 9）：按项目归档产出物，可预览、下载、复制；完成 / 已导出 / 已发布自动收录，草稿可在产出页手动加入。 */
 
 import Link from 'next/link';
-import { Input, Segmented, message } from 'antd';
+import { Input, message } from 'antd';
 import { Copy, Download, ExternalLink } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
-import { CwPage, TopBar } from '@/design/components';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { kindColor, SignalArt } from '@/design/signal-art';
+import { EmptyInstrument, ScanSkeleton } from '@/design/instrument';
+import { CwPage, Segmented, TopBar } from '@/design/components';
 import { OUTPUT_LABEL, OUTPUT_STATUS } from '@/design/studio';
 import { PerformancePanel, PublishWeek } from '@/design/publishing';
 import { compactNum } from '@/lib/publishing';
@@ -43,14 +45,17 @@ function WorkCard({ item, onChanged }: { item: WorkItem; onChanged: () => void }
     }
   };
   return (
-    <article className="cw-work">
+    <article className="cw-work" data-art-host style={{ '--c': kindColor(item.kind) } as CSSProperties} data-status={item.status}>
       {item.preview_path ? (
         <video className="cw-work-media" src={item.preview_path} controls preload="metadata" />
       ) : item.cover ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img className="cw-work-media" src={item.cover} alt="" />
       ) : (
-        <p className="cw-work-excerpt">{item.excerpt || (['video', 'mv'].includes(item.kind) ? '（成片文件不在本机）' : '（没有文字内容）')}</p>
+        <div className="cw-work-art">
+          <SignalArt title={item.title} kind={item.kind} />
+          {item.excerpt ? <p>{item.excerpt}</p> : null}
+        </div>
       )}
       <div className="cw-work-body">
         <Link href={item.href} className="cw-work-title">
@@ -122,21 +127,28 @@ export default function WorksPage() {
   return (
     <CwPage>
       <TopBar title="作品" sub={data ? <span className="cw-num">{data.total} 件</span> : undefined}>
-        <Segmented value={view} onChange={(v) => setView(String(v))} options={VIEWS} />
+        <Segmented label="视图" value={view} onChange={setView} options={VIEWS} />
       </TopBar>
       {view === 'calendar' ? <PublishWeek /> : null}
       {view === 'performance' ? <PerformancePanel /> : null}
       {view === 'works' ? (
         <>
           <div className="cw-row cw-task-filters">
-            <Segmented value={kind} onChange={(v) => setKind(String(v))} options={KINDS} />
+            <Segmented label="形态" value={kind} onChange={setKind} options={KINDS} />
             <Input.Search allowClear placeholder="搜项目或作品" style={{ maxWidth: 260 }} value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
-          {data === null ? <p className="cw-muted">加载中…</p> : null}
+          {data === null ? <ScanSkeleton height={260} /> : null}
           {data && !data.total ? (
-            <p className="cw-empty" data-block="true">
-              还没有作品。产出物完成、导出或发布后会自动收进来；草稿可以在产出页点「加入作品库」。
-            </p>
+            <EmptyInstrument
+              kind="dark"
+              title={q || kind ? '没有符合条件的作品' : '还没有作品'}
+              reason="产出物完成、导出或发布后会自动收进来；草稿可以在产出页点「加入作品库」。"
+              actions={
+                <Link className="cw-btn" data-variant="primary" href="/projects">
+                  去项目
+                </Link>
+              }
+            />
           ) : null}
           {data?.groups.map((g) => (
             <section key={g.project.id} className="cw-works-group">
@@ -144,7 +156,7 @@ export default function WorksPage() {
                 <Link href={`/projects/${g.project.id}/outputs`}>{g.project.title}</Link>
                 <span className="cw-num cw-muted">{g.items.length}</span>
               </h2>
-              <div className="cw-works-grid">
+              <div className="cw-works-grid cw-stagger">
                 {g.items.map((i) => (
                   <WorkCard key={i.key} item={i} onChanged={load} />
                 ))}
