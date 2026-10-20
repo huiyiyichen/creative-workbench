@@ -87,7 +87,6 @@ export function rulerTicks(range: SignalRange, start: string, end: string): { po
       range === 'today' ? `${pad(t.getHours())}:00` : midnight ? `${t.getMonth() + 1}/${t.getDate()}` : `${pad(t.getHours())}:00`;
     out.push({ pos: (t.getTime() - s) / (e - s), label });
   }
-  if (range === 'today' && out.length && out[0].pos > 0.001) out.unshift({ pos: 0, label: '00:00' });
   return out;
 }
 
