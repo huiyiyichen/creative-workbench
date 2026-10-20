@@ -1567,16 +1567,32 @@ button.cw-dircard { cursor: pointer; }
 .cw-task-list { display: grid; gap: 8px; }
 .cw-task-group { margin-bottom: 18px; display: grid; gap: 8px; }
 .cw-task-group h3 { margin: 0; font-size: 13px; color: var(--cw-dim); font-weight: 600; }
-.cw-task { display: grid; grid-template-columns: 20px 1fr auto auto; gap: 10px; align-items: start; padding: 10px 12px; border: 1px solid var(--cw-line); border-radius: 8px; background: var(--cw-panel); }
-.cw-task[data-status='failed'] { border-color: color-mix(in srgb, var(--cw-rd) 45%, var(--cw-line)); }
-.cw-task-icon { width: 16px; height: 16px; margin-top: 3px; color: var(--cw-dim); }
-.cw-task-main { min-width: 0; display: grid; gap: 4px; }
-.cw-task-title { color: var(--cw-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cw-task-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; color: var(--cw-dim); }
-.cw-task-meta a { color: var(--cw-dim); text-decoration: underline; text-underline-offset: 2px; }
-.cw-task-reason { margin: 0; font-size: 12px; color: var(--cw-rd); }
-.cw-task-status { font-size: 12px; white-space: nowrap; margin-top: 2px; }
-.cw-task-acts { display: flex; gap: 6px; }
+.cw-task { display: grid; grid-template-columns: 10px 16px minmax(0, 1fr) 64px 72px 84px auto; gap: 12px; align-items: center; padding: 9px 12px; border-bottom: 1px solid var(--cw-grat); border-radius: 8px; transition: background var(--cw-dur-1); }
+.cw-task:hover { background: var(--cw-hover); }
+.cw-task[data-status='failed'] { background: color-mix(in srgb, var(--cw-rd) 4%, transparent); box-shadow: inset 3px 0 0 var(--cw-rd); }
+.cw-task[data-status='running'] { box-shadow: inset 3px 0 0 var(--cw-cy); }
+.cw-task-icon { width: 15px; height: 15px; color: var(--cw-dim); }
+.cw-task-main { min-width: 0; display: grid; gap: 2px; }
+.cw-task-title { color: var(--cw-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.cw-task-meta { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 12px; color: var(--cw-faint); }
+.cw-task-meta:empty { display: none; }
+.cw-task-meta a { color: var(--cw-dim); }
+.cw-task-reason { margin: 2px 0 0; font-size: 12px; color: var(--cw-rd); }
+.cw-task-status { font-size: 12px; white-space: nowrap; }
+.cw-task-dur, .cw-task-at { font-size: 12px; text-align: right; white-space: nowrap; }
+.cw-task-acts { display: flex; gap: 6px; justify-content: flex-end; min-width: 0; }
+.cw-task-list { display: grid; gap: 0; }
+.cw-drawer .cw-task { grid-template-columns: 10px 16px minmax(0, 1fr) auto auto; }
+.cw-drawer .cw-task-dur, .cw-drawer .cw-task-at { display: none; }
+.cw-lanes .cw-track-name { display: flex; align-items: center; gap: 6px; }
+.cw-lanes .cw-track-name em { font-style: normal; font-size: 11px; color: var(--cw-faint); margin-left: auto; padding-right: 6px; }
+.cw-taskclip { position: absolute; top: 4px; height: 14px; border-radius: 3px; background: var(--c); opacity: .5; transition: opacity var(--cw-dur-1); }
+.cw-taskclip:hover { opacity: 1; z-index: 2; }
+.cw-taskclip[data-status='failed'] { opacity: 1; box-shadow: 0 0 8px var(--c); }
+.cw-taskclip[data-status='running'] { opacity: 1; animation: cw-clip-pulse 1.6s ease-in-out infinite; }
+.cw-taskclip[data-status='waiting'] { background: transparent; border: 1px dashed var(--c); opacity: 1; }
+@keyframes cw-clip-pulse { 50% { box-shadow: 0 0 10px var(--c); } }
+@media (prefers-reduced-motion: reduce) { .cw-taskclip { animation: none !important; } }
 .cw-nav-count { position: absolute; top: 2px; right: 6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--cw-cy); color: var(--cw-deep); font-size: 10px; line-height: 16px; text-align: center; font-variant-numeric: tabular-nums; }
 
 /* 作品库 */
@@ -2042,3 +2058,4 @@ a.cw-lamp:hover { color: var(--cw-text); }
 .cw-empty[data-block='true'] { border: 1px solid var(--cw-grat); border-style: solid; padding: 70px 24px 40px; background-position: center 44px, 0 0; background-color: var(--cw-panel); }
 .cw-empty[data-block='true']::after { top: 41px; }
 @media (prefers-reduced-motion: reduce) { .cw-empty::after { animation: none; } }
+.cw-playhead span { white-space: nowrap; }

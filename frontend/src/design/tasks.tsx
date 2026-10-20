@@ -5,10 +5,15 @@
 import Link from 'next/link';
 import { Drawer, message, notification } from 'antd';
 import { Bot, Download, Image as ImageIcon, ScanSearch, Table2 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { Button } from './components';
-import { TASK_STATUS_LABEL, fmtDuration, groupTasks, subscribeTasks, tasksApi, type TaskStatus, type TaskType, type TaskView } from '@/lib/api/_tasks';
+import { TASK_STATUS_LABEL, TASK_TYPE_LABEL, fmtDuration, groupTasks, subscribeTasks, tasksApi, type TaskStatus, type TaskType, type TaskView } from '@/lib/api/_tasks';
 import { onTasksChanged } from '@/lib/events';
+import { LANE_ORDER, laneClips } from '@/lib/task-lanes';
+import { CN_OFFSET_MS, cnParts, fmtHM } from '@/lib/time-cn';
+import { StatusLamp, type LampTone } from './instrument';
+
+const LAMP: Record<TaskStatus, LampTone> = { running: 'run', waiting: 'warn', failed: 'bad', done: 'ok', stopped: 'off' };
 
 const TYPE_ICON: Record<TaskType, typeof Bot> = { flow: Bot, generation: ImageIcon, sync: Download, analysis: ScanSearch, feishu: Table2 };
 export const TASK_STATUS_COLOR: Record<TaskStatus, string> = {
@@ -29,8 +34,10 @@ export function TaskRow({ task, onChanged, onOpen }: { task: TaskView; onChanged
       message.error(err instanceof Error ? err.message : '操作失败');
     }
   };
+  const at = task.started_at || task.created_at;
   return (
     <div className="cw-task" data-status={task.status}>
+      <StatusLamp tone={LAMP[task.status]} title={TASK_STATUS_LABEL[task.status]} />
       <Icon className="cw-task-icon" aria-hidden />
       <div className="cw-task-main">
         <Link href={task.href} className="cw-task-title" onClick={onOpen}>
@@ -44,8 +51,6 @@ export function TaskRow({ task, onChanged, onOpen }: { task: TaskView; onChanged
           ) : null}
           {task.output_title ? <span>{task.output_title}</span> : null}
           {task.stage ? <span>{task.stage}</span> : null}
-          <span className="cw-num">{fmtDuration(task.duration_ms)}</span>
-          {task.cost ? <span className="cw-num">¥{task.cost.toFixed(2)}</span> : null}
         </div>
         {task.status === 'failed' && task.reason ? (
           <p className="cw-task-reason">
@@ -57,23 +62,19 @@ export function TaskRow({ task, onChanged, onOpen }: { task: TaskView; onChanged
       <span className="cw-task-status" style={{ color: TASK_STATUS_COLOR[task.status] }}>
         {TASK_STATUS_LABEL[task.status]}
       </span>
+      <span className="cw-num cw-muted cw-task-dur">{fmtDuration(task.duration_ms)}</span>
+      <span className="cw-num cw-muted cw-task-at">
+        {fmtHM(at)}
+        {task.cost ? <small> · ¥{task.cost.toFixed(2)}</small> : null}
+      </span>
       <span className="cw-task-acts">
-        {task.can_retry ? (
-          <Button onClick={() => act('retry')}>
-            重试
-          </Button>
-        ) : null}
-        {task.can_stop ? (
-          <Button onClick={() => act('stop')}>
-            停止
-          </Button>
-        ) : null}
+        {task.can_retry ? <Button onClick={() => act('retry')}>重试</Button> : null}
+        {task.can_stop ? <Button onClick={() => act('stop')}>停止</Button> : null}
       </span>
     </div>
   );
 }
 
-/** 进行中的任务数（SSE 推送）；任务完成 / 失败时弹通知 */
 export function useTaskCount(): number {
   const [active, setActive] = useState(0);
   // 先取一次、之后每 30 秒兜底（SSE 被代理缓冲或断开时计数也不会停住）
@@ -152,5 +153,68 @@ export function TaskDrawer({ open, onClose }: { open: boolean; onClose: () => vo
         </section>
       ))}
     </Drawer>
+  );
+}
+
+/** 任务泳道：轨道 = 任务类型，片段宽度 = 实际耗时，颜色 = 状态；失败发光、运行中脉冲，播放头 = 现在。 */
+export function TaskLanes({ items, hours, now }: { items: TaskView[]; hours: number; now: number }) {
+  const end = now;
+  const start = now - hours * 3600 * 1000;
+  const lanes = laneClips(items, start, end, now);
+  const step = hours <= 24 ? 3 : hours <= 24 * 7 ? 24 : 24 * 7;
+  const ticks: { pos: number; label: string }[] = [];
+  const H = 3600 * 1000;
+  let t = Math.ceil((start + CN_OFFSET_MS) / (step * H)) * step * H - CN_OFFSET_MS;
+  for (; t < end; t += step * H) {
+    const p = cnParts(t);
+    ticks.push({ pos: (t - start) / (end - start), label: step < 24 ? `${String(p.h).padStart(2, '0')}:00` : `${p.mo}/${p.d}` });
+  }
+  return (
+    <div className="cw-timeline cw-lanes" style={{ border: 0, background: 'none' }}>
+      <div className="cw-tl-grid">
+        <div className="cw-ruler">
+          <span />
+          <div className="cw-ruler-scale">
+            {ticks.map((tk) => (
+              <span key={tk.pos} className="cw-num" style={{ left: `${tk.pos * 100}%` }}>
+                {tk.label}
+              </span>
+            ))}
+          </div>
+        </div>
+        {LANE_ORDER.map((type) => {
+          const clips = lanes.get(type) || [];
+          const Icon = TYPE_ICON[type] || Bot;
+          return (
+            <div className="cw-track" key={type}>
+              <span className="cw-track-name">
+                <Icon size={12} aria-hidden /> {TASK_TYPE_LABEL[type]}
+                {clips.length ? <em className="cw-num">{clips.length}</em> : null}
+              </span>
+              <div className="cw-lane">
+                {ticks.map((tk) => (
+                  <i key={tk.pos} className="cw-lane-tick" style={{ left: `${tk.pos * 100}%` }} />
+                ))}
+                {clips.map((c) => (
+                  <Link
+                    key={c.key}
+                    href={c.task.href}
+                    className="cw-taskclip"
+                    data-status={c.status}
+                    title={`${c.task.kind_label} · ${c.title} · ${TASK_STATUS_LABEL[c.status]}${c.task.duration_ms ? ` · ${fmtDuration(c.task.duration_ms)}` : ''}`}
+                    style={{ left: `${c.left * 100}%`, width: `max(4px, ${c.width * 100}%)`, '--c': TASK_STATUS_COLOR[c.status] } as CSSProperties}
+                  />
+                ))}
+              </div>
+            </div>
+          );
+        })}
+        <div className="cw-playhead" style={{ left: 'calc(var(--cw-track-w) + (100% - var(--cw-track-w)) * 1)' }}>
+          <span className="cw-num" style={{ transform: 'translateX(-100%)', whiteSpace: 'nowrap' }}>
+            现在
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }
