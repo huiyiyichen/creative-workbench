@@ -1375,3 +1375,11 @@ button.cw-dircard { cursor: pointer; }
 .cw-pipe[data-stage='stopped'] i { background: var(--cw-faint); }
 .cw-pipe[data-stage='research'] i, .cw-pipe[data-stage='draft'] i, .cw-pipe[data-stage='producing'] i { animation: cw-pipe-pulse 1.4s ease-in-out infinite; }
 @keyframes cw-pipe-pulse { 50% { opacity: 0.35; } }
+
+/* 重跑对比页 */
+.cw-compare-page { max-height: none; }
+.cw-compare-section { display: contents; }
+.cw-compare-branch { grid-column: 1 / -1; margin-top: 12px; font-weight: 600; color: var(--cw-ink); }
+.cw-compare-key { grid-column: 1 / -1; margin-top: 8px; font-size: 12px; color: var(--cw-dim); }
+.cw-compare-img { max-width: 100%; border-radius: 6px; border: 1px solid var(--cw-line); }
+.cw-pre { white-space: pre-wrap; word-break: break-word; }

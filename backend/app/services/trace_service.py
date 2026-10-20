@@ -13,7 +13,7 @@ from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent_run import AgentDecision, AgentRun, AgentStep, Artifact, ArtifactLink, TraceSpan
@@ -439,6 +439,74 @@ async def run_detail(db: AsyncSession, run_id: int) -> dict[str, Any] | None:
             for d in decisions
         ],
         "forks": [{"id": f.id, "title": f.title, "status": f.status, "fork_node": f.fork_node} for f in forks],
+    }
+
+
+async def _node_side(db: AsyncSession, run: AgentRun, node: str) -> dict[str, Any]:
+    steps = (
+        (
+            await db.execute(
+                select(AgentStep).where(AgentStep.run_id == run.id, AgentStep.node == node).order_by(AgentStep.id)
+            )
+        )
+        .scalars()
+        .all()
+    )
+    # 同一分支多轮（退回重做）只取最后一轮；复用的步骤指向原运行的产物
+    last: dict[str, AgentStep] = {}
+    for s in steps:
+        last[s.branch or ""] = s
+    ids = [i for s in last.values() for i in (s.output_artifact_ids or [])]
+    arts = {}
+    if ids:
+        arts = {a.id: a for a in (await db.execute(select(Artifact).where(Artifact.id.in_(ids)))).scalars()}
+    branches = []
+    for branch, s in last.items():
+        branches.append(
+            {
+                "branch": branch,
+                "step": step_view(s),
+                "override": ((run.inputs or {}).get("_overrides") or {}).get(node) or {},
+                "artifacts": [artifact_view(arts[i]) for i in (s.output_artifact_ids or []) if i in arts],
+            }
+        )
+    return {"run": run_view(run), "branches": branches}
+
+
+async def compare_candidates(db: AsyncSession, run: AgentRun) -> list[AgentRun]:
+    """可对比的运行：父运行、分叉运行、同一父运行的其他分叉。"""
+    conds = [AgentRun.parent_run_id == run.id]
+    if run.parent_run_id:
+        conds += [AgentRun.id == run.parent_run_id, AgentRun.parent_run_id == run.parent_run_id]
+    rows = (await db.execute(select(AgentRun).where(or_(*conds)).order_by(AgentRun.id))).scalars().all()
+    return [r for r in rows if r.id != run.id]
+
+
+async def compare_node(db: AsyncSession, run_id: int, node: str, other_id: int | None = None) -> dict[str, Any] | None:
+    """「对比」：同一节点在两次运行里的输出并排（默认和父运行比；没有父运行就和最新的分叉比）。"""
+    run = await db.get(AgentRun, run_id)
+    if run is None:
+        return None
+    candidates = await compare_candidates(db, run)
+    if other_id is None:
+        other = next((c for c in candidates if c.id == run.parent_run_id), None) or (
+            candidates[-1] if candidates else None
+        )
+    else:
+        other = await db.get(AgentRun, other_id)
+        if other is not None and other.flow_key != run.flow_key:
+            other = None
+    if other is None:
+        return {"node": node, "left": None, "right": await _node_side(db, run, node), "candidates": []}
+    # 左边放较早的运行
+    left, right = (other, run) if other.id < run.id else (run, other)
+    return {
+        "node": node,
+        "left": await _node_side(db, left, node),
+        "right": await _node_side(db, right, node),
+        "candidates": [
+            {"id": c.id, "title": c.title, "status": c.status, "fork_node": c.fork_node} for c in candidates
+        ],
     }
 
 

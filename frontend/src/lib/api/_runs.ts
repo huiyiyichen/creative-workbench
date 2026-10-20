@@ -173,6 +173,17 @@ export interface RunDetail {
   forks: { id: number; title: string; status: RunStatus; fork_node: string | null }[];
 }
 
+export interface CompareSide {
+  run: RunView;
+  branches: { branch: string; step: StepView; override: Record<string, string>; artifacts: ArtifactView[] }[];
+}
+export interface CompareView {
+  node: string;
+  left: CompareSide | null;
+  right: CompareSide;
+  candidates: { id: number; title: string; status: RunStatus; fork_node: string | null }[];
+}
+
 export interface LineageNode {
   relation: string;
   type: string;
@@ -255,6 +266,9 @@ export const runsApi = {
   },
   stop(id: number): Promise<RunView> {
     return request(`/runs/${id}/stop`, { method: 'POST' });
+  },
+  compare(id: number, node: string, other?: number): Promise<CompareView> {
+    return request(`/runs/${id}/compare?node=${encodeURIComponent(node)}${other ? `&other=${other}` : ''}`);
   },
   fork(id: number, body: { node: string; prompt_extra?: string; routing_group?: string; executor?: string }): Promise<RunView> {
     return request(`/runs/${id}/fork`, { method: 'POST', body: JSON.stringify(body) });

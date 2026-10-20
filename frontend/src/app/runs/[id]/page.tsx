@@ -209,6 +209,7 @@ export default function RunPage() {
               runId={id}
               stepId={step.id}
               canFork={!['queued', 'running'].includes(run.status)}
+              canCompare={Boolean(run.parent_run_id || detail.forks.length)}
               onForked={(nid) => router.push(`/runs/${nid}`)}
             />
           </aside>

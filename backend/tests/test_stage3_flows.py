@@ -251,6 +251,22 @@ async def test_fork_from_node_reuses_upstream(flow_env, fake_llm):
         assert fork_agg.output_artifact_ids == orig_agg.output_artifact_ids
         detail = await trace_service.run_detail(db, run.id)
         assert detail["forks"][0]["id"] == fork.id
+        # 对比：分叉默认和父运行比，左边是较早的运行
+        cmp = await trace_service.compare_node(db, fork.id, "plan")
+        assert cmp["left"]["run"]["id"] == run.id and cmp["right"]["run"]["id"] == fork.id
+        assert [c["id"] for c in cmp["candidates"]] == [run.id]
+        right = cmp["right"]["branches"][0]
+        assert right["override"] == {"prompt_extra": "多给一个盘点类方向"}
+        assert right["artifacts"][0]["kind"] == "direction_cards"
+        assert cmp["left"]["branches"][0]["artifacts"][0]["id"] != right["artifacts"][0]["id"]
+        # 原运行默认和最新分叉比；复用的节点两边是同一份产物
+        cmp2 = await trace_service.compare_node(db, run.id, "aggregate")
+        assert cmp2["right"]["run"]["id"] == fork.id
+        assert cmp2["left"]["branches"][0]["artifacts"][0]["id"] == cmp2["right"]["branches"][0]["artifacts"][0]["id"]
+        assert cmp2["right"]["branches"][0]["step"]["status"] == "reused"
+        # 研究员两个分支各取最后一轮
+        cmp3 = await trace_service.compare_node(db, run.id, "research")
+        assert len(cmp3["left"]["branches"]) == 2
 
 
 @pytest.mark.asyncio

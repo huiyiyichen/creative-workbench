@@ -552,11 +552,13 @@ export function StepDetailPanel({
   runId,
   stepId,
   canFork,
+  canCompare = false,
   onForked,
 }: {
   runId: number;
   stepId: number;
   canFork: boolean;
+  canCompare?: boolean;
   onForked: (newRunId: number) => void;
 }) {
   const [d, setD] = useState<StepDetailData | null>(null);
@@ -602,6 +604,11 @@ export function StepDetailPanel({
         </span>
         <span className="cw-muted">{EXECUTOR_LABEL[d.executor] || d.executor}</span>
         <span className="cw-grow" />
+        {canCompare && d.executor !== 'human' ? (
+          <Link className="cw-link-btn" href={`/runs/${runId}/compare?node=${encodeURIComponent(d.node)}`}>
+            对比
+          </Link>
+        ) : null}
         {canFork && d.executor !== 'human' ? (
           <Button icon={<GitBranch size={14} />} onClick={() => setForkOpen(true)}>
             从这里重跑

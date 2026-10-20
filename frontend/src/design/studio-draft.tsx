@@ -516,7 +516,7 @@ export function VersionsPanel({
   );
 }
 
-function Diffed({ a, b, side }: { a: string; b: string; side: 'left' | 'right' }) {
+export function Diffed({ a, b, side }: { a: string; b: string; side: 'left' | 'right' }) {
   const parts = charDiff(a, b);
   return (
     <>

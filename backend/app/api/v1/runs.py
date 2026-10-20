@@ -163,11 +163,23 @@ async def stop_run(run_id: int, db: AsyncSession = Depends(get_db)):
 async def fork_run(run_id: int, body: ForkBody, db: AsyncSession = Depends(get_db)):
     try:
         run = await engine.fork_run(
-            db, run_id, body.node, {"prompt_extra": body.prompt_extra, "routing_group": body.routing_group, "executor": body.executor}
+            db,
+            run_id,
+            body.node,
+            {"prompt_extra": body.prompt_extra, "routing_group": body.routing_group, "executor": body.executor},
         )
     except engine.FlowError as exc:
         raise _bad(exc) from exc
     return trace_service.run_view(run)
+
+
+@router.get("/runs/{run_id}/compare")
+async def compare_run(run_id: int, node: str, other: int | None = None, db: AsyncSession = Depends(get_db)):
+    """同一节点在两次运行（原运行 / 分叉重跑）里的输出并排。"""
+    data = await trace_service.compare_node(db, run_id, node[:100], other)
+    if data is None:
+        raise HTTPException(status_code=404, detail="运行不存在")
+    return data
 
 
 @router.get("/runs/{run_id}/export")
