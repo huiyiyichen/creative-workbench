@@ -111,11 +111,11 @@ export default function GraphPage() {
                     打开
                   </Link>
                   {ptype === 'item' ? (
-                    <Link className="cw-btn" data-variant="primary" href={`/studio?library=${pid}`}>
+                    <Link className="cw-btn" data-variant="primary" href={`/projects/new?source=library:${pid}`}>
                       用于新项目
                     </Link>
                   ) : ptype === 'note' ? (
-                    <Link className="cw-btn" data-variant="primary" href={`/studio?notes=${pid}`}>
+                    <Link className="cw-btn" data-variant="primary" href={`/projects/new?source=note:${pid}`}>
                       用于新项目
                     </Link>
                   ) : null}

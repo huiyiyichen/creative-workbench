@@ -258,6 +258,38 @@ export function BudgetLine({ budget }: { budget: { budget: number; spent: number
 
 // ── 平台接入 ─────────────────────────────────────────────────────
 
+/** 抖音 / 小红书：本机浏览器登录态与最近一次采集结果 */
+function BrowserLogin({ p, onChanged }: { p: PlatformInfo; onChanged: (message: string) => void }) {
+  const st = p.browser_status;
+  const ago = (ts?: number) => (ts ? new Date(ts * 1000).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : null);
+  const failed = Boolean(st?.last_error);
+  const tone = failed ? 'warn' : st?.last_ok_at || st?.login_at ? 'ok' : 'off';
+  const label = failed
+    ? st?.last_error?.includes('登录') ? '登录失效' : st?.last_error?.includes('验证码') ? '需要验证' : '最近失败'
+    : st?.last_ok_at
+      ? `正常 · ${ago(st.last_ok_at)}`
+      : st?.login_at
+        ? `已登录 · ${ago(st.login_at)}`
+        : '未登录';
+  const open = async () => {
+    try {
+      const r = await collectionApi.openPlatformLogin(p.platform);
+      onChanged(r.already ? `${p.label} 登录窗口已经打开` : `已在本机打开 ${p.label} 登录窗口，登录后关掉窗口即可`);
+    } catch (err) {
+      onChanged(errorText(err));
+    }
+  };
+  return (
+    <span className="cw-row" style={{ gap: 8 }} title={st?.last_error || '本机 Edge 浏览器采集，全局一次一个页面、低频'}>
+      <StatusDot tone={tone} />
+      <span className="cw-muted">{label}</span>
+      <Button variant="ghost" onClick={open}>
+        {failed || !st?.login_at ? '打开登录窗口' : '重新登录'}
+      </Button>
+    </span>
+  );
+}
+
 export function PlatformList({ items, onChanged }: { items: PlatformInfo[]; onChanged: (message: string) => void }) {
   const [editing, setEditing] = useState<PlatformInfo | null>(null);
   const [value, setValue] = useState('');
@@ -287,7 +319,9 @@ export function PlatformList({ items, onChanged }: { items: PlatformInfo[]; onCh
                 .map(([, label]) => label)
                 .join(' · ')}
             </span>
-            {p.needs_key ? (
+            {p.browser ? (
+              <BrowserLogin p={p} onChanged={onChanged} />
+            ) : p.needs_key ? (
               <Button variant="ghost" icon={<KeyRound />} onClick={() => { setEditing(p); setValue(''); }}>
                 <StatusDot tone={p.has_key ? 'ok' : p.platform === 'youtube' ? 'warn' : 'off'} />
                 {p.has_key ? 'Key 已填' : p.platform === 'youtube' ? '填 Key' : '填 Token（可选）'}

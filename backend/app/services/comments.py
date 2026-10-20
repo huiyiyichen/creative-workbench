@@ -39,9 +39,14 @@ PLATFORM_ALIAS = {
     "hackernews": "hn",
     "hacker news": "hn",
     "reddit": "reddit",
+    "douyin": "douyin",
+    "抖音": "douyin",
+    "xiaohongshu": "xiaohongshu",
+    "xhs": "xiaohongshu",
+    "小红书": "xiaohongshu",
 }
 
-# 评论来源（3.5）：B站、YouTube、HN、Reddit；抖音 / 小红书在阶段 4
+# 评论来源（3.5）：B站、YouTube、HN、Reddit；抖音 / 小红书走本机浏览器（阶段 4）
 COMMENT_PLATFORMS = frozenset(PLATFORM_ALIAS.values())
 
 STATE_NONE = "none"
@@ -83,6 +88,13 @@ def resolve_source(item: ContentItem) -> tuple[str, str] | None:
         or COMMENTS not in ADAPTERS[platform].capabilities
     ):
         return None
+    if platform == "xiaohongshu":
+        # 小红书笔记页要带 xsec_token（采集时存在 media 里或链接上）
+        token = (item.media or {}).get("xsec_token") if isinstance(item.media, dict) else None
+        if not token and item.url and "xsec_token=" in item.url:
+            return platform, item.url
+        if token:
+            return platform, f"{pid}|{token}"
     return platform, str(pid)
 
 
@@ -273,6 +285,37 @@ async def on_kept(db: AsyncSession, content_id: int) -> None:
         logger.info("comment collect after keep failed for %s", content_id, exc_info=True)
 
 
+SESSION_FACTORY = None  # 测试替换
+_bg: set = set()
+
+
+def collect_in_background(content_id: int) -> None:
+    """被项目用作来源时：后台采一次评论（浏览器平台要几十秒，不阻塞添加来源）。"""
+    import asyncio
+
+    from app.core.config import settings
+
+    if SESSION_FACTORY is None and settings.APP_ENV.strip().lower() == "test":
+        return  # 测试里不碰真实数据库
+
+    async def run() -> None:
+        if SESSION_FACTORY is not None:
+            session = SESSION_FACTORY()
+        else:
+            from app.core.database import async_session
+
+            session = async_session()
+        async with session as db:
+            await on_kept(db, content_id)
+
+    try:
+        task = asyncio.get_running_loop().create_task(run(), name=f"comments-{content_id}")
+    except RuntimeError:
+        return
+    _bg.add(task)
+    task.add_done_callback(_bg.discard)
+
+
 async def _kept_content_ids(db: AsyncSession) -> set[int]:
     lib = set(
         (
@@ -284,7 +327,14 @@ async def _kept_content_ids(db: AsyncSession) -> set[int]:
         ).scalars()
     )
     fav = set((await db.execute(select(ContentItem.id).where(ContentItem.is_favorited.is_(True)))).scalars())
-    return lib | fav
+    from app.models.studio import ProjectSource
+
+    used = set(
+        (
+            await db.execute(select(ProjectSource.content_id).where(ProjectSource.content_id.is_not(None)))
+        ).scalars()
+    )
+    return lib | fav | used
 
 
 async def maintain(db: AsyncSession, *, now: datetime | None = None, limit: int = 20) -> dict[str, int]:

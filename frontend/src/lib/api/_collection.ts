@@ -98,6 +98,9 @@ export interface PlatformInfo {
   capabilities: Record<string, boolean>;
   needs_key: boolean;
   has_key: boolean;
+  /** 抖音、小红书：本机浏览器采集 */
+  browser?: boolean;
+  browser_status?: { profile: boolean; login_at?: number; last_ok_at?: number; last_error?: string | null; last_error_at?: number };
 }
 
 export interface ObservationPoint {
@@ -236,6 +239,10 @@ export const collectionApi = {
   },
   platforms(): Promise<{ items: PlatformInfo[] }> {
     return request('/collection/platforms');
+  },
+  /** 在本机打开有界面的 Edge 窗口登录（抖音 / 小红书），关窗后登录态保存在该平台的浏览器配置目录 */
+  openPlatformLogin(platform: string): Promise<{ platform: string; opened: boolean; already?: boolean }> {
+    return request(`/collection/platforms/${platform}/login`, { method: 'POST' });
   },
   setPlatformKey(platform: string, value: string | null): Promise<{ platform: string; has_key: boolean }> {
     return request(`/collection/platforms/${platform}/key`, { method: 'PUT', body: JSON.stringify({ value }) });

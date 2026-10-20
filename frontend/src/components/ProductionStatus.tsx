@@ -55,7 +55,7 @@ export default function ProductionStatus() {
       {error && <div className="mb-4 text-sm text-red-600">{error}</div>}
       {jobs.length ? <List dataSource={jobs} renderItem={(job) => <List.Item>
         <div className="w-full">
-          <div className="mb-3 flex items-start justify-between gap-3"><span className="text-sm font-bold">{job.title}</span><Button size="small" href={`/studio?project_id=${job.project_id}&stage=2`} onClick={() => setOpen(false)}>打开</Button></div>
+          <div className="mb-3 flex items-start justify-between gap-3"><span className="text-sm font-bold">{job.title}</span><Button size="small" href={`/projects/${job.project_id}/outputs`} onClick={() => setOpen(false)}>打开</Button></div>
           <ArtifactProgress artifact={job} />
           {job.preview_path && <Button type="link" href={job.preview_path} target="_blank">预览成片</Button>}
         </div>

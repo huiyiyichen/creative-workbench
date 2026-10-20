@@ -26,7 +26,7 @@ export default function TopicCreationGenerator({ contentId }: TopicCreationGener
         <Button
           type="button"
           variant="primary"
-          onClick={() => { window.location.href = `/studio?content_id=${contentId}`; }}
+          onClick={() => { window.location.href = `/projects/new?source=content:${contentId}`; }}
         >
           打开工作台
           <ArrowRight size={14} />

@@ -180,7 +180,7 @@ async def test_create_keyword_source_filters_platforms(db):
             "source_type": "Keyword",
             "url": "keyword://opus",
             "query": "Opus",
-            "platforms": ["hn", "douyin"],
+            "platforms": ["hn", "douyin", "weibo"],  # 抖音阶段 4 起支持搜索；微博未接入
         },
     )
-    assert source.platforms == ["hn"] and source.fetch_interval_minutes == 120 and source.platform == "multi"
+    assert source.platforms == ["hn", "douyin"] and source.fetch_interval_minutes == 120 and source.platform == "multi"

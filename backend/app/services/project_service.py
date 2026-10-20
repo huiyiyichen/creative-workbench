@@ -258,8 +258,8 @@ async def project_view(db: AsyncSession, project_id: int) -> dict:
 
 def _parse_source_ref(ref: str) -> tuple[str, int]:
     kind, _, raw = ref.partition(":")
-    if kind not in {"content", "library"} or not raw.isdigit():
-        raise ValidationError(f"来源格式不对：{ref}（应为 content:123 或 library:45）")
+    if kind not in {"content", "library", "note"} or not raw.isdigit():
+        raise ValidationError(f"来源格式不对：{ref}（应为 content:123、library:45 或 note:7）")
     return kind, int(raw)
 
 
@@ -277,8 +277,23 @@ async def create_project(db: AsyncSession, owner_id: int, request: ProjectCreate
     )
     db.add(project)
     await db.flush()
-    for index, ref in enumerate(request.sources):
-        kind, rid = _parse_source_ref(ref)
+    # 随笔不是来源：正文写进创作思路（「用于新项目」）
+    refs = [_parse_source_ref(r) for r in request.sources]
+    note_ids = [rid for kind, rid in refs if kind == "note"]
+    if note_ids:
+        from app.models.library import Note
+
+        notes = (await db.execute(select(Note).where(Note.id.in_(note_ids)))).scalars().all()
+        bodies = [n.body.strip() for n in notes if (n.body or "").strip()]
+        if bodies:
+            spec = deepcopy(project.spec)
+            spec["brief"]["intent"] = "\n\n".join(bodies)[:5000]
+            if not request.theme:
+                first = bodies[0].splitlines()[0].strip("# ").strip()
+                spec["brief"]["theme"] = first[:120]
+                project.title = first[:120] or project.title
+            project.spec = spec
+    for index, (kind, rid) in enumerate((k, r) for k, r in refs if k != "note"):
         await add_source(
             db,
             project.id,
@@ -298,7 +313,17 @@ async def create_project(db: AsyncSession, owner_id: int, request: ProjectCreate
         if main and main.snapshot.get("title"):
             project.title = main.snapshot["title"][:120]
     await db.commit()
+    for kind, rid in refs:
+        if kind == "content":
+            _comments_later(rid)
     return await project_view(db, project.id)
+
+
+def _comments_later(content_id: int) -> None:
+    """被项目用作来源：后台采一次评论（3.5 触发条件 2）。"""
+    from app.services import comments
+
+    comments.collect_in_background(content_id)
 
 
 async def rename_project(db: AsyncSession, project_id: int, title: str) -> dict:
@@ -431,6 +456,8 @@ async def add_source(db: AsyncSession, project_id: int, request: SourceAdd, *, c
     await db.flush()
     if commit:
         await db.commit()
+        if src.content_id:
+            _comments_later(src.content_id)
     return source_dict(src)
 
 

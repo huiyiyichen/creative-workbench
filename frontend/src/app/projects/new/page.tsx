@@ -1,6 +1,6 @@
 'use client';
 
-/** /projects/new?source=content:123 —— 带来源新建项目后进入第一步。 */
+/** 从别处「用于新项目」：/projects/new?source=content:1&source=library:2&source=note:3&theme=… → 新建后进入选题与创意。 */
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useRef, useState } from 'react';
@@ -8,29 +8,30 @@ import { CwPage } from '@/design/components';
 import { apiError } from '@/design/studio';
 import { projectsApi } from '@/lib/api/_projects';
 
-function Creator() {
-  const router = useRouter();
+function NewProject() {
   const params = useSearchParams();
+  const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const started = useRef(false);
   useEffect(() => {
     if (started.current) return;
     started.current = true;
-    const sources = (params.get('source') || '').split(',').filter((s) => /^(content|library):\d+$/.test(s));
+    const sources = params
+      .getAll('source')
+      .flatMap((v) => v.split(','))
+      .filter((s) => /^(content|library|note):\d+$/.test(s));
     projectsApi
       .create({ theme: params.get('theme') || '', sources })
       .then((p) => router.replace(`/projects/${p.id}/idea`))
-      .catch((err) => setError(apiError(err, '新建失败')));
+      .catch((err) => setError(apiError(err, '新建项目失败')));
   }, [params, router]);
-  return error ? <div className="cw-error">{error}</div> : <div className="cw-empty">正在新建项目…</div>;
+  return <CwPage>{error ? <div className="cw-error">{error}</div> : <p className="cw-muted">正在新建项目…</p>}</CwPage>;
 }
 
 export default function NewProjectPage() {
   return (
-    <CwPage>
-      <Suspense fallback={null}>
-        <Creator />
-      </Suspense>
-    </CwPage>
+    <Suspense fallback={null}>
+      <NewProject />
+    </Suspense>
   );
 }

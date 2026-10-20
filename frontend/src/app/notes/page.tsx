@@ -122,7 +122,7 @@ function NotesPage() {
                         <button type="button" className="cw-link-btn" onClick={() => { setEditing(n.id); setDraft(n.body); }}>
                           编辑
                         </button>
-                        <Link href={`/studio?notes=${n.id}`}>用于新项目</Link>
+                        <Link href={`/projects/new?source=note:${n.id}`}>用于新项目</Link>
                         <button
                           type="button"
                           className="cw-link-btn"

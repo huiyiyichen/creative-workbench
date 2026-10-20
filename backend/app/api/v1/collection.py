@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -209,9 +210,36 @@ async def collection_create_source(body: CreateSourceBody, db: AsyncSession = De
 async def collection_platforms(db: AsyncSession = Depends(get_db)):
     from app.services.platform_keys import key_status
     from app.services.platforms import describe_platforms
+    from app.services.platforms.browser import BROWSER
 
     keys = await key_status(db)
-    return {"items": [{**p, "has_key": keys.get(p["platform"], False)} for p in describe_platforms()]}
+    return {
+        "items": [
+            {
+                **p,
+                "has_key": keys.get(p["platform"], False),
+                **({"browser_status": BROWSER.status(p["platform"])} if p.get("browser") else {}),
+            }
+            for p in describe_platforms()
+        ]
+    }
+
+
+_login_tasks: dict[str, asyncio.Task] = {}
+
+
+@router.post("/platforms/{platform}/login")
+async def collection_platform_login(platform: str):
+    """抖音 / 小红书：在本机打开有界面的 Edge 窗口登录，关窗后登录态保存在该平台的浏览器配置目录。"""
+    from app.services.platforms.browser import BROWSER, LOGIN_URL
+
+    if platform not in LOGIN_URL:
+        raise HTTPException(status_code=422, detail="这个平台不用浏览器登录")
+    running = _login_tasks.get(platform)
+    if running and not running.done():
+        return {"platform": platform, "opened": True, "already": True}
+    _login_tasks[platform] = asyncio.create_task(BROWSER.open_login(platform), name=f"login-{platform}")
+    return {"platform": platform, "opened": True}
 
 
 class PlatformKeyBody(BaseModel):

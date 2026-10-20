@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import json
 import re
-from urllib.parse import parse_qs, quote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
 from app.models.source import SourceType
 
@@ -258,6 +258,39 @@ def recognize_input(text: str) -> dict:
             return platform("subscription", f"r/{m.group(1)}", "reddit", "user", m.group(1))
     if host == "news.ycombinator.com" and path in {"", "/news", "/front"}:
         return platform("list", "Hacker News 首页", "hn", "ranking", "front")
+    # 抖音、小红书走本机浏览器（阶段 4）
+    if host == "douyin.com":
+        m = re.match(r"^/user/(MS4w[\w-]+)", path)
+        if m:
+            return platform("subscription", f"抖音博主 {m.group(1)[:12]}…", "douyin", "user", m.group(1))
+        m = re.match(r"^/search/([^/?#]+)", path)
+        if m:
+            q = unquote(m.group(1)).strip()
+            return {
+                "kind": "keyword",
+                "source_type": SourceType.KEYWORD.value,
+                "url": f"keyword://{quote(q, safe='')}",
+                "platform": "douyin",
+                "platforms": ["douyin"],
+                "query": q,
+                "name": q,
+            }
+    if host == "xiaohongshu.com":
+        m = re.match(r"^/user/profile/([0-9a-f]{24})", path)
+        if m:
+            return platform("subscription", f"小红书博主 {m.group(1)[:8]}…", "xiaohongshu", "user", m.group(1))
+        if path == "/search_result":
+            q = parse_qs(parsed.query).get("keyword", [""])[0].strip()
+            if q:
+                return {
+                    "kind": "keyword",
+                    "source_type": SourceType.KEYWORD.value,
+                    "url": f"keyword://{quote(q, safe='')}",
+                    "platform": "xiaohongshu",
+                    "platforms": ["xiaohongshu"],
+                    "query": q,
+                    "name": q,
+                }
 
     source_type, normalized, config = recognize_source_type(url)
     kind = "list" if source_type in (SourceType.DOUYIN_HOT, SourceType.ZHIHU) else "subscription"

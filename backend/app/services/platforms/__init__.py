@@ -1,4 +1,4 @@
-"""平台适配器注册表（改造方案 3.2）。B站、YouTube、GitHub、HN、Reddit 先行。"""
+"""平台适配器注册表（改造方案 3.2）。B站、YouTube、GitHub、HN、Reddit；抖音、小红书走本机浏览器（阶段 4）。"""
 
 from __future__ import annotations
 
@@ -21,13 +21,24 @@ from .base import (
     SubtitleTrack,
 )
 from .bilibili import BilibiliAdapter
+from .douyin import DouyinAdapter
 from .github import GithubAdapter
 from .hn import HackerNewsAdapter
 from .reddit import RedditAdapter
+from .xiaohongshu import XiaohongshuAdapter
 from .youtube import YoutubeAdapter
 
 ADAPTERS: dict[str, type[PlatformAdapter]] = {
-    cls.platform: cls for cls in (BilibiliAdapter, YoutubeAdapter, GithubAdapter, HackerNewsAdapter, RedditAdapter)
+    cls.platform: cls
+    for cls in (
+        BilibiliAdapter,
+        YoutubeAdapter,
+        GithubAdapter,
+        HackerNewsAdapter,
+        RedditAdapter,
+        DouyinAdapter,
+        XiaohongshuAdapter,
+    )
 }
 # 平台 API Key 的环境变量名；设置页保存的值优先（见 platform_keys）
 KEY_ENV = {"youtube": "YOUTUBE_API_KEY", "github": "GITHUB_TOKEN"}
@@ -48,6 +59,7 @@ def describe_platforms() -> list[dict]:
             "label": cls.label,
             "capabilities": {cap: cap in cls.capabilities for cap in ALL_CAPABILITIES},
             "needs_key": name in KEY_ENV,
+            "browser": bool(getattr(cls, "browser_based", False)),
         }
         for name, cls in ADAPTERS.items()
     ]

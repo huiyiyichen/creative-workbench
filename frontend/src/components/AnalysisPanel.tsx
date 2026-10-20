@@ -134,7 +134,7 @@ export default function AnalysisPanel({ analysis, onClose }: AnalysisPanelProps)
             </h3>
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-xs text-gray-600"><Film size={15} />模板、视觉风格、分镜和成片统一管理</div>
-              <Button type="button" variant="primary" onClick={() => { window.location.href = `/studio?content_id=${contentId}`; }}>
+              <Button type="button" variant="primary" onClick={() => { window.location.href = `/projects/new?source=content:${contentId}`; }}>
                 打开
                 <ArrowRight size={14} />
               </Button>
