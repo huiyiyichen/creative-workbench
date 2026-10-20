@@ -15,6 +15,7 @@ import asyncio
 import contextlib
 import json
 import logging
+import os
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -24,6 +25,41 @@ from .base import PlatformError
 
 logger = logging.getLogger(__name__)
 
+# 本机默认用 Edge；没有 Edge 的环境（Linux 服务器、CI）设 CW_BROWSER_CHANNEL=chromium 用 Playwright 自带的 Chromium
+BROWSER_CHANNEL = os.environ.get("CW_BROWSER_CHANNEL", "msedge").strip() or "msedge"
+
+
+def _proxy() -> dict[str, str] | None:
+    """浏览器不读 HTTPS_PROXY：显式传给 Playwright（CW_BROWSER_PROXY 优先）。"""
+    from urllib.parse import urlparse
+
+    raw = next(
+        (
+            os.environ.get(k)
+            for k in ("CW_BROWSER_PROXY", "HTTPS_PROXY", "https_proxy", "ALL_PROXY")
+            if os.environ.get(k)
+        ),
+        None,
+    )
+    if not raw:
+        return None
+    u = urlparse(raw if "://" in raw else f"http://{raw}")
+    if not u.hostname:
+        return None
+    out = {"server": f"{u.scheme}://{u.hostname}" + (f":{u.port}" if u.port else "")}
+    if u.username:
+        out.update(username=u.username, password=u.password or "")
+    return out
+
+
+def _channel_kwargs() -> dict[str, Any]:
+    kw: dict[str, Any] = {} if BROWSER_CHANNEL in {"chromium", "bundled"} else {"channel": BROWSER_CHANNEL}
+    proxy = _proxy()
+    if proxy:
+        kw["proxy"] = proxy
+    return kw
+
+
 PROFILE_ROOT = (Path(__file__).resolve().parents[3] / "data" / "browser").resolve()
 MIN_INTERVAL = {"douyin": 15.0, "xiaohongshu": 45.0}
 LOGIN_URL = {"douyin": "https://www.douyin.com/", "xiaohongshu": "https://www.xiaohongshu.com/explore"}
@@ -32,6 +68,13 @@ LOGIN_MARKS = {
     "douyin": ("passport.douyin.com", "登录后即可"),
     "xiaohongshu": ("/login", "登录后查看更多", "扫码登录"),
 }
+# 验证码组件自己的接口（页面地址不变，只能从响应里认）
+CAPTCHA_RESPONSES = (
+    "verify.zijieapi.com/captcha/get",
+    "verify.snssdk.com/captcha",
+    "/api/redcaptcha",
+    "captcha.xiaohongshu",
+)
 CAPTCHA_MARKS = ("captcha", "verify.snssdk", "验证码", "滑块", "安全验证", "website-login/captcha")
 
 
@@ -129,7 +172,11 @@ class BrowserPool:
         out = Captured()
         pending: set[asyncio.Task] = set()
 
+        captcha_seen: list[str] = []
+
         async def read(response) -> None:
+            if any(m in response.url for m in CAPTCHA_RESPONSES):
+                captcha_seen.append(response.url)
             for name, part in matchers.items():
                 if part in response.url and response.status == 200:
                     with contextlib.suppress(Exception):
@@ -145,13 +192,13 @@ class BrowserPool:
             try:
                 ctx = await pw.chromium.launch_persistent_context(
                     str(self.profile_dir(platform)),
-                    channel="msedge",
+                    **_channel_kwargs(),
                     headless=True,
                     viewport={"width": 1440, "height": 1000},
                     locale="zh-CN",
                 )
             except Exception as exc:  # noqa: BLE001
-                raise PlatformError(f"无法启动本机 Edge：{exc}") from exc
+                raise PlatformError(f"无法启动浏览器（{BROWSER_CHANNEL}）：{exc}") from exc
             try:
                 page = ctx.pages[0] if ctx.pages else await ctx.new_page()
                 page.on("response", on_response)
@@ -162,6 +209,10 @@ class BrowserPool:
                     if all(out.responses.get(n) for n in need):
                         break
                     check_wall(platform, page.url, "")
+                    if captcha_seen and not any(out.responses.values()):
+                        raise PlatformError(
+                            f"{platform} 出现验证码（滑块），请在「信源 · 浏览器登录」里打开窗口手动通过"
+                        )
                     if scrolled < scroll:
                         await page.mouse.wheel(0, 2400)
                         scrolled += 1
@@ -175,6 +226,10 @@ class BrowserPool:
                         out.page_state = await page.evaluate(state_script)
                 if not any(out.responses.values()) and out.page_state is None:
                     check_wall(platform, page.url, text)
+                    if platform == "douyin" and "/jingxuan" in page.url and "/video/" in url:
+                        raise PlatformError("抖音作品不存在或已删除（页面跳回了精选）")
+                    if text.strip().lower().startswith("not found") or "当前内容无法展示" in text:
+                        raise PlatformError(f"{platform} 页面返回 not found（内容不可见，或当前网络所在地区被拒绝）")
                     raise PlatformError(f"{platform} 页面没有返回数据（接口可能变化或加载超时）")
             finally:
                 if pending:
@@ -190,7 +245,7 @@ class BrowserPool:
             self.profile_dir(platform).mkdir(parents=True, exist_ok=True)
             async with async_playwright() as pw:
                 ctx = await pw.chromium.launch_persistent_context(
-                    str(self.profile_dir(platform)), channel="msedge", headless=False, locale="zh-CN"
+                    str(self.profile_dir(platform)), **_channel_kwargs(), headless=False, locale="zh-CN"
                 )
                 page = ctx.pages[0] if ctx.pages else await ctx.new_page()
                 await page.goto(LOGIN_URL[platform], wait_until="domcontentloaded")

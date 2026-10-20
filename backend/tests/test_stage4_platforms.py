@@ -289,3 +289,15 @@ async def test_note_used_for_new_project(db):
     p = await ps.create_project(db, 1, ProjectCreate(sources=[f"note:{n.id}"]))
     assert p["brief"]["theme"] == "智能体成本" and "601" in p["brief"]["intent"]
     assert p["sources"] == [] and p["title"] == "智能体成本"
+
+
+def test_browser_proxy_and_channel(monkeypatch):
+    for k in ("CW_BROWSER_PROXY", "HTTPS_PROXY", "https_proxy", "ALL_PROXY"):
+        monkeypatch.delenv(k, raising=False)
+    assert browser._proxy() is None
+    monkeypatch.setenv("CW_BROWSER_PROXY", "http://u:p@127.0.0.1:7890")
+    assert browser._proxy() == {"server": "http://127.0.0.1:7890", "username": "u", "password": "p"}
+    monkeypatch.setattr(browser, "BROWSER_CHANNEL", "chromium")
+    assert "channel" not in browser._channel_kwargs() and browser._channel_kwargs()["proxy"]["server"]
+    monkeypatch.setattr(browser, "BROWSER_CHANNEL", "msedge")
+    assert browser._channel_kwargs()["channel"] == "msedge"
