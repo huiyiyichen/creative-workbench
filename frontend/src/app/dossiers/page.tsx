@@ -5,11 +5,12 @@
  * 未关注、30 天没有新内容的自动专题归档，仍可搜索。
  */
 
+import { EmptyInstrument, ScanSkeleton } from '@/design/instrument';
 import Link from 'next/link';
 import { Input, message } from 'antd';
 import { Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Button, Card, CwPage, Segmented, TopBar } from '@/design/components';
+import { Button, CwPage, Segmented, TopBar } from '@/design/components';
 import { GapSpark, StatusTag, platformName } from '@/design/discover';
 import { color } from '@/design/tokens';
 import { discoverApi, type DossierSummary } from '@/lib/api/_discover';
@@ -74,11 +75,24 @@ export default function DossiersPage() {
         </Button>
       </div>
       {!items ? (
-        <div className="cw-empty">加载中…</div>
+        <ScanSkeleton height={240} />
       ) : items.length === 0 ? (
-        <div className="cw-empty">{archived === 'archived' ? '没有归档的专题' : '还没有专题。持续 3 天以上的事件和每个追踪词会自动成为专题，也可以在热点 · 升温里点「关注」'}</div>
+        archived === 'archived' ? (
+          <EmptyInstrument kind="dark" title="没有归档的专题" />
+        ) : (
+          <EmptyInstrument
+            kind="flat"
+            title="还没有专题"
+            reason="持续 3 天以上的事件和每个追踪词会自动成为专题；也可以在上面输入一个话题直接关注，或在热点 · 升温里点「关注」。"
+            actions={
+              <Link className="cw-btn" data-variant="primary" href="/hot?tab=rising">
+                去热点看升温
+              </Link>
+            }
+          />
+        )
       ) : (
-        <div className="cw-dossier-grid">
+        <div className="cw-dossier-grid cw-stagger">
           {items.map((d) => (
             <Link key={d.id} href={`/dossiers/${d.id}`} className="cw-card cw-dossier-card">
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -104,11 +118,6 @@ export default function DossiersPage() {
           ))}
         </div>
       )}
-      <Card title="说明" className="cw-report-sec">
-        <p className="cw-muted" style={{ margin: 0 }}>
-          专题页：按发布时间排出所有相关内容（按平台分色）、热度曲线、各平台首次出现的先后、提到它的报告、相关收藏，以及当前状态和结论。
-        </p>
-      </Card>
     </CwPage>
   );
 }

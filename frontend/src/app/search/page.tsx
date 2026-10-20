@@ -5,6 +5,7 @@
  * 再按关键词去各平台现抓——抓回来的内容进今日信息流；勾选「持续追踪」则成为追踪词，以后定时采集。
  */
 
+import { EmptyInstrument, ScanSkeleton, StatusLamp } from '@/design/instrument';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Search as SearchIcon, Radar } from 'lucide-react';
@@ -49,13 +50,9 @@ function LocalResults({ q, data, error }: { q: string; data: SearchResult | null
     [data],
   );
   if (error) return <p className="cw-error">{error}</p>;
-  if (!data) return <p className="cw-muted">搜索中…</p>;
+  if (!data) return <ScanSkeleton height={220} label="在库里搜索" />;
   if (!data.total) {
-    return (
-      <p className="cw-empty" data-block="true">
-        库里还没有和「{q}」相关的内容。可以在下面去各平台抓一次。
-      </p>
-    );
+    return <EmptyInstrument kind="dark" title={`库里还没有和「${q}」相关的内容`} reason="右边可以一键去各平台现抓；抓回来的会直接进库，也能顺手设成追踪词。" />;
   }
   const shown = tab === 'all' ? groups : groups.filter((g) => g === tab);
   return (
@@ -147,7 +144,7 @@ function CrawlPanel({ q, onDone }: { q: string; onDone: () => void }) {
 
   const names = picked.map((p) => platforms.find((x) => x.platform === p)?.label ?? p).join('、');
   return (
-    <section className="cw-card cw-crawl">
+    <section className="cw-instrument cw-crawl">
       <div className="cw-card-head">
         <Radar size={15} aria-hidden />
         去平台抓「{q}」
@@ -177,6 +174,18 @@ function CrawlPanel({ q, onDone }: { q: string; onDone: () => void }) {
         <input type="checkbox" checked={track} disabled={busy} onChange={(e) => setTrack(e.target.checked)} />
         以后自动追踪（每 2 小时抓一次，会出现在「专题」里）
       </label>
+      {busy || result ? (
+        <ul className="cw-radar" aria-label="各平台进度">
+          {picked.map((pk) => (
+            <li key={pk}>
+              <StatusLamp tone={busy ? 'run' : error ? 'bad' : 'ok'} label={platforms.find((x) => x.platform === pk)?.label || pk} />
+              <span className="cw-radar-bar" data-busy={busy ? 'true' : undefined}>
+                <i />
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
       <div className="cw-row">
         <Button variant="primary" icon={<SearchIcon size={14} />} disabled={busy || !picked.length} onClick={run}>
           {busy ? '抓取中…' : '抓取'}
@@ -276,9 +285,11 @@ function SearchInner() {
           <CrawlPanel q={q} onDone={load} />
         </div>
       ) : (
-        <p className="cw-empty" data-block="true">
-          输入一个关键词。库里有的会先列出来；想看最新的，可以一键去 B 站、YouTube、抖音、小红书等平台抓。
-        </p>
+        <EmptyInstrument
+          kind="flat"
+          title="输入一个关键词"
+          reason="库里有的（内容、灵感、随笔、项目、报告）先列出来；想看最新的，可以一键去 B站、YouTube、抖音、小红书等平台现抓。快捷键：任意页面按 / 或 Ctrl K。"
+        />
       )}
     </CwPage>
   );

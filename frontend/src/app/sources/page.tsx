@@ -1,5 +1,6 @@
 'use client';
 
+import { StatusLamp } from '@/design/instrument';
 import Link from 'next/link';
 import { Select, Tooltip, message } from 'antd';
 import { Pause, Play, Plus, RefreshCw, Settings2, Undo2 } from 'lucide-react';
@@ -373,10 +374,10 @@ export default function SourcesCollectionPage() {
             </Link>
           ))}
         </nav>
-        <span className="cw-health">
-          <StatusDot tone={overview?.paused ? 'warn' : problemCount ? 'bad' : 'ok'} />
-          {overview?.paused ? '采集已暂停' : problemCount ? `${problemCount} 个信源需要处理` : '采集正常'}
-        </span>
+        <StatusLamp
+          tone={overview?.paused ? 'warn' : problemCount ? 'bad' : 'ok'}
+          label={overview?.paused ? '采集已暂停' : problemCount ? `${problemCount} 个信源需要处理` : '采集正常'}
+        />
         <Button icon={overview?.paused ? <Play /> : <Pause />} onClick={onPause} disabled={!overview}>
           {overview?.paused ? '恢复采集' : '暂停采集'}
         </Button>
@@ -387,7 +388,7 @@ export default function SourcesCollectionPage() {
 
       {loadError ? <div className="cw-error">{loadError}</div> : null}
 
-      <div className="cw-kpis" aria-label="关键数字">
+      <div className="cw-kpis cw-instrument" data-hero="true" aria-label="关键数字">
         <Kpi label="今日新增" pair={overview?.today_new} />
         <Kpi label="7 天同步成功率" pair={overview?.success_rate_7d} suffix="%" />
         <Kpi label="待分析" pair={overview?.pending_analysis} higherIsBetter={false} />

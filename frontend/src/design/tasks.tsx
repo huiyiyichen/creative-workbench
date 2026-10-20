@@ -210,7 +210,7 @@ export function TaskLanes({ items, hours, now }: { items: TaskView[]; hours: num
                       data-status={b.status}
                       data-batch={b.count > 1 ? 'true' : undefined}
                       title={label}
-                      style={{ left: `${b.left * 100}%`, width: `max(${b.count > 1 ? 14 : 4}px, ${b.width * 100}%)`, '--c': TASK_STATUS_COLOR[b.status] } as CSSProperties}
+                      style={{ ...(b.left > 0.97 ? { right: 0 } : { left: `${b.left * 100}%` }), width: `max(${b.count > 1 ? 18 : 4}px, ${b.width * 100}%)`, '--c': TASK_STATUS_COLOR[b.status] } as CSSProperties}
                     >
                       {b.count > 1 ? <b className="cw-num">{b.count}</b> : null}
                     </Link>

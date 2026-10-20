@@ -2161,3 +2161,18 @@ a.cw-lamp:hover { color: var(--cw-text); }
 .cw-item-create { opacity: 0; transition: opacity var(--cw-dur-1); }
 .cw-item:hover .cw-item-create, .cw-item[data-selected='true'] .cw-item-create, .cw-item-create:focus-visible { opacity: 1; }
 @media (hover: none) { .cw-item-create { opacity: 1; } }
+.cw-radar { list-style: none; margin: 4px 0 10px; padding: 0; display: grid; gap: 6px; }
+.cw-radar li { display: grid; grid-template-columns: 110px 1fr; align-items: center; gap: 10px; }
+.cw-radar-bar { position: relative; height: 4px; border-radius: 2px; background: var(--cw-grat); overflow: hidden; }
+.cw-radar-bar i { position: absolute; inset: 0; background: var(--cw-gr); }
+.cw-radar-bar[data-busy='true'] i { background: linear-gradient(90deg, transparent, var(--cw-cy), transparent); width: 40%; animation: cw-radar 1.2s ease-in-out infinite; }
+@keyframes cw-radar { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+.cw-search-form:focus-within { border-color: color-mix(in srgb, var(--cw-cy) 60%, var(--cw-line)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--cw-cy) 10%, transparent); }
+.cw-search-local mark, .cw-search-group mark { background: color-mix(in srgb, var(--cw-yl) 25%, transparent); color: var(--cw-text); border-radius: 2px; padding: 0 1px; }
+@media (prefers-reduced-motion: reduce) { .cw-radar-bar[data-busy='true'] i { animation: none; width: 100%; opacity: .5; } }
+.cw-kpis.cw-instrument { padding: 4px 0; display: grid; }
+.cw-kpi-value b { font-size: 28px; font-weight: 600; }
+.cw-kpi-label a { color: var(--cw-dim); }
+.cw-kpi-label a:hover { color: var(--cw-cy); }
+.cw-today-side .cw-readouts { grid-template-columns: 1fr 1fr; margin-bottom: 0; }
+.cw-today-side .cw-readout > b { font-size: 24px; }
