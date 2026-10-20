@@ -4,12 +4,12 @@
 
 import Link from 'next/link';
 import { Drawer, message, notification } from 'antd';
-import { Bot, Download, Image as ImageIcon, ScanSearch } from 'lucide-react';
+import { Bot, Download, Image as ImageIcon, ScanSearch, Table2 } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from './components';
 import { TASK_STATUS_LABEL, fmtDuration, groupTasks, subscribeTasks, tasksApi, type TaskStatus, type TaskType, type TaskView } from '@/lib/api/_tasks';
 
-const TYPE_ICON: Record<TaskType, typeof Bot> = { flow: Bot, generation: ImageIcon, sync: Download, analysis: ScanSearch };
+const TYPE_ICON: Record<TaskType, typeof Bot> = { flow: Bot, generation: ImageIcon, sync: Download, analysis: ScanSearch, feishu: Table2 };
 export const TASK_STATUS_COLOR: Record<TaskStatus, string> = {
   running: 'var(--cw-cy)',
   waiting: 'var(--cw-yl)',

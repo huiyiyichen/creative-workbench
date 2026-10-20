@@ -321,7 +321,23 @@ async def create_project(db: AsyncSession, owner_id: int, request: ProjectCreate
     for kind, rid in refs:
         if kind == "content":
             _comments_later(rid)
+    from app.services import feishu_service
+
+    try:  # 可选：新建项目时自动记入飞书
+        await feishu_service.on_project_created(db, project.id)
+    except Exception:  # noqa: BLE001
+        logger.warning("feishu create hook failed", exc_info=True)
     return await project_view(db, project.id)
+
+
+async def _feishu_stage(db: AsyncSession, project_id: int) -> None:
+    """项目阶段变化：已记入飞书的项目后台更新状态列（失败不影响主流程）。"""
+    from app.services import feishu_service
+
+    try:
+        await feishu_service.on_project_stage(db, project_id)
+    except Exception:  # noqa: BLE001
+        logger.warning("feishu stage hook failed", exc_info=True)
 
 
 def _comments_later(content_id: int) -> None:
@@ -666,6 +682,7 @@ async def finalize(db: AsyncSession, project_id: int, version: int | None = None
     except Exception:  # noqa: BLE001
         await db.rollback()
         logger.warning("pipeline after finalize failed", exc_info=True)
+    await _feishu_stage(db, project_id)
     return await project_view(db, project_id)
 
 
@@ -795,6 +812,8 @@ async def patch_output(db: AsyncSession, output_id: int, request: OutputPatch) -
     elif request.status is not None:
         output.status = request.status
     await db.commit()
+    if request.published_url is not None or request.status is not None:
+        await _feishu_stage(db, output.project_id)
     return await output_view(db, output_id)
 
 

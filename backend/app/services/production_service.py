@@ -148,6 +148,10 @@ async def on_run_finished(db: AsyncSession, run: AgentRun) -> None:
         output.status = "draft"
     output.content = {**(output.content or {}), "run_status": run.status, "run_reason": run.status_reason}
     await db.commit()
+    if run.status == "done":
+        from app.services.project_service import _feishu_stage
+
+        await _feishu_stage(db, output.project_id)
 
 
 SAVE_WORK = True  # 测试里关掉（写收藏夹走旧缓存）

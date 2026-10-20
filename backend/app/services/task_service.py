@@ -14,12 +14,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent_run import AgentRun, AgentStep
 from app.models.analysis_job import AnalysisJobRecord
+from app.models.content import ContentItem
 from app.models.generation import GenerationJob
 from app.models.source import Source
 from app.models.source_sync_run import SourceSyncRun
 from app.models.studio import StudioOutput, StudioProject
 
-TYPES = ("flow", "generation", "sync", "analysis")
+TYPES = ("flow", "generation", "sync", "analysis", "feishu")
 STATUSES = ("running", "waiting", "failed", "done", "stopped")
 FLOW_LABEL = {
     "topic_research": "选题研究",
@@ -57,6 +58,8 @@ _HINTS = (
     ("api key", "到设置里检查服务的 API Key"),
     ("401", "到设置里检查服务的 API Key"),
     ("429", "被限流，稍后重试"),
+    ("权限", "在飞书表格右上角「…→ 添加文档应用」里加上这个应用后重试"),
+    ("列名", "到「设置 · 飞书」检查字段映射"),
 )
 
 
@@ -268,6 +271,45 @@ async def _analyses(db: AsyncSession, since: datetime, limit: int) -> list[dict[
     return rows
 
 
+_FEISHU_STATUS = {"pending": "running", "synced": "done", "failed": "failed"}
+
+
+async def _feishu(db: AsyncSession, since: datetime, limit: int) -> list[dict[str, Any]]:
+    from app.services import feishu_service
+
+    recs = await feishu_service.failed_records(db, since, limit)
+    rows = []
+    for r in recs:
+        project_id = r.object_id if r.object_type == "project" else None
+        title = f"项目 #{r.object_id}" if r.object_type == "project" else f"内容 #{r.object_id}"
+        if r.object_type == "content":
+            c = await db.get(ContentItem, r.object_id)
+            title = c.title if c else title
+        rows.append(
+            _row(
+                key=f"feishu:{r.id}",
+                type="feishu",
+                kind=r.object_type,
+                kind_label={"manual": "记入飞书", "auto": "自动记入飞书", "stage": "更新飞书状态"}.get(
+                    r.trigger, "记入飞书"
+                ),
+                title=title,
+                project_id=project_id,
+                status=_FEISHU_STATUS.get(r.status, r.status),
+                raw_status=r.status,
+                stage="已写入" if r.status == "synced" else None,
+                created_at=r.updated_at or r.created_at,
+                started_at=r.updated_at or r.created_at,
+                finished_at=r.synced_at if r.status == "synced" else (r.updated_at if r.status == "failed" else None),
+                reason=r.error,
+                href=f"/projects/{r.object_id}" if r.object_type == "project" else f"/items/{r.object_id}",
+                can_stop=False,
+                can_retry=r.status == "failed",
+            )
+        )
+    return rows
+
+
 async def list_tasks(
     db: AsyncSession,
     *,
@@ -289,6 +331,8 @@ async def list_tasks(
         rows += await _syncs(db, since, per)
     if "analysis" in want:
         rows += await _analyses(db, since, per)
+    if "feishu" in want:
+        rows += await _feishu(db, since, per)
     pids = {r["project_id"] for r in rows if r["project_id"]}
     if pids:
         titles = dict(
@@ -326,6 +370,14 @@ async def retry(db: AsyncSession, key: str) -> dict[str, Any]:
     from app.services.flows import engine
 
     kind, _, ident = key.partition(":")
+    if kind == "feishu" and ident.isdigit():
+        from app.core.exceptions import AppException
+        from app.services import feishu_service
+
+        try:
+            return await feishu_service.retry(db, int(ident))
+        except AppException as exc:
+            raise engine.FlowError(exc.message) from exc
     if kind != "flow" or not ident.isdigit():
         raise engine.FlowError("这类任务不能在这里重试")
     run = await engine.continue_run(db, int(ident))

@@ -259,3 +259,13 @@
 - `studio_service.py` 去掉只被旧接口用的函数（约 400 行：保存项目、版本视图、音频 / LRC、定稿、排队渲染、Harness 制作、制作任务、心跳等）；新流程用到的（成片信息、进度、工程文件、草稿整理、启动恢复）保留。
 - 前端：删 `studioApi` 与 Studio* 类型、旧顶栏「制作任务」(`ProductionStatus`，已被任务中心替代)、没人用的 `CreativePresetCard` / `DraftComparison`；配音设置（`StudioVoice`，改用 `/voice/tts`）放进「设置 · 生成服务」。`/studio` 页面仍只做跳转。
 - 验证：后端全量 pytest 通过（1 项跳过）；vitest 208 项；tsc、ESLint、ruff、分层检查通过。
+
+## 阶段 6：飞书多维表格（2026-10-20）
+
+- 后端：`feishu_records` 表（迁移 c3e5a7b9d104）；`feishu_service`：自建应用 tenant_access_token、表格链接解析（/base/ 与知识库 /wiki/ 换 obj_token）、字段映射按列类型写入（链接 / 日期 / 数字 / 单选 / 多选 / 文本）、新建或更新记录、保存 record_id。
+- 写入时机：「记入飞书」（条目详情、项目栏）；可选自动写入（结论变「值得做」、新建项目）；项目定稿、产出物完成 / 发布、外部回传成片时后台只更新状态列（未开始 / 创作中 / 已产出）。
+- 失败记 failed，进任务中心（类型「飞书」），可重试；权限、列名错误给出处理建议。
+- API：GET/PUT /feishu/settings、POST /feishu/test、POST/GET /feishu/records、POST /feishu/records/{id}/retry。
+- 前端：设置 · 飞书（凭证、表格链接、测试连接、字段映射带列名补全、自动写入开关）；FeishuButton。
+- 测试：tests/test_stage6_feishu.py（模拟飞书接口）；全量 pytest、vitest 208、tsc、eslint、ruff、分层检查通过；设置页深浅色截图。
+- 待验收：需要真实飞书应用 App ID / Secret 与多维表格。

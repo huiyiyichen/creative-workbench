@@ -1,7 +1,7 @@
 /** 任务中心（创作工作台设计 7）：流程运行、生成、采集、分析合成的一张任务表。 */
 import { BASE_URL, request } from './_core';
 
-export type TaskType = 'flow' | 'generation' | 'sync' | 'analysis';
+export type TaskType = 'flow' | 'generation' | 'sync' | 'analysis' | 'feishu';
 export type TaskStatus = 'running' | 'waiting' | 'failed' | 'done' | 'stopped';
 
 export interface TaskView {
@@ -88,6 +88,7 @@ export const TASK_TYPE_LABEL: Record<TaskType, string> = {
   generation: '生成',
   sync: '采集',
   analysis: '分析',
+  feishu: '飞书',
 };
 
 /** 抽屉分组：进行中（含等待）/ 失败 / 完成（含停止） */

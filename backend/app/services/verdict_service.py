@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -210,9 +211,12 @@ async def refresh_items(
     rules = await load_rules(db, "verdict_rules")
     now = datetime.now(UTC)
     out: dict[int, dict[str, Any]] = {}
+    became_worth: list[int] = []
     for c in items:
         result = compute_verdict(facts[c.id], now=now, rules=rules).as_dict()
         changed = c.verdict != result["verdict"]
+        if changed and result["verdict"] == "worth":
+            became_worth.append(c.id)
         c.verdict = result["verdict"]
         c.verdict_data = result
         c.verdict_at = now
@@ -227,6 +231,13 @@ async def refresh_items(
             )
         out[c.id] = _with_mark(result, marks.get(c.id))
     await db.flush()
+    if became_worth:
+        from app.services import feishu_service
+
+        try:  # 可选：结论为「值得做」时自动记入飞书
+            await feishu_service.on_verdicts(db, became_worth)
+        except Exception:  # noqa: BLE001
+            logging.getLogger(__name__).warning("feishu verdict hook failed", exc_info=True)
     return out
 
 

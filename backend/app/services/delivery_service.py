@@ -124,6 +124,7 @@ async def attach(
     if not output.based_on_version:
         output.based_on_version = version
     await db.commit()
+    await ps._feishu_stage(db, output.project_id)
     return {"delivery": record, "output": await ps.output_view(db, output.id)}
 
 

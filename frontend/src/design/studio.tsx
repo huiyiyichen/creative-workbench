@@ -5,6 +5,7 @@
  * 来源选择器 SourcePicker、情绪板 MoodBoard。
  */
 
+import { FeishuButton } from './feishu';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Checkbox, Input, Modal, Switch, message } from 'antd';
@@ -282,6 +283,7 @@ export function ProjectShell({ children }: { children: ReactNode }) {
           <StatusMark project={project} unsaved={unsaved} />
           <span className="cw-grow" />
           <Pipeline />
+          <FeishuButton type="project" id={project.id} className="cw-pbar-link" />
           <Link className="cw-pbar-link" href={`/runs?project=${project.id}`}>
             过程
           </Link>

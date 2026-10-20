@@ -11,6 +11,7 @@ from app.api.v1.daily_reports import router as daily_reports_router
 from app.api.v1.discover import router as discover_router
 from app.api.v1.favorites import router as favorites_router
 from app.api.v1.feedback import router as feedback_router
+from app.api.v1.feishu import router as feishu_router
 from app.api.v1.generations import router as generations_router
 from app.api.v1.library import router as library_router
 from app.api.v1.llm_calls import router as llm_calls_router
@@ -66,6 +67,7 @@ router.include_router(categories_router)
 router.include_router(stats_router)
 router.include_router(stats_jobs_router)
 router.include_router(renders_router)
+router.include_router(feishu_router)
 router.include_router(sources_health_router)
 router.include_router(metrics_router)
 router.include_router(feedback_router)
