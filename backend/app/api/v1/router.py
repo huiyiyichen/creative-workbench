@@ -21,6 +21,7 @@ from app.api.v1.model_catalog import router as model_catalog_router
 from app.api.v1.monthly_digests import router as monthly_digests_router
 from app.api.v1.mother_topics import router as mother_topics_router
 from app.api.v1.notifications import router as notifications_router
+from app.api.v1.projects import router as projects_router
 from app.api.v1.read_records import router as read_records_router
 from app.api.v1.reports import router as reports_router
 from app.api.v1.runs import mcp_router, router as runs_router
@@ -47,6 +48,7 @@ router.include_router(collection_router)
 router.include_router(discover_router)
 router.include_router(library_router)
 router.include_router(runs_router)
+router.include_router(projects_router)
 router.include_router(mcp_router)
 router.include_router(reports_router)
 router.include_router(llm_calls_router)

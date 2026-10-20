@@ -129,3 +129,17 @@
 ### 阶段 3 · 图谱语义相似边（2026-10-20）
 - 条目向量其实已在阶段 1 的事件归并中写入 `content_embeddings`（bge-small-zh-v1.5）；图谱对收藏条目对应内容的向量算余弦，≥0.78 的每条取最相近 3 条画「相似」边（显式关联优先）。
 - 验证：tests/test_stage3_obsidian.py 新增用例通过。未验证：真实数据下阈值是否合适。
+
+## 阶段 4（refactor/stage-4）
+
+实施顺序（按「创作工作台设计与实现」第 14 节）：① 后端迁移与新接口 → ② 前端新路由（/projects、idea、draft、outputs）→ ③ 成稿 / 讲解视频流程与写手、审校、分镜、美术、制作、质检角色 → ④ 生成服务与用灵感生图 → ⑤ 溯源图与引用、Claude Code / Codex 执行者 → ⑥ 抖音、小红书采集与评论 → ⑦ /studio 重定向、删旧接口。
+
+### 阶段 4 · 工作台后端：项目 / 定稿分层、AI 建议、产出物（2026-10-20）
+- 迁移 a7c9e1f3b824：`studio_projects` 加 `draft_token`、`stage`、`archived_at`；新表 `project_sources`、`studio_outputs`、`project_suggestions`、`project_assets`；`studio_artifacts` 加 `output_id`、`settings`。数据迁移：制作层字段（style_id、presentation、production、aspect_ratio、bilingual）移到新建的「讲解视频 / MV / 提示词包」产出物 settings；旧作品挂到该产出物并从当时版本补 settings；`source_snapshot` 转为主来源；token 与 stage 初始化。旧字段只读不删。
+- `services/project_service.py`：项目（列表 / 新建带来源 / 改名 / 归档）、来源（1 主 + ≤9 参考，进入时冻结快照：标题、链接、平台、发布与采集时间、摘要、最新指标）、文案层设定（定稿后改文案层返回 409 finalized）、工作副本（自动保存只换 token 不生成版本；旧 token 返回 409 draft_conflict；「用我的覆盖」先把对方内容存成版本）、版本（保存 / 查看 / 恢复生成新版本）、定稿与解锁、空白 / 按模板开始、产出物（视频 / MV / 提示词包需定稿；改制作参数不撤销定稿；文稿有新定稿时标记 stale；发布链接置为已发布）、情绪板素材（≤30）。段落稳定 id：`p_` + 内容哈希前 8 位，重复追加序号。
+- `services/suggestion_service.py`：AI 修改返回补丁操作（替换 / 插入 / 删除段落，改 / 插 / 删 / 移分镜），服务端校验 id、字段、长度与范围（选中段落时不动分镜），≤50 个；按处接受生成「AI 建议」版本；token 变了时只应用目标未被改过的操作，其余返回冲突。
+- `services/output_rules.py` + `output_service.py`：小红书 / 知乎 / 公众号规则与计数；平台改写超限带问题重写一次、再超限截断并提示；公众号 HTML 用 nh3 白名单清洗；知乎文末补来源；导出 Markdown / HTML；视频提示词包 Jinja2 确定性生成（目标：通用 / Claude Code / Codex / DeepSeek Harness；脚本、分镜表、风格规范、素材清单含授权、交付要求），ZIP 含 README.md、script.md、storyboard.csv、style.json 与素材文件。
+- 接口：`/api/v1/projects…`、`/outputs/{id}…`、`/suggestions/{id}/apply|reject`（`api/v1/projects.py`）。旧 `/studio/*` 暂时并存。
+- 依赖：nh3（新增）、jinja2（显式声明）。
+- 验证：tests/test_stage4_projects.py、test_stage4_suggestions.py、test_stage4_outputs.py 共 18 项通过；后端全量 pytest 通过；dev 库迁移升降级往返，并用一条旧工程数据核对数据迁移（产出物 settings、作品 output_id / settings、主来源、stage）；ruff、分层检查通过。
+- 未验证：真实模型下的建议与平台改写质量；「AI 写初稿」（ai 模式）随成稿流程在第 ③ 步接入；「被项目用作来源」触发评论采集待接。

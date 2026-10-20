@@ -58,7 +58,16 @@ from app.models.scheduled_job import JobExecutionLog, ScheduledJob
 from app.models.source import Source
 from app.models.source_evidence_profile import PublisherKind, SourceEvidenceProfile
 from app.models.source_sync_run import SourceSyncRun, SyncErrorKind, SyncRunStatus, SyncTrigger
-from app.models.studio import StudioArtifact, StudioAsset, StudioProject, StudioRevision
+from app.models.studio import (
+    ProjectAsset,
+    ProjectSource,
+    ProjectSuggestion,
+    StudioArtifact,
+    StudioAsset,
+    StudioOutput,
+    StudioProject,
+    StudioRevision,
+)
 from app.models.styles import ContentTemplate, ContentTemplateVersion, VisualStyle, VisualStyleVersion
 from app.models.topic import TopicGroup
 from app.models.trend import TopicTrend, TopicTrendMember
@@ -68,6 +77,10 @@ from app.models.user_interest_vector import UserInterestVector
 from app.models.webhook_delivery_log import WebhookDeliveryLog
 
 __all__ = [
+    "ProjectAsset",
+    "ProjectSource",
+    "ProjectSuggestion",
+    "StudioOutput",
     "AgentDecision",
     "AgentRun",
     "AgentStep",
