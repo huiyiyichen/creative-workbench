@@ -26,10 +26,10 @@ import app.models.mother_topic  # noqa: F401
 import app.models.notification  # noqa: F401
 import app.models.pick_mark  # noqa: F401
 import app.models.product_feedback  # noqa: F401
+import app.models.project  # noqa: F401
 import app.models.prompt_registry  # noqa: F401
 import app.models.read_record  # noqa: F401
 import app.models.scheduled_job  # noqa: F401
-import app.models.studio  # noqa: F401
 import app.models.trending  # noqa: F401
 import app.models.user  # noqa: F401
 import app.models.webhook_delivery_log  # noqa: F401

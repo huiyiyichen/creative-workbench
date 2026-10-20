@@ -2,7 +2,7 @@
 读取「定稿文案 + 产出物 settings」，由成片流程（分镜 → 美术 → 制作 → 质检）的制作、质检角色调用。
 
 * ``start_render``：检查定稿与前置条件，启动 video_production 流程，执行者取产出物 settings.executor。
-* 制作者（``PRODUCERS``，按执行者）：建一条 StudioArtifact（挂产出物、带 settings 快照），写工作目录与合同，
+* 制作者（``PRODUCERS``，按执行者）：建一条 ProjectArtifact（挂产出物、带 settings 快照），写工作目录与合同，
   配音 → 设计 → 编译检查 → 渲染 → 整理；阶段写进 artifact.progress，同时推到运行事件。
   质检退回时把问题写进工作目录 ``qa_feedback.json``，执行者在已有源码上修改。
   上一次同版本的制作已交付设计源码（design.ready.json）时复用源码；没有质检意见时跳过设计直接渲染。
@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppException, ValidationError
 from app.models.agent_run import AgentRun
-from app.models.studio import StudioArtifact, StudioAsset, StudioOutput, StudioProject
+from app.models.project import Project, ProjectArtifact, ProjectOutput, ProjectUpload
 from app.schemas.studio import StudioDraft
 from app.services import project_service as ps, run_events
 
@@ -49,18 +49,18 @@ def media_root() -> Path:
 # ── 启动 ──
 
 
-async def _audio_asset(db: AsyncSession, project_id: int) -> StudioAsset | None:
+async def _audio_asset(db: AsyncSession, project_id: int) -> ProjectUpload | None:
     return (
         await db.execute(
-            select(StudioAsset)
-            .where(StudioAsset.project_id == project_id, StudioAsset.kind == "audio")
-            .order_by(StudioAsset.id.desc())
+            select(ProjectUpload)
+            .where(ProjectUpload.project_id == project_id, ProjectUpload.kind == "audio")
+            .order_by(ProjectUpload.id.desc())
             .limit(1)
         )
     ).scalar_one_or_none()
 
 
-async def default_preflight(db: AsyncSession, project: StudioProject, output: StudioOutput) -> list[str]:
+async def default_preflight(db: AsyncSession, project: Project, output: ProjectOutput) -> list[str]:
     """真实制作的前置条件；返回缺什么（测试里替换）。"""
     from app.services.studio_tts import tts_config
 
@@ -80,7 +80,7 @@ async def default_preflight(db: AsyncSession, project: StudioProject, output: St
     return problems
 
 
-PREFLIGHT: Callable[[AsyncSession, StudioProject, StudioOutput], Awaitable[list[str]]] = default_preflight
+PREFLIGHT: Callable[[AsyncSession, Project, ProjectOutput], Awaitable[list[str]]] = default_preflight
 
 
 async def start_render(db: AsyncSession, output_id: int) -> dict:
@@ -130,14 +130,14 @@ async def on_run_finished(db: AsyncSession, run: AgentRun) -> None:
     oid = (run.inputs or {}).get("output_id")
     if not str(oid or "").isdigit():
         return
-    output = await db.get(StudioOutput, int(oid), populate_existing=True)
+    output = await db.get(ProjectOutput, int(oid), populate_existing=True)
     if output is None or (output.content or {}).get("run_id") != run.id:
         return
     if run.status == "done":
         output.status = "done"
         art_id = (output.content or {}).get("artifact_id")
-        art = await db.get(StudioArtifact, art_id) if art_id else None
-        project = await db.get(StudioProject, output.project_id)
+        art = await db.get(ProjectArtifact, art_id) if art_id else None
+        project = await db.get(Project, output.project_id)
         if art and project and SAVE_WORK:
             from app.services.studio_service import _save_work
 
@@ -163,8 +163,8 @@ SAVE_WORK = True  # 测试里关掉（写收藏夹走旧缓存）
 @dataclass
 class ProductionJob:
     db: AsyncSession
-    project: StudioProject
-    output: StudioOutput
+    project: Project
+    output: ProjectOutput
     version: int
     brief: Any  # StudioBrief（文案层 + 制作层）
     draft: StudioDraft  # 定稿文案，分镜换成分镜角色细化后的版本
@@ -172,7 +172,7 @@ class ProductionJob:
     executor: str
     keyframes: list[dict[str, Any]]
     feedback: list[dict[str, Any]]
-    artifact: StudioArtifact
+    artifact: ProjectArtifact
     workspace: Path
     run_id: int | None = None
     step_id: int | None = None
@@ -214,7 +214,7 @@ def workspace_for(project_id: int, artifact_id: int) -> Path:
     return media_root() / str(project_id) / f"harness-{artifact_id}"
 
 
-def _previous_design(job: ProductionJob, prev: StudioArtifact | None) -> Path | None:
+def _previous_design(job: ProductionJob, prev: ProjectArtifact | None) -> Path | None:
     if prev is None:
         return None
     ws = workspace_for(job.project.id, prev.id)
@@ -250,7 +250,7 @@ async def harness_producer(job: ProductionJob) -> ProductionResult:
     ws = job.workspace
     project = job.project
     # 合同读 project.spec / version：用定稿版本的内容，不改库里的项目
-    frozen = StudioProject(
+    frozen = Project(
         id=project.id, title=project.title, version=job.version, spec={**(project.spec or {}), "style": job.style}
     )
     frozen.source_snapshot = project.source_snapshot or {}
@@ -322,7 +322,7 @@ async def native_mv_producer(job: ProductionJob) -> ProductionResult:
     return ProductionResult(video=video, duration=audio.duration)
 
 
-def pick_producer(output: StudioOutput) -> Callable[[ProductionJob], Awaitable[ProductionResult]]:
+def pick_producer(output: ProjectOutput) -> Callable[[ProductionJob], Awaitable[ProductionResult]]:
     settings = output.settings or {}
     if output.kind == "mv" and (settings.get("production") or "native_mv") == "native_mv":
         return PRODUCERS["native_mv"]
@@ -335,7 +335,7 @@ PRODUCERS: dict[str, Callable[[ProductionJob], Awaitable[ProductionResult]]] = {
 }
 
 
-async def resolve_style(db: AsyncSession, project: StudioProject, brief: dict, settings: dict) -> dict | None:
+async def resolve_style(db: AsyncSession, project: Project, brief: dict, settings: dict) -> dict | None:
     if not settings.get("style_id"):
         return None
     from app.services.studio_catalog import catalog_for_user, resolve
@@ -357,7 +357,7 @@ async def produce(
     step_id: int | None = None,
     attempt: int = 1,
 ) -> dict[str, Any]:
-    """制作一版成片：读定稿文案 + 产出物 settings，结果写成 StudioArtifact（output_id、settings 快照）。"""
+    """制作一版成片：读定稿文案 + 产出物 settings，结果写成 ProjectArtifact（output_id、settings 快照）。"""
     output = await ps.get_output(db, output_id)
     project = await ps.get_project(db, output.project_id)
     version = output.based_on_version or project.finalized_version
@@ -380,14 +380,14 @@ async def produce(
     style = await resolve_style(db, project, brief_raw, settings)
     prev = (
         await db.execute(
-            select(StudioArtifact)
-            .where(StudioArtifact.output_id == output.id, StudioArtifact.version == version)
-            .order_by(StudioArtifact.id.desc())
+            select(ProjectArtifact)
+            .where(ProjectArtifact.output_id == output.id, ProjectArtifact.version == version)
+            .order_by(ProjectArtifact.id.desc())
             .limit(1)
         )
     ).scalar_one_or_none()
     kind = "native_mv" if pick_producer(output) is PRODUCERS["native_mv"] else "remotion_video"
-    artifact = StudioArtifact(
+    artifact = ProjectArtifact(
         project_id=project.id,
         version=version,
         kind=kind,
@@ -639,7 +639,7 @@ async def inspect(db: AsyncSession, produced: dict[str, Any], shots: list[dict[s
         kind=produced.get("kind") or "video", shots=shots, probe=probe, timeline=timeline, captions=captions
     )
     report["duration"] = probe.duration
-    art = await db.get(StudioArtifact, produced["studio_artifact_id"])
+    art = await db.get(ProjectArtifact, produced["studio_artifact_id"])
     if art is not None:
         art.progress = {**(art.progress or {}), "qa": {k: report[k] for k in ("passed", "checks", "issues")}}
         await db.commit()

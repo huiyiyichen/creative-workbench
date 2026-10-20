@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.agent_run import Artifact
-from app.models.studio import StudioProject
+from app.models.project import Project
 
 _CITE = re.compile(r"\[(\d{1,2})\]")
 
@@ -47,7 +47,7 @@ def marker_links(body: str, sources: list[dict[str, Any]]) -> list[dict[str, Any
     return links
 
 
-async def ensure_version_artifact(db: AsyncSession, project: StudioProject, version: int) -> Artifact:
+async def ensure_version_artifact(db: AsyncSession, project: Project, version: int) -> Artifact:
     from app.services import project_service as ps, trace_service
 
     found = await find_version_artifact(db, project.id, version)
@@ -125,7 +125,7 @@ async def resolve(
     """界面上的溯源入口 → (产物, 锚点)。
 
     paragraph：文稿版本（没有登记过就登记）+ 段落 id；version：整个版本；
-    shot：该产出物最近一次分镜 + ``shot_N``；video：成片（按 StudioArtifact）；platform：平台稿最新一次。
+    shot：该产出物最近一次分镜 + ``shot_N``；video：成片（按 ProjectArtifact）；platform：平台稿最新一次。
     """
     from app.core.exceptions import NotFoundError, ValidationError
     from app.services import project_service as ps

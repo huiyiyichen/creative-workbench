@@ -16,9 +16,9 @@ from app.models.agent_run import AgentRun, AgentStep
 from app.models.analysis_job import AnalysisJobRecord
 from app.models.content import ContentItem
 from app.models.generation import GenerationJob
+from app.models.project import Project, ProjectOutput
 from app.models.source import Source
 from app.models.source_sync_run import SourceSyncRun
-from app.models.studio import StudioOutput, StudioProject
 
 TYPES = ("flow", "generation", "sync", "analysis", "feishu")
 STATUSES = ("running", "waiting", "failed", "done", "stopped")
@@ -120,7 +120,7 @@ async def _runs(db: AsyncSession, since: datetime, limit: int) -> list[dict[str,
     if out_ids:
         outputs = {
             o.id: o.title
-            for o in (await db.execute(select(StudioOutput).where(StudioOutput.id.in_(out_ids)))).scalars()
+            for o in (await db.execute(select(ProjectOutput).where(ProjectOutput.id.in_(out_ids)))).scalars()
         }
     rows = []
     for r in runs:
@@ -286,7 +286,7 @@ async def _feishu(db: AsyncSession, since: datetime, limit: int) -> list[dict[st
             c = await db.get(ContentItem, r.object_id)
             title = c.title if c else title
         else:
-            proj = await db.get(StudioProject, r.object_id)
+            proj = await db.get(Project, r.object_id)
             title = proj.title if proj else title
         rows.append(
             _row(
@@ -338,9 +338,7 @@ async def list_tasks(
         rows += await _feishu(db, since, per)
     pids = {r["project_id"] for r in rows if r["project_id"]}
     if pids:
-        titles = dict(
-            (await db.execute(select(StudioProject.id, StudioProject.title).where(StudioProject.id.in_(pids)))).all()
-        )
+        titles = dict((await db.execute(select(Project.id, Project.title).where(Project.id.in_(pids)))).all())
         for r in rows:
             if r["project_id"]:
                 r["project_title"] = titles.get(r["project_id"])

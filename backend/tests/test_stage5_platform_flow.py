@@ -11,7 +11,7 @@ from sqlalchemy import select
 from app.core.exceptions import ValidationError
 from app.models.agent_run import AgentRun, AgentStep, Artifact
 from app.models.content import ContentItem, ContentStatus
-from app.models.studio import StudioOutput
+from app.models.project import ProjectOutput
 from app.schemas.projects import OutputCreate, ProjectCreate
 from app.schemas.studio import StudioDraft
 from app.services import platform_flow, project_service as ps
@@ -123,7 +123,7 @@ async def test_platform_rewrite_parallel_check_and_write_outputs(env, fake_llm):
         assert len(check.input_artifact_ids) == 3
 
         outs = (
-            (await db.execute(select(StudioOutput).where(StudioOutput.project_id == pid).order_by(StudioOutput.id)))
+            (await db.execute(select(ProjectOutput).where(ProjectOutput.project_id == pid).order_by(ProjectOutput.id)))
             .scalars()
             .all()
         )

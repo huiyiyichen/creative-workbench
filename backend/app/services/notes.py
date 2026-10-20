@@ -68,9 +68,9 @@ async def resolve_wikilink(db: AsyncSession, target: str) -> tuple[str, int] | N
     dossier = (await db.execute(select(TopicDossier.id).where(TopicDossier.title == t).limit(1))).scalar()
     if dossier:
         return ("dossier", dossier)
-    from app.models.studio import StudioProject
+    from app.models.project import Project
 
-    project = (await db.execute(select(StudioProject.id).where(StudioProject.title == t).limit(1))).scalar()
+    project = (await db.execute(select(Project.id).where(Project.title == t).limit(1))).scalar()
     if project:
         return ("project", project)
     item = (

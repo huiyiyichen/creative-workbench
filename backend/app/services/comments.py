@@ -327,7 +327,7 @@ async def _kept_content_ids(db: AsyncSession) -> set[int]:
         ).scalars()
     )
     fav = set((await db.execute(select(ContentItem.id).where(ContentItem.is_favorited.is_(True)))).scalars())
-    from app.models.studio import ProjectSource
+    from app.models.project import ProjectSource
 
     used = set(
         (

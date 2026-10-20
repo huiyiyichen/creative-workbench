@@ -23,13 +23,13 @@ from app.core.exceptions import AppException, NotFoundError, ValidationError
 from app.models.content import ContentItem
 from app.models.library import LibraryItem
 from app.models.metrics import ContentMetrics
-from app.models.studio import (
+from app.models.project import (
+    Project,
+    ProjectArtifact,
     ProjectAsset,
+    ProjectOutput,
+    ProjectRevision,
     ProjectSource,
-    StudioArtifact,
-    StudioOutput,
-    StudioProject,
-    StudioRevision,
 )
 from app.schemas.projects import (
     COPY_FIELDS,
@@ -140,8 +140,8 @@ def copy_layer_changed(old_brief: dict, new_brief: dict, old_draft: dict | None,
 # ── 读取 ─────────────────────────────────────────────────────────────
 
 
-async def get_project(db: AsyncSession, project_id: int, *, lock: bool = False) -> StudioProject:
-    stmt = select(StudioProject).where(StudioProject.id == project_id)
+async def get_project(db: AsyncSession, project_id: int, *, lock: bool = False) -> Project:
+    stmt = select(Project).where(Project.id == project_id)
     if lock:
         stmt = stmt.with_for_update().execution_options(populate_existing=True)
     project = (await db.execute(stmt)).scalar_one_or_none()
@@ -150,17 +150,17 @@ async def get_project(db: AsyncSession, project_id: int, *, lock: bool = False) 
     return project
 
 
-async def _latest_revision(db: AsyncSession, project_id: int) -> StudioRevision | None:
+async def _latest_revision(db: AsyncSession, project_id: int) -> ProjectRevision | None:
     stmt = (
-        select(StudioRevision)
-        .where(StudioRevision.project_id == project_id)
-        .order_by(StudioRevision.version.desc())
+        select(ProjectRevision)
+        .where(ProjectRevision.project_id == project_id)
+        .order_by(ProjectRevision.version.desc())
         .limit(1)
     )
     return (await db.execute(stmt)).scalar_one_or_none()
 
 
-async def _is_dirty(db: AsyncSession, project: StudioProject) -> bool:
+async def _is_dirty(db: AsyncSession, project: Project) -> bool:
     latest = await _latest_revision(db, project.id)
     spec = project.spec or {}
     if latest is None:
@@ -171,13 +171,13 @@ async def _is_dirty(db: AsyncSession, project: StudioProject) -> bool:
     )
 
 
-def _status(project: StudioProject, dirty: bool) -> str:
+def _status(project: Project, dirty: bool) -> str:
     if project.finalized_version and not dirty:
         return "finalized"
     return "dirty" if dirty else "draft"
 
 
-def project_summary(project: StudioProject, *, dirty: bool = False, counts: dict | None = None) -> dict:
+def project_summary(project: Project, *, dirty: bool = False, counts: dict | None = None) -> dict:
     spec = project.spec or {}
     brief = copy_brief(spec.get("brief"))
     return {
@@ -198,21 +198,21 @@ def project_summary(project: StudioProject, *, dirty: bool = False, counts: dict
 
 
 async def list_projects(db: AsyncSession, *, stage: str | None = None, q: str | None = None, archived: bool = False):
-    stmt = select(StudioProject)
-    stmt = stmt.where(StudioProject.archived_at.is_not(None) if archived else StudioProject.archived_at.is_(None))
+    stmt = select(Project)
+    stmt = stmt.where(Project.archived_at.is_not(None) if archived else Project.archived_at.is_(None))
     if stage:
-        stmt = stmt.where(StudioProject.stage == stage)
+        stmt = stmt.where(Project.stage == stage)
     if q:
-        stmt = stmt.where(StudioProject.title.ilike(f"%{q.strip()}%"))
-    projects = (await db.execute(stmt.order_by(StudioProject.updated_at.desc()).limit(200))).scalars().all()
+        stmt = stmt.where(Project.title.ilike(f"%{q.strip()}%"))
+    projects = (await db.execute(stmt.order_by(Project.updated_at.desc()).limit(200))).scalars().all()
     ids = [p.id for p in projects]
     out_counts: dict[int, int] = {}
     main_titles: dict[int, dict] = {}
     if ids:
         rows = await db.execute(
-            select(StudioOutput.project_id, func.count())
-            .where(StudioOutput.project_id.in_(ids))
-            .group_by(StudioOutput.project_id)
+            select(ProjectOutput.project_id, func.count())
+            .where(ProjectOutput.project_id.in_(ids))
+            .group_by(ProjectOutput.project_id)
         )
         out_counts = dict(rows.all())
         for src in (
@@ -240,8 +240,8 @@ async def project_view(db: AsyncSession, project_id: int) -> dict:
     running = (
         await db.execute(
             select(func.count())
-            .select_from(StudioArtifact)
-            .where(StudioArtifact.project_id == project_id, StudioArtifact.status.in_(["queued", "rendering"]))
+            .select_from(ProjectArtifact)
+            .where(ProjectArtifact.project_id == project_id, ProjectArtifact.status.in_(["queued", "rendering"]))
         )
     ).scalar_one()
     spec = project.spec or {}
@@ -271,7 +271,7 @@ def _parse_source_ref(ref: str) -> tuple[str, int]:
 async def create_project(db: AsyncSession, owner_id: int, request: ProjectCreate) -> dict:
     brief = copy_brief({"theme": request.theme, "mode": request.mode})
     spec = {"brief": brief, "draft": StudioDraft(title=request.theme).model_dump(mode="json"), "idea": {}}
-    project = StudioProject(
+    project = Project(
         owner_id=owner_id,
         title=(request.theme or "未命名项目")[:120],
         spec=spec,
@@ -512,7 +512,7 @@ async def remove_source(db: AsyncSession, project_id: int, source_id: int) -> No
 # ── 文案层设定 / 工作副本 ────────────────────────────────────────────
 
 
-def _check_token(project: StudioProject, token: str | None) -> None:
+def _check_token(project: Project, token: str | None) -> None:
     if token is not None and project.draft_token and token != project.draft_token:
         raise conflict("draft_conflict", "这份文稿在另一个窗口改过", draft_token=project.draft_token)
 
@@ -552,9 +552,9 @@ async def draft_view(db: AsyncSession, project_id: int) -> dict:
     }
 
 
-async def _snapshot(db: AsyncSession, project: StudioProject, reason: str) -> int:
+async def _snapshot(db: AsyncSession, project: Project, reason: str) -> int:
     project.version = (project.version or 0) + 1
-    db.add(StudioRevision(project_id=project.id, version=project.version, spec=deepcopy(project.spec), reason=reason))
+    db.add(ProjectRevision(project_id=project.id, version=project.version, spec=deepcopy(project.spec), reason=reason))
     await db.flush()
     return project.version
 
@@ -604,9 +604,9 @@ async def list_versions(db: AsyncSession, project_id: int) -> dict:
     project = await get_project(db, project_id)
     rows = (
         await db.execute(
-            select(StudioRevision)
-            .where(StudioRevision.project_id == project_id)
-            .order_by(StudioRevision.version.desc())
+            select(ProjectRevision)
+            .where(ProjectRevision.project_id == project_id)
+            .order_by(ProjectRevision.version.desc())
         )
     ).scalars()
     return {
@@ -623,10 +623,10 @@ async def list_versions(db: AsyncSession, project_id: int) -> dict:
     }
 
 
-async def _revision(db: AsyncSession, project_id: int, version: int) -> StudioRevision:
+async def _revision(db: AsyncSession, project_id: int, version: int) -> ProjectRevision:
     rev = (
         await db.execute(
-            select(StudioRevision).where(StudioRevision.project_id == project_id, StudioRevision.version == version)
+            select(ProjectRevision).where(ProjectRevision.project_id == project_id, ProjectRevision.version == version)
         )
     ).scalar_one_or_none()
     if not rev:
@@ -694,7 +694,7 @@ async def unlock(db: AsyncSession, project_id: int) -> dict:
     return await project_view(db, project_id)
 
 
-async def finalized_spec(db: AsyncSession, project: StudioProject) -> dict:
+async def finalized_spec(db: AsyncSession, project: Project) -> dict:
     if not project.finalized_version:
         raise conflict("not_finalized", "定稿后可制作")
     return deepcopy((await _revision(db, project.id, project.finalized_version)).spec)
@@ -703,7 +703,7 @@ async def finalized_spec(db: AsyncSession, project: StudioProject) -> dict:
 # ── 产出物 ───────────────────────────────────────────────────────────
 
 
-def output_dict(output: StudioOutput, project: StudioProject | None = None, artifacts: list | None = None) -> dict:
+def output_dict(output: ProjectOutput, project: Project | None = None, artifacts: list | None = None) -> dict:
     stale = bool(
         project
         and project.finalized_version
@@ -735,13 +735,13 @@ def output_dict(output: StudioOutput, project: StudioProject | None = None, arti
 async def list_outputs(db: AsyncSession, project_id: int) -> dict:
     project = await get_project(db, project_id)
     rows = (
-        await db.execute(select(StudioOutput).where(StudioOutput.project_id == project_id).order_by(StudioOutput.id))
+        await db.execute(select(ProjectOutput).where(ProjectOutput.project_id == project_id).order_by(ProjectOutput.id))
     ).scalars()
     return {"finalized_version": project.finalized_version, "items": [output_dict(o, project) for o in rows]}
 
 
-async def get_output(db: AsyncSession, output_id: int) -> StudioOutput:
-    output = await db.get(StudioOutput, output_id)
+async def get_output(db: AsyncSession, output_id: int) -> ProjectOutput:
+    output = await db.get(ProjectOutput, output_id)
     if not output:
         raise NotFoundError("产出物", output_id)
     return output
@@ -766,7 +766,7 @@ async def create_output(db: AsyncSession, project_id: int, request: OutputCreate
     project = await get_project(db, project_id)
     if request.kind in RENDER_KINDS and not project.finalized_version:
         raise conflict("not_finalized", "定稿后可制作")
-    output = StudioOutput(
+    output = ProjectOutput(
         project_id=project_id,
         kind=request.kind,
         title=request.title or OUTPUT_TITLES[request.kind],
@@ -787,7 +787,7 @@ async def output_view(db: AsyncSession, output_id: int) -> dict:
     project = await get_project(db, output.project_id)
     arts = (
         await db.execute(
-            select(StudioArtifact).where(StudioArtifact.output_id == output_id).order_by(StudioArtifact.id.desc())
+            select(ProjectArtifact).where(ProjectArtifact.output_id == output_id).order_by(ProjectArtifact.id.desc())
         )
     ).scalars()
     return output_dict(output, project, [{**artifact_dict(a), "settings": a.settings} for a in arts])

@@ -10,7 +10,7 @@ from sqlalchemy import select
 
 from app.models.agent_run import AgentRun, Artifact
 from app.models.content import ContentItem, ContentStatus
-from app.models.studio import StudioOutput
+from app.models.project import ProjectOutput
 from app.schemas.projects import ProjectCreate
 from app.services import pipeline_service, project_service as ps
 from app.services.flows import engine
@@ -140,7 +140,7 @@ async def test_pipeline_runs_to_finalize_then_produces(env, fake_llm):
         assert pl["stage"] == "done" and pl["partial"] is True, pl
         kinds = {
             o.kind
-            for o in (await db.execute(select(StudioOutput).where(StudioOutput.project_id == pid))).scalars().all()
+            for o in (await db.execute(select(ProjectOutput).where(ProjectOutput.project_id == pid))).scalars().all()
         }
         assert "xhs" in kinds
 

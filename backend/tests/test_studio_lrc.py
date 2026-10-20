@@ -1,7 +1,7 @@
 import pytest
 
 from app.core.exceptions import ValidationError
-from app.models.studio import StudioProject
+from app.models.project import Project
 from app.schemas.studio import StudioBrief, StudioDraft
 from app.services.studio_catalog import clean_draft, compile_draft, production_prompt
 from app.services.studio_lrc import parse_lrc
@@ -122,7 +122,7 @@ def test_generated_prompts_keep_story_and_remove_production_disclaimers():
     )
     cleaned = clean_draft(draft)
     normalized = _coerce_ai_draft(draft.model_dump(), brief, StudioDraft())
-    project = StudioProject(
+    project = Project(
         id=1, owner_id=1, title=brief.theme, version=1,
         spec={"brief": brief.model_dump(), "draft": draft.model_dump()}, source_snapshot={},
     )

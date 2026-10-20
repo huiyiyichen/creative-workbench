@@ -13,10 +13,10 @@ from app.core.database import async_session
 from app.core.exceptions import AppException, NotFoundError
 from app.models.content import ContentItem
 from app.models.favorite import FavoriteItem, FavoriteTargetType
-from app.models.studio import StudioArtifact, StudioProject
+from app.models.project import Project, ProjectArtifact
 from app.repositories.content_repo import ContentRepo
 from app.repositories.favorite_repo import FavoriteRepo
-from app.repositories.studio_repo import StudioRepo
+from app.repositories.project_repo import StudioRepo
 from app.schemas.favorite import FavoriteCreate
 from app.schemas.studio import (
     CreateProject,
@@ -45,7 +45,7 @@ def _dump(model) -> dict:
     return model.model_dump(mode="json")
 
 
-def artifact_preview_file(artifact: StudioArtifact) -> Path | None:
+def artifact_preview_file(artifact: ProjectArtifact) -> Path | None:
     if artifact.status != "done" or not artifact.relative_path:
         return None
     path = (MEDIA_ROOT / artifact.relative_path).resolve()
@@ -54,7 +54,7 @@ def artifact_preview_file(artifact: StudioArtifact) -> Path | None:
     return path if path.is_relative_to(MEDIA_ROOT) and path.is_file() else None
 
 
-def artifact_source_file(artifact: StudioArtifact) -> Path | None:
+def artifact_source_file(artifact: ProjectArtifact) -> Path | None:
     preview = artifact_preview_file(artifact)
     if preview is None:
         return None
@@ -66,7 +66,7 @@ def artifact_source_file(artifact: StudioArtifact) -> Path | None:
     return archive if archive.is_relative_to(MEDIA_ROOT) and archive.is_file() else None
 
 
-def artifact_dict(artifact: StudioArtifact) -> dict:
+def artifact_dict(artifact: ProjectArtifact) -> dict:
     path = (MEDIA_ROOT / artifact.relative_path).resolve() if artifact.relative_path else None
     progress = artifact.progress or {}
     return {
@@ -87,7 +87,7 @@ def artifact_dict(artifact: StudioArtifact) -> dict:
 
 async def _progress(
     db: AsyncSession,
-    artifact: StudioArtifact,
+    artifact: ProjectArtifact,
     stage: str,
     percent: int | None = None,
     details: dict | None = None,
@@ -118,7 +118,7 @@ def _project_files(workspace: Path):
             yield Path(root) / name
 
 
-async def _save_work(db: AsyncSession, project: StudioProject, artifact: StudioArtifact) -> None:
+async def _save_work(db: AsyncSession, project: Project, artifact: ProjectArtifact) -> None:
     payload = artifact_dict(artifact)
     await FavoriteRepo(db, project.owner_id).upsert(
         FavoriteCreate(
@@ -266,7 +266,7 @@ def _retime_draft(draft: StudioDraft, duration: float) -> StudioDraft:
     return draft.model_copy(update={"shots": shots})
 
 
-def _project_dict(project: StudioProject, revisions: list, assets: list, artifacts: list) -> dict:
+def _project_dict(project: Project, revisions: list, assets: list, artifacts: list) -> dict:
     brief = StudioBrief.model_validate(project.spec.get("brief", {}))
     draft = StudioDraft.model_validate(project.spec.get("draft", {}))
     if draft.provenance in {"ai", "compiled"}:
@@ -311,7 +311,7 @@ def _project_dict(project: StudioProject, revisions: list, assets: list, artifac
     }
 
 
-async def get_project(db: AsyncSession, project_id: int, owner_id: int) -> StudioProject:
+async def get_project(db: AsyncSession, project_id: int, owner_id: int) -> Project:
     project = await StudioRepo(db).get(project_id, owner_id)
     if not project:
         raise NotFoundError("创作工程", project_id)
@@ -465,7 +465,7 @@ async def generate_project_draft(db: AsyncSession, owner_id: int, project_id: in
     return await project_view(db, project.id, owner_id)
 
 
-def _write_animation_contract(workspace: Path, project: StudioProject, brief: StudioBrief, draft: StudioDraft) -> None:
+def _write_animation_contract(workspace: Path, project: Project, brief: StudioBrief, draft: StudioDraft) -> None:
     workspace.mkdir(parents=True, exist_ok=True)
     # The worker receives only the frozen creative spec. It never receives
     # model keys, backend env files, or arbitrary source paths.

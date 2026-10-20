@@ -13,7 +13,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.studio import StudioArtifact, StudioOutput, StudioProject
+from app.models.project import Project, ProjectArtifact, ProjectOutput
 from app.services import project_service as ps
 
 AUTO_STATUSES = ("done", "exported", "published")
@@ -21,7 +21,7 @@ PLATFORM_KINDS = ("xhs", "zhihu", "wechat")
 RENDER_KINDS = ("video", "mv")
 
 
-def included(output: StudioOutput) -> bool:
+def included(output: ProjectOutput) -> bool:
     flag = (output.settings or {}).get("in_works")
     if flag is False:
         return False
@@ -37,7 +37,7 @@ def _excerpt(content: dict[str, Any]) -> str:
     return _plain(str(body))[:140]
 
 
-def _copy_text(output: StudioOutput) -> str | None:
+def _copy_text(output: ProjectOutput) -> str | None:
     c = output.content or {}
     if output.kind in PLATFORM_KINDS:
         parts = [
@@ -58,18 +58,18 @@ async def list_works(
 ) -> dict[str, Any]:
     from app.services.studio_service import artifact_dict
 
-    stmt = select(StudioOutput).order_by(StudioOutput.updated_at.desc())
+    stmt = select(ProjectOutput).order_by(ProjectOutput.updated_at.desc())
     if project_id is not None:
-        stmt = stmt.where(StudioOutput.project_id == project_id)
+        stmt = stmt.where(ProjectOutput.project_id == project_id)
     outputs = [o for o in (await db.execute(stmt)).scalars().all() if included(o)]
     if kind:
         outputs = [o for o in outputs if o.kind == kind]
-    art_stmt = select(StudioArtifact).where(StudioArtifact.status == "done").order_by(StudioArtifact.id.desc())
+    art_stmt = select(ProjectArtifact).where(ProjectArtifact.status == "done").order_by(ProjectArtifact.id.desc())
     if project_id is not None:
-        art_stmt = art_stmt.where(StudioArtifact.project_id == project_id)
+        art_stmt = art_stmt.where(ProjectArtifact.project_id == project_id)
     arts = (await db.execute(art_stmt)).scalars().all()
-    latest: dict[int, StudioArtifact] = {}
-    legacy: list[StudioArtifact] = []
+    latest: dict[int, ProjectArtifact] = {}
+    legacy: list[ProjectArtifact] = []
     for a in arts:
         if a.output_id:
             latest.setdefault(a.output_id, a)
@@ -78,9 +78,7 @@ async def list_works(
     pids = {o.project_id for o in outputs} | {a.project_id for a in legacy}
     projects = {}
     if pids:
-        projects = {
-            p.id: p for p in (await db.execute(select(StudioProject).where(StudioProject.id.in_(pids)))).scalars()
-        }
+        projects = {p.id: p for p in (await db.execute(select(Project).where(Project.id.in_(pids)))).scalars()}
     groups: dict[int, dict[str, Any]] = {}
 
     def group(pid: int) -> dict[str, Any]:

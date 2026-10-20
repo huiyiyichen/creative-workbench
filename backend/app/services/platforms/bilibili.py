@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import logging
 import time
 import urllib.parse
 from typing import Any, ClassVar
@@ -29,6 +30,8 @@ from .base import (
     parse_duration,
     strip_tags,
 )
+
+logger = logging.getLogger(__name__)
 
 API = "https://api.bilibili.com"
 _MIXIN_TABLE = [
@@ -87,14 +90,14 @@ class BilibiliAdapter(PlatformAdapter):
             if any(c.name == "buvid3" for c in self.client.cookies.jar):
                 return
         except Exception:
-            pass
+            logger.debug("B 站首页预热失败，改走 finger/spi", exc_info=True)
         try:
             data = await self._get_json(f"{API}/x/frontend/finger/spi", headers=self.headers)
             buvid = (data.get("data") or {}).get("b_3")
             if buvid:
                 self.client.cookies.set("buvid3", buvid, domain=".bilibili.com")
         except Exception:  # 拿不到也继续，部分接口不需要
-            pass
+            logger.debug("B 站 buvid3 获取失败，继续无 buvid3 请求", exc_info=True)
 
     async def _wbi_key(self) -> str:
         now = time.time()

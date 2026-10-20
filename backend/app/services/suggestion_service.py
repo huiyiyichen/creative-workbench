@@ -17,7 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import AppException, NotFoundError, ValidationError
-from app.models.studio import ProjectSuggestion
+from app.models.project import ProjectSuggestion
 from app.schemas.studio import StudioDraft, StudioShot
 from app.services import project_service as ps
 

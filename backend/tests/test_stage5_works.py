@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from app.models.studio import StudioArtifact, StudioOutput
+from app.models.project import ProjectArtifact, ProjectOutput
 from app.schemas.projects import ProjectCreate
 from app.services import project_service as ps, works_service
 
@@ -14,30 +14,30 @@ async def test_works_rules_groups_and_toggle(test_session_factory):
     async with test_session_factory() as db:
         a = await ps.create_project(db, 1, ProjectCreate(theme="编码智能体"))
         b = await ps.create_project(db, 1, ProjectCreate(theme="AI MV"))
-        xhs = StudioOutput(
+        xhs = ProjectOutput(
             project_id=a["id"],
             kind="xhs",
             title="小红书版",
             status="draft",
             content={"title": "601 美元", "body": "正文", "tags": ["AI"]},
         )
-        wechat = StudioOutput(
+        wechat = ProjectOutput(
             project_id=a["id"],
             kind="wechat",
             status="published",
             content={"title": "长文", "body": "<p>第一段</p><p>第二段</p>"},
         )
-        video = StudioOutput(project_id=a["id"], kind="video", status="done", based_on_version=3)
-        hidden = StudioOutput(project_id=b["id"], kind="zhihu", status="published", settings={"in_works": False})
+        video = ProjectOutput(project_id=a["id"], kind="video", status="done", based_on_version=3)
+        hidden = ProjectOutput(project_id=b["id"], kind="zhihu", status="published", settings={"in_works": False})
         db.add_all([xhs, wechat, video, hidden])
         await db.flush()
         db.add(
-            StudioArtifact(
+            ProjectArtifact(
                 project_id=a["id"], version=3, kind="video", status="done", output_id=video.id, relative_path="x/a.mp4"
             )
         )
-        db.add(StudioArtifact(project_id=b["id"], version=1, kind="video", status="done", relative_path="old/b.mp4"))
-        db.add(StudioArtifact(project_id=b["id"], version=2, kind="video", status="failed", relative_path="old/c.mp4"))
+        db.add(ProjectArtifact(project_id=b["id"], version=1, kind="video", status="done", relative_path="old/b.mp4"))
+        db.add(ProjectArtifact(project_id=b["id"], version=2, kind="video", status="failed", relative_path="old/c.mp4"))
         await db.commit()
 
         data = await works_service.list_works(db)

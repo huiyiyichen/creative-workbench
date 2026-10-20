@@ -6,7 +6,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from app.core.database import Base
 
 
-class StudioProject(Base):
+class Project(Base):
     __tablename__ = "studio_projects"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -27,7 +27,7 @@ class StudioProject(Base):
     )
 
 
-class StudioRevision(Base):
+class ProjectRevision(Base):
     __tablename__ = "studio_revisions"
     __table_args__ = (UniqueConstraint("project_id", "version"),)
 
@@ -39,7 +39,7 @@ class StudioRevision(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 
-class StudioAsset(Base):
+class ProjectUpload(Base):
     __tablename__ = "studio_assets"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -53,7 +53,7 @@ class StudioAsset(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 
-class StudioArtifact(Base):
+class ProjectArtifact(Base):
     __tablename__ = "studio_artifacts"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -85,7 +85,7 @@ class ProjectSource(Base):
     added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
 
-class StudioOutput(Base):
+class ProjectOutput(Base):
     """产出物：平台版本、讲解视频、MV、提示词包；settings 为制作层参数。"""
 
     __tablename__ = "studio_outputs"

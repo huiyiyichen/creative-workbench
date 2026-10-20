@@ -53,6 +53,16 @@ from app.models.metrics import ContentMetrics
 from app.models.metrics_snapshot import MetricsSnapshotRecord
 from app.models.pick_mark import PickMark
 from app.models.product_feedback import IssueFeedback, ProductUpdate
+from app.models.project import (
+    Project,
+    ProjectArtifact,
+    ProjectAsset,
+    ProjectOutput,
+    ProjectRevision,
+    ProjectSource,
+    ProjectSuggestion,
+    ProjectUpload,
+)
 from app.models.prompt_registry import PromptRegistry
 from app.models.ranking_eval import EvalSurface, RankingEvalSnapshot
 from app.models.read_record import ReadRecord
@@ -60,16 +70,6 @@ from app.models.scheduled_job import JobExecutionLog, ScheduledJob
 from app.models.source import Source
 from app.models.source_evidence_profile import PublisherKind, SourceEvidenceProfile
 from app.models.source_sync_run import SourceSyncRun, SyncErrorKind, SyncRunStatus, SyncTrigger
-from app.models.studio import (
-    ProjectAsset,
-    ProjectSource,
-    ProjectSuggestion,
-    StudioArtifact,
-    StudioAsset,
-    StudioOutput,
-    StudioProject,
-    StudioRevision,
-)
 from app.models.styles import ContentTemplate, ContentTemplateVersion, VisualStyle, VisualStyleVersion
 from app.models.topic import TopicGroup
 from app.models.trend import TopicTrend, TopicTrendMember
@@ -82,7 +82,7 @@ __all__ = [
     "ProjectAsset",
     "ProjectSource",
     "ProjectSuggestion",
-    "StudioOutput",
+    "ProjectOutput",
     "AgentDecision",
     "AgentRun",
     "AgentStep",
@@ -90,10 +90,10 @@ __all__ = [
     "ArtifactLink",
     "TraceSpan",
     "WorkbenchToken",
-    "StudioProject",
-    "StudioRevision",
-    "StudioAsset",
-    "StudioArtifact",
+    "Project",
+    "ProjectRevision",
+    "ProjectUpload",
+    "ProjectArtifact",
     "Source",
     "SourceSyncRun",
     "SyncRunStatus",

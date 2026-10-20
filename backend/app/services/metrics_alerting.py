@@ -99,7 +99,7 @@ async def check_metrics_thresholds() -> list[str]:
                 )
                 triggered.append(key)
     except Exception:
-        pass
+        logger.warning("告警规则 2（LLM 熔断）检查失败", exc_info=True)
 
     # ── 规则 3: DB 连接池利用率 ──
     db_pool = snap.get("db_pool", {})
@@ -155,6 +155,6 @@ async def check_metrics_thresholds() -> list[str]:
                 )
                 triggered.append(key)
     except Exception:
-        pass
+        logger.warning("告警规则（慢查询）检查失败", exc_info=True)
 
     return triggered

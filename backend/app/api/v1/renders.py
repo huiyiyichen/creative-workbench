@@ -16,7 +16,7 @@ from app.api.v1.auth import get_current_user
 from app.core.database import get_db
 from app.core.exceptions import NotFoundError
 from app.models.user import User
-from app.repositories.studio_repo import StudioRepo
+from app.repositories.project_repo import StudioRepo
 from app.services import studio_service
 from app.services.studio_tts import TtsSettings, save_tts_config, synthesize_speech, tts_config
 

@@ -101,9 +101,9 @@ async def build_graph(
                     "ref": s.key,
                 }
     if "project" in wanted and ref_ids["project"]:
-        from app.models.studio import StudioProject
+        from app.models.project import Project
 
-        for p in (await db.execute(select(StudioProject).where(StudioProject.id.in_(ref_ids["project"])))).scalars():
+        for p in (await db.execute(select(Project).where(Project.id.in_(ref_ids["project"])))).scalars():
             nodes[_key("project", p.id)] = {
                 "key": _key("project", p.id),
                 "type": "project",

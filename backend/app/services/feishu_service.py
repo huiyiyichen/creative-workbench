@@ -367,15 +367,15 @@ async def content_row(db: AsyncSession, content_id: int) -> dict[str, Any]:
 
 
 async def project_status(db: AsyncSession, project_id: int) -> str:
-    from app.models.studio import StudioOutput, StudioProject
+    from app.models.project import Project, ProjectOutput
 
-    p = await db.get(StudioProject, project_id)
+    p = await db.get(Project, project_id)
     if p is None:
         raise NotFoundError("项目", project_id)
     done = (
         await db.execute(
-            select(StudioOutput.id)
-            .where(StudioOutput.project_id == project_id, StudioOutput.status.in_(("done", "exported", "published")))
+            select(ProjectOutput.id)
+            .where(ProjectOutput.project_id == project_id, ProjectOutput.status.in_(("done", "exported", "published")))
             .limit(1)
         )
     ).first()
@@ -387,9 +387,9 @@ async def project_status(db: AsyncSession, project_id: int) -> str:
 
 
 async def project_row(db: AsyncSession, project_id: int) -> dict[str, Any]:
-    from app.models.studio import ProjectSource, StudioProject
+    from app.models.project import Project, ProjectSource
 
-    p = await db.get(StudioProject, project_id)
+    p = await db.get(Project, project_id)
     if p is None:
         raise NotFoundError("项目", project_id)
     src = (

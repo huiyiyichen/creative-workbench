@@ -207,4 +207,4 @@ def run_startup_migrations() -> None:
                 pg_lock_conn.execute(__import__("sqlalchemy").text(f"SELECT pg_advisory_unlock({_migration_lock_key})"))
                 pg_lock_conn.close()
             except Exception:
-                pass
+                logger.debug("释放迁移锁失败（连接关闭时会自动释放）", exc_info=True)

@@ -7,7 +7,7 @@ import pytest
 from fastapi import FastAPI
 
 from app.core.exceptions import AppException
-from app.models.studio import StudioOutput
+from app.models.project import ProjectOutput
 from app.schemas.projects import ProjectCreate
 from app.services import delivery_service, project_service as ps, studio_service, workbench_tools as wt, works_service
 
@@ -29,7 +29,7 @@ async def _bundle_output(db, theme="提示词包"):
     project.spec = {**(project.spec or {}), "draft": {"title": theme, "body": "第一段。\n\n第二段。"}}
     await db.commit()
     await ps.finalize(db, p["id"])
-    o = StudioOutput(
+    o = ProjectOutput(
         project_id=p["id"], kind="prompt_bundle", title="视频提示词包", status="exported", based_on_version=2
     )
     db.add(o)

@@ -1,7 +1,7 @@
 """成片回传（设计 6.3）：外部 agent（Claude Code / Codex / 其他）按提示词包做完视频后，把成片交回工作台。
 
 两条路：产出页「回传成片」上传文件；或外部 agent 通过工作台工具 `upload_output`（本机文件路径或下载地址）。
-回传的成片存成该产出物的一个制作物（StudioArtifact，`progress.source` 记来源），产出物标为完成，
+回传的成片存成该产出物的一个制作物（ProjectArtifact，`progress.source` 记来源），产出物标为完成，
 `content.deliveries` 留一条记录；之后在产出页、作品库里预览和下载。
 """
 
@@ -17,7 +17,7 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import ValidationError
-from app.models.studio import StudioArtifact
+from app.models.project import ProjectArtifact
 from app.services import project_service as ps
 
 VIDEO_EXTS = {".mp4", ".mov", ".webm", ".mkv", ".m4v"}
@@ -84,7 +84,7 @@ async def attach(
         raise ValidationError("文件超过 4 GB")
     project = await ps.get_project(db, output.project_id)
     version = output.based_on_version or project.finalized_version or project.version
-    art = StudioArtifact(
+    art = ProjectArtifact(
         project_id=project.id,
         version=version,
         kind="mv" if output.kind == "mv" else "video",

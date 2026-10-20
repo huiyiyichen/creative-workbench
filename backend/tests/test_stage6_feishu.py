@@ -168,9 +168,9 @@ async def test_project_status_updates_and_auto(feishu, test_session_factory):
         put = [b for m, _p, b in feishu.calls if m == "PUT"][-1]
         assert list(put["fields"]) == ["状态"]  # 阶段变化只更新状态列
 
-        from app.models.studio import StudioOutput
+        from app.models.project import ProjectOutput
 
-        o = StudioOutput(project_id=p["id"], kind="wechat", status="draft", content={})
+        o = ProjectOutput(project_id=p["id"], kind="wechat", status="draft", content={})
         db.add(o)
         await db.commit()
         from app.schemas.projects import OutputPatch

@@ -57,7 +57,7 @@ async def platform_checker(ctx: RoleContext) -> list[ArtifactOut]:
     """逐个平台按规则校验：仍超限的截断并提示；结果写进项目的平台版本产出物（没有就新建）。"""
     from sqlalchemy import select
 
-    from app.models.studio import StudioOutput
+    from app.models.project import ProjectOutput
     from app.services import output_service as outs, project_service as ps
 
     drafts = [a for a in ctx.input_artifacts if a["kind"] == "platform_draft"]
@@ -76,21 +76,21 @@ async def platform_checker(ctx: RoleContext) -> list[ArtifactOut]:
         content["run_id"] = ctx.run_id
         output = None
         if kind in targets:
-            output = await ctx.db.get(StudioOutput, targets[kind])
+            output = await ctx.db.get(ProjectOutput, targets[kind])
             if output is not None and (output.project_id != project.id or output.kind != kind):
                 output = None
         if output is None:  # 沿用最新一个还没发布的同平台版本，没有就新建
             output = (
                 await ctx.db.execute(
-                    select(StudioOutput)
-                    .where(StudioOutput.project_id == project.id, StudioOutput.kind == kind)
-                    .where(StudioOutput.status != "published")
-                    .order_by(StudioOutput.id.desc())
+                    select(ProjectOutput)
+                    .where(ProjectOutput.project_id == project.id, ProjectOutput.kind == kind)
+                    .where(ProjectOutput.status != "published")
+                    .order_by(ProjectOutput.id.desc())
                     .limit(1)
                 )
             ).scalar_one_or_none()
         if output is None:
-            output = StudioOutput(
+            output = ProjectOutput(
                 project_id=project.id,
                 kind=kind,
                 title=ps.OUTPUT_TITLES[kind],

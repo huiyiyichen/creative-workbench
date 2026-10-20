@@ -60,7 +60,7 @@ def _collect_snapshot_fields() -> dict:
 
         slow_queries = get_slow_count()
     except Exception:
-        pass
+        logger.debug("读取慢查询计数失败，按 0 记录", exc_info=True)
 
     http = snap.get("http", {})
     llm = snap.get("llm", {})

@@ -46,7 +46,7 @@ async def test_omni_pcm_is_wrapped_as_playable_wav_and_keeps_script(tmp_path, mo
 
 
 def test_remotion_preview_and_source_use_separate_files(tmp_path, monkeypatch):
-    from app.models.studio import StudioArtifact
+    from app.models.project import ProjectArtifact
     from app.services import studio_service
 
     monkeypatch.setattr(studio_service, "MEDIA_ROOT", tmp_path)
@@ -55,7 +55,7 @@ def test_remotion_preview_and_source_use_separate_files(tmp_path, monkeypatch):
     preview.touch()
     archive = preview.parent.parent.with_suffix(".zip")
     archive.touch()
-    artifact = StudioArtifact(
+    artifact = ProjectArtifact(
         id=13,
         project_id=36,
         version=8,

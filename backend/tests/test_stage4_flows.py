@@ -15,7 +15,7 @@ from sqlalchemy import select
 from app.core.exceptions import AppException
 from app.models.agent_run import AgentRun, AgentStep, Artifact
 from app.models.content import ContentItem, ContentStatus
-from app.models.studio import StudioArtifact, StudioRevision
+from app.models.project import ProjectArtifact, ProjectRevision
 from app.schemas.projects import OutputCreate, ProjectCreate
 from app.schemas.studio import StudioDraft
 from app.services import (
@@ -177,7 +177,7 @@ async def test_ai_draft_flow_writes_version_with_paragraph_citations(env, fake_l
         project = await ps.get_project(db, pid)
         assert project.spec["draft"]["body"] == BODY2 and project.spec["draft"]["provenance"] == "ai"
         rev = (
-            await db.execute(select(StudioRevision).where(StudioRevision.project_id == pid, StudioRevision.version == project.version))
+            await db.execute(select(ProjectRevision).where(ProjectRevision.project_id == pid, ProjectRevision.version == project.version))
         ).scalar_one()
         assert rev.reason == "ai"
         assert project.spec["ai_draft"]["status"] == "done"
@@ -329,10 +329,10 @@ async def test_video_flow_qa_rejects_once_then_passes(video_env, monkeypatch):
         assert jobs[0]["feedback"] == [] and jobs[0]["aspect"] == "9:16" and jobs[0]["keyframes"] == 2
         assert jobs[1]["feedback"][0]["check"] == "black" and jobs[1]["feedback"][0]["shot"] == 2
         assert jobs[1]["reuse"] is True  # 上一版的设计源码被复用（在其上修改）
-        # 制作读的是定稿文案；StudioArtifact 挂产出物并带 settings 快照
+        # 制作读的是定稿文案；ProjectArtifact 挂产出物并带 settings 快照
         assert jobs[0]["shots"] == [s["audio"] for s in SHOTS]
         arts = (
-            await db.execute(select(StudioArtifact).where(StudioArtifact.output_id == video_env["output_id"]).order_by(StudioArtifact.id))
+            await db.execute(select(ProjectArtifact).where(ProjectArtifact.output_id == video_env["output_id"]).order_by(ProjectArtifact.id))
         ).scalars().all()
         assert len(arts) == 2 and all(a.status == "done" for a in arts)
         assert arts[1].settings["executor"] == "codex" and arts[1].settings["attempt"] == 2
@@ -490,7 +490,7 @@ async def test_anchored_lineage_paragraph_and_shot(video_env, monkeypatch):
         version_nodes = [s for s in lin["sources"] if s.get("kind") == "draft_version"]
         assert {s["target_anchor"] for s in version_nodes if s["target_anchor"]} == {p2}
         assert any(n["type"] == "content" and n.get("title") for v in version_nodes for n in v.get("sources") or [])
-        # 成片入口按 StudioArtifact 找到成片产物
+        # 成片入口按 ProjectArtifact 找到成片产物
         sa = (await ps.output_view(db, video_env["output_id"]))["content"]["artifact_id"]
         vid, _ = await project_lineage.resolve(db, target="video", output_id=video_env["output_id"], studio_artifact_id=sa)
         assert vid.kind == "video" and vid.content["studio_artifact_id"] == sa

@@ -15,7 +15,7 @@ from sqlalchemy import select
 from app.core.exceptions import AppException, ValidationError
 from app.models.generation import GenerationJob
 from app.models.library import LibraryItem, LibraryLink
-from app.models.studio import ProjectAsset
+from app.models.project import ProjectAsset
 from app.schemas.projects import AssetAdd, ProjectCreate
 from app.services import generation_service as gen, library_files, project_service as ps
 

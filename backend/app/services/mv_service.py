@@ -1,6 +1,6 @@
 """音乐 MV 的音频与歌词（创作工作台设计 5.1 / 6.4）：上传音频、粘贴或上传 LRC，在歌词时间轴上校对。
 
-* 音频存进项目素材目录（StudioAsset kind=audio，最新一条为准），时长用 ffprobe 读出，设定里的目标时长跟随音频。
+* 音频存进项目素材目录（ProjectUpload kind=audio，最新一条为准），时长用 ffprobe 读出，设定里的目标时长跟随音频。
 * LRC 是歌词时间的唯一来源（AI 不改歌词）：解析成 draft.cues；分镜边界尽量落在歌词时间点上。
 * 两者都会写一个新版本、换 draft_token，并取消定稿。
 """
@@ -17,7 +17,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError, ValidationError
-from app.models.studio import StudioAsset
+from app.models.project import ProjectUpload
 from app.schemas.studio import StudioDraft
 from app.services import project_service as ps
 from app.services.studio_lrc import parse_lrc
@@ -62,18 +62,18 @@ def retime(draft: StudioDraft, duration: float) -> StudioDraft:
     return draft.model_copy(update={"shots": shots})
 
 
-async def _audio(db: AsyncSession, project_id: int) -> StudioAsset | None:
+async def _audio(db: AsyncSession, project_id: int) -> ProjectUpload | None:
     return (
         await db.execute(
-            select(StudioAsset)
-            .where(StudioAsset.project_id == project_id, StudioAsset.kind == "audio")
-            .order_by(StudioAsset.id.desc())
+            select(ProjectUpload)
+            .where(ProjectUpload.project_id == project_id, ProjectUpload.kind == "audio")
+            .order_by(ProjectUpload.id.desc())
             .limit(1)
         )
     ).scalar_one_or_none()
 
 
-def _audio_dict(a: StudioAsset | None) -> dict[str, Any] | None:
+def _audio_dict(a: ProjectUpload | None) -> dict[str, Any] | None:
     if a is None:
         return None
     return {"id": a.id, "name": a.name, "duration": a.duration, "url": f"/projects/{a.project_id}/audio/file"}
@@ -138,8 +138,8 @@ async def add_audio(db: AsyncSession, project_id: int, filename: str, content: b
     draft = StudioDraft.model_validate((project.spec or {}).get("draft") or {})
     if draft.cues and any(c.time >= duration for c in draft.cues):
         draft = draft.model_copy(update={"cues": [c for c in draft.cues if c.time < duration]})
-    await db.execute(delete(StudioAsset).where(StudioAsset.project_id == project.id, StudioAsset.kind == "audio"))
-    asset = StudioAsset(
+    await db.execute(delete(ProjectUpload).where(ProjectUpload.project_id == project.id, ProjectUpload.kind == "audio"))
+    asset = ProjectUpload(
         project_id=project.id, kind="audio", name=safe, relative_path=relative, sha256=digest, duration=duration
     )
     db.add(asset)
