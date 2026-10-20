@@ -1,5 +1,5 @@
 """风格与模板（改造方案 6.6）：内置种子、新建、版本、复制、归档、从素材提炼、按名称 AI 生成；
-以及给工作台 ``/studio/catalog`` 用的目录（返回形状不变）。
+以及制作参数用的模板 / 风格目录（catalog_for_user）。
 """
 
 from __future__ import annotations
@@ -442,7 +442,7 @@ async def distill(db: AsyncSession, kind: str, name: str, item_ids: list[int] | 
 
 
 async def catalog_entries(db: AsyncSession) -> dict[str, list[dict[str, Any]]]:
-    """``/studio/catalog`` 用：模板 {id,name,category,description,image,modes,beats,custom}；风格 {id,…,colors,background,…}。"""
+    """目录：模板 {id,name,category,description,image,modes,beats,custom}；风格 {id,…,colors,background,…}。"""
     templates = []
     for t in await list_templates(db):
         v = t["current"] or {}

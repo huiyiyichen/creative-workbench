@@ -1428,3 +1428,4 @@ button.cw-dircard { cursor: pointer; }
 .cw-clips li { display: grid; gap: 4px; padding: 8px; border: 1px solid var(--cw-line); border-radius: 6px; }
 .cw-clips video, .cw-clip-ph { width: 100%; aspect-ratio: 16 / 9; background: var(--cw-deep); border-radius: 4px; }
 .cw-clip-ph { display: grid; place-items: center; font-size: 12px; color: var(--cw-dim); }
+.cw-voice { margin-bottom: 8px; }

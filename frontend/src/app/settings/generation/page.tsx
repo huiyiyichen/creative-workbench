@@ -6,6 +6,7 @@ import { Input, InputNumber, Modal, Select, Switch, message } from 'antd';
 import { useCallback, useEffect, useState } from 'react';
 import { Button, Card } from '@/design/components';
 import { genApi, type GenService } from '@/lib/api/_generations';
+import StudioVoice from '@/components/StudioVoice';
 
 interface FormState {
   id?: number;
@@ -142,6 +143,12 @@ export default function GenerationSettingsPage() {
 
   return (
     <div className="cw-stack">
+      <Card title="配音">
+        <StudioVoice />
+        <p className="cw-muted" style={{ fontSize: 12, margin: 0 }}>
+          讲解视频与 MV 的配音节点用这里的千问 TTS 设置；Key 加密保存在本机。
+        </p>
+      </Card>
       <Card title="生成服务" extra={<Button onClick={() => edit()}>添加服务</Button>}>
         {items === null ? (
           <p className="cw-muted">加载中…</p>

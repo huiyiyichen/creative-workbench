@@ -253,3 +253,9 @@
 - 接口：`POST /generations/videos`；服务的 `api_format` 增加 `openai_videos`；文件接口按扩展名返回 `video/mp4`；任务中心显示「生成视频」与厂商进度。
 - 前端：设置 · 生成服务可加视频服务（类型、可选时长、首帧开关、元 / 秒），开关排版修正；讲解视频产出的「分镜关键帧」下加「视频片段」：按镜头生成（提示词取分镜提示词 / 画面，可用该镜关键帧作首帧，时长取最接近分镜时长的可选值，显示预计花费），任务进度、预览、存入并使用。
 - 验证：tests/test_stage5_video_generation.py 3 项（提交 → 轮询进度 → 下载、花费、任务中心、存入并使用；超每日上限、厂商失败、重启续跑与未提交标失败；OpenAI 视频适配器的请求 / 轮询 / 下载）；阶段 4 生图回归；截图验收设置页。
+
+### 阶段 5 · 第 ⑧ 步：清理旧 /studio/*（2026-10-20）
+- 删除旧工作台接口 `app/api/v1/studio.py`（目录、项目增改、版本、AI 稿、制作提示、音频、LRC、定稿、渲染、Harness 制作、制作任务列表）。还在用的两块迁到 `app/api/v1/renders.py`：成片信息 / 预览 / 下载 / 动画工程 `/renders/{id}…`（`artifact_dict` 的路径同步改，回传的 mov / webm 按扩展名给类型），配音设置 `/voice/tts`（GET / PUT / 试听）。
+- `studio_service.py` 去掉只被旧接口用的函数（约 400 行：保存项目、版本视图、音频 / LRC、定稿、排队渲染、Harness 制作、制作任务、心跳等）；新流程用到的（成片信息、进度、工程文件、草稿整理、启动恢复）保留。
+- 前端：删 `studioApi` 与 Studio* 类型、旧顶栏「制作任务」(`ProductionStatus`，已被任务中心替代)、没人用的 `CreativePresetCard` / `DraftComparison`；配音设置（`StudioVoice`，改用 `/voice/tts`）放进「设置 · 生成服务」。`/studio` 页面仍只做跳转。
+- 验证：后端全量 pytest 通过（1 项跳过）；vitest 208 项；tsc、ESLint、ruff、分层检查通过。

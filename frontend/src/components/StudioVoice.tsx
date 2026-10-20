@@ -51,7 +51,7 @@ export default function StudioVoice() {
     } catch (error) {message.error(error instanceof Error ? error.message : '试听失败');}
     finally {setBusy(false);}
   };
-  return <div className="mb-5 border-y border-gray-100 py-3">
+  return <div className="cw-voice">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <Space wrap><span className="font-semibold">配音</span><Tag>{settings?.model ?? '千问 TTS'}</Tag><span className="text-sm text-gray-500">{settings?.voice || '默认音色'}</span></Space>
       <Space>

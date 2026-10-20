@@ -24,6 +24,7 @@ from app.api.v1.mother_topics import router as mother_topics_router
 from app.api.v1.notifications import router as notifications_router
 from app.api.v1.projects import router as projects_router
 from app.api.v1.read_records import router as read_records_router
+from app.api.v1.renders import router as renders_router
 from app.api.v1.reports import router as reports_router
 from app.api.v1.runs import mcp_router, router as runs_router
 from app.api.v1.scheduler import router as scheduler_router
@@ -34,7 +35,6 @@ from app.api.v1.sources import router as sources_router
 from app.api.v1.sources_health import router as sources_health_router
 from app.api.v1.stats import router as stats_router
 from app.api.v1.stats_jobs import router as stats_jobs_router
-from app.api.v1.studio import router as studio_router
 from app.api.v1.topics import router as topics_router
 from app.api.v1.trending import router as trending_router
 from app.api.v1.trends import router as trends_router
@@ -65,7 +65,7 @@ router.include_router(settings_router)
 router.include_router(categories_router)
 router.include_router(stats_router)
 router.include_router(stats_jobs_router)
-router.include_router(studio_router)
+router.include_router(renders_router)
 router.include_router(sources_health_router)
 router.include_router(metrics_router)
 router.include_router(feedback_router)
