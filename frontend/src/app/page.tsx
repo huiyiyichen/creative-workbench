@@ -16,6 +16,7 @@ import { MEDIA_FILTERS, SIGNAL_RANGES, type SignalRange } from '@/lib/discover';
 import { Onboarding } from '@/design/onboarding';
 import { OPEN_EVENT } from '@/design/command';
 import { Search } from 'lucide-react';
+import { fmtDay } from '@/lib/time-cn';
 
 const LEGEND: { key: keyof typeof mediaColor; label: string }[] = [
   { key: 'article', label: '文章' },
@@ -31,7 +32,7 @@ function errText(err: unknown): string {
 }
 
 function todayLabel(): string {
-  return new Date().toLocaleDateString('zh-CN', { month: 'long', day: 'numeric', weekday: 'short' });
+  return fmtDay(new Date());
 }
 
 function TodayPage() {
@@ -45,6 +46,7 @@ function TodayPage() {
   const [side, setSide] = useState<TodaySide | null>(null);
   const [away, setAway] = useState<{ days: number; start: string; end: string } | null>(null);
   const [openId, setOpenId] = useState<number | null>(null);
+  const [hoverId, setHoverId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [more, setMore] = useState(false);
 
@@ -111,7 +113,7 @@ function TodayPage() {
 
   return (
     <CwPage>
-      <TopBar title="今日" sub={todayLabel()}>
+      <TopBar title="今日" sub={<span className="cw-num" suppressHydrationWarning>{todayLabel()}</span>}>
         {healthy ? (
           <span className="cw-health">
             <StatusDot tone={healthy.paused ? 'warn' : 'ok'} />
@@ -143,7 +145,7 @@ function TodayPage() {
         </div>
       ) : null}
 
-      <SignalTimeline data={signals} selectedId={openId} onOpen={setOpenId} legend={legend} range={range} onRange={setRange} />
+      <SignalTimeline data={signals} selectedId={openId} hoverId={hoverId} onHover={setHoverId} onOpen={setOpenId} legend={legend} range={range} onRange={setRange} />
 
       <div className="cw-today">
         <section>
@@ -173,7 +175,7 @@ function TodayPage() {
                 <div className="cw-feed-day cw-num">{d.date}</div>
                 <ul className="cw-feed">
                   {d.items.map((item) => (
-                    <FeedItem key={item.id} item={item} selected={item.id === openId} onOpen={setOpenId} />
+                    <FeedItem key={item.id} item={item} selected={item.id === openId} hovered={item.id === hoverId} onHover={setHoverId} onOpen={setOpenId} />
                   ))}
                 </ul>
               </div>
@@ -181,7 +183,7 @@ function TodayPage() {
           ) : (
             <ul className="cw-feed">
               {feed.items.map((item) => (
-                <FeedItem key={item.id} item={item} selected={item.id === openId} onOpen={setOpenId} />
+                <FeedItem key={item.id} item={item} selected={item.id === openId} hovered={item.id === hoverId} onHover={setHoverId} onOpen={setOpenId} />
               ))}
             </ul>
           )}

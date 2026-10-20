@@ -9,7 +9,7 @@ import { FeishuButton } from './feishu';
 import Link from 'next/link';
 import { Drawer, Input, Popover, Spin, message } from 'antd';
 import { Bookmark, ExternalLink, Maximize2, Sparkles, ThumbsDown, ThumbsUp, Unlink, Workflow } from 'lucide-react';
-import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Button, Cover, Segmented, Sparkline } from '@/design/components';
 import { color } from '@/design/tokens';
 import { favoritesApi } from '@/lib/api/_admin-api';
@@ -45,6 +45,8 @@ import {
   rulerTicks,
   topPlatforms,
 } from '@/lib/discover';
+import { clusterClips, timelineView } from '@/lib/timeline';
+import { fmtHM } from '@/lib/time-cn';
 
 export function platformName(p: string | null | undefined): string {
   return PLATFORM_LABEL[p || 'web'] || p || '网页';
@@ -111,11 +113,31 @@ export function MetricScope({ metric, accent }: { metric: MetricView; accent: st
 
 // ── 信息流条目 ──
 
-export function FeedItem({ item, selected, onOpen }: { item: ItemCard; selected?: boolean; onOpen: (id: number) => void }) {
+export function FeedItem({
+  item,
+  selected,
+  hovered,
+  onOpen,
+  onHover,
+}: {
+  item: ItemCard;
+  selected?: boolean;
+  hovered?: boolean;
+  onOpen: (id: number) => void;
+  onHover?: (id: number | null) => void;
+}) {
   const c = mediaKindColor(item.media_type);
   const cover = item.cover_asset_id ? mediaUrl(item.cover_asset_id) : null;
   return (
-    <li className="cw-item" data-selected={selected ? 'true' : undefined} style={{ '--c': c } as CSSProperties}>
+    <li
+      className="cw-item"
+      data-art-host
+      data-selected={selected ? 'true' : undefined}
+      data-hovered={hovered ? 'true' : undefined}
+      style={{ '--c': c } as CSSProperties}
+      onPointerEnter={onHover ? () => onHover(item.id) : undefined}
+      onPointerLeave={onHover ? () => onHover(null) : undefined}
+    >
       <button type="button" className="cw-item-cover" onClick={() => onOpen(item.id)} aria-label={`打开 ${item.title}`}>
         <Cover
           src={cover}
@@ -186,9 +208,42 @@ function FeedActions({ item }: { item: ItemCard }) {
 
 // ── 今天的信号 ──
 
+function prefersReducedMotion(): boolean {
+  return typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+}
+
+/** 从 0 缓动到 target（1.6 s，easeOutCubic）；key 变化时重扫；减少动态时直接到位。 */
+function useSweep(target: number, key: string): number {
+  const [v, setV] = useState(0);
+  const raf = useRef(0);
+  useEffect(() => {
+    if (prefersReducedMotion() || target <= 0) {
+      setV(target);
+      return;
+    }
+    const start = performance.now();
+    const D = 1600;
+    const step = (now: number) => {
+      const p = Math.min(1, (now - start) / D);
+      setV(target * (1 - Math.pow(1 - p, 3)));
+      if (p < 1) raf.current = requestAnimationFrame(step);
+    };
+    raf.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(raf.current);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key]);
+  useEffect(() => {
+    // 数据刷新导致「现在」前移时，直接跟上，不重扫
+    setV((cur) => (cur > 0 && Math.abs(cur - target) < 0.2 ? target : cur));
+  }, [target]);
+  return v;
+}
+
 export function SignalTimeline({
   data,
   selectedId,
+  hoverId,
+  onHover,
   onOpen,
   legend,
   range = 'today',
@@ -196,20 +251,32 @@ export function SignalTimeline({
 }: {
   data: TodaySignals | null;
   selectedId?: number | null;
+  hoverId?: number | null;
+  onHover?: (id: number | null) => void;
   onOpen: (id: number) => void;
   legend?: ReactNode;
   range?: SignalRange;
   onRange?: (r: SignalRange) => void;
 }) {
-  const nowPos = data?.now ? dayPosition(data.now, data.start, data.end) : 0;
-  const nowLabel = data?.now ? new Date(data.now).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
-  const ticks = data?.start ? rulerTicks(range, data.start, data.end) : rulerTicks('today', '2000-01-01T00:00:00', '2000-01-02T00:00:00');
+  // 「今天」在上午很空：视图缩到 [00:00, max(现在 + 3h, 09:00)]，右侧未来区画斜纹
+  const view = data ? timelineView(range, data.start, data.end, data.now) : null;
+  const nowPos = data && view ? dayPosition(data.now, view.start, view.end) : 0;
+  const head = useSweep(nowPos, `${range}:${data?.start ?? ''}`);
+  const headLabel = view ? fmtHM(new Date(view.startMs + head * (view.endMs - view.startMs))) : '';
+  const ticks = view ? rulerTicks(range === 'today' && view.zoomed ? 'zoom' : range, view.start, view.end) : [];
   const inner = ticks.filter((t) => t.pos > 0.001 && t.pos < 0.999);
+  const [tip, setTip] = useState<{ x: number; y: number; title: string; sub: string } | null>(null);
   const title = SIGNAL_TITLE[range];
+  const count = data ? data.tracks.reduce((n, t) => n + t.items.length, 0) : 0;
+  const showTip = (el: HTMLElement, title: string, sub: string) => {
+    const r = el.getBoundingClientRect();
+    setTip({ x: Math.min(r.left, window.innerWidth - 340), y: r.bottom + 8, title, sub });
+  };
   return (
     <section className="cw-timeline" aria-label={title}>
       <div className="cw-tl-head">
         <h2>{title}</h2>
+        {data ? <span className="cw-tl-count cw-num">{count}</span> : null}
         {legend}
         {onRange ? (
           <>
@@ -230,47 +297,107 @@ export function SignalTimeline({
               ))}
             </div>
           </div>
-          {!data ? (
-            <div className="cw-tl-empty">加载中…</div>
+          {!data || !view ? (
+            <div className="cw-tl-scan" aria-busy="true">
+              <i />
+            </div>
           ) : data.tracks.length === 0 ? (
-            <div className="cw-tl-empty">{range === 'today' ? '今天还没有采到内容' : '这段时间没有采到内容'}</div>
+            <div className="cw-tl-flat">
+              <svg viewBox="0 0 400 40" preserveAspectRatio="none" aria-hidden>
+                <line x1="0" x2="400" y1="20" y2="20" />
+                <circle r="3" cy="20" cx="0" />
+              </svg>
+              <span>{range === 'today' ? '今天还没有采到内容' : '这段时间没有采到内容'}</span>
+            </div>
           ) : (
             data.tracks.slice(0, 9).map((track) => (
               <div className="cw-track" key={track.platform}>
-                <span className="cw-track-name">{platformName(track.platform)}</span>
+                <span className="cw-track-name" title={platformName(track.platform)}>
+                  {platformName(track.platform)}
+                </span>
                 <div className="cw-lane">
                   {inner.map((t) => (
                     <i key={t.pos} className="cw-lane-tick" style={{ left: `${t.pos * 100}%` }} />
                   ))}
-                  {track.items.map((clip) => (
-                    <button
-                      key={clip.id}
-                      type="button"
-                      className="cw-clip"
-                      data-selected={clip.id === selectedId ? 'true' : undefined}
-                      title={clip.title}
-                      aria-label={clip.title}
-                      onClick={() => onOpen(clip.id)}
-                      style={
-                        {
-                          left: `${dayPosition(clip.at, data.start, data.end) * 100}%`,
-                          '--c': mediaKindColor(clip.media_type),
-                          '--o': heatOpacity(clip.heat),
-                        } as CSSProperties
-                      }
-                    />
-                  ))}
+                  {nowPos < 0.999 ? <i className="cw-lane-future" style={{ left: `${nowPos * 100}%` }} /> : null}
+                  {clusterClips(track.items, view.start, view.end).map((g) => {
+                    if (g.items.length > 3) {
+                      const lit = g.pos <= head + 0.002;
+                      const ids = g.items.map((c) => c.id);
+                      return (
+                        <button
+                          key={`g${g.items[0].id}`}
+                          type="button"
+                          className="cw-clip"
+                          data-dense="true"
+                          data-lit={lit ? 'true' : undefined}
+                          data-selected={ids.includes(selectedId ?? -1) ? 'true' : ids.includes(hoverId ?? -1) ? 'hover' : undefined}
+                          aria-label={`${g.items.length} 条`}
+                          onClick={() => onOpen(g.items[0].id)}
+                          onPointerEnter={(e) =>
+                            showTip(e.currentTarget, `${g.items.length} 条：${g.items[0].title}`, `${platformName(track.platform)} · ${fmtHM(g.items[0].at)}–${fmtHM(g.items[g.items.length - 1].at)}`)
+                          }
+                          onPointerLeave={() => setTip(null)}
+                          style={
+                            {
+                              left: `${g.pos * 100}%`,
+                              width: `${Math.max(0.6, g.span * 100)}%`,
+                              '--c': mediaKindColor(g.items[0].media_type),
+                              '--o': Math.min(1, 0.45 + g.items.length / 40),
+                            } as CSSProperties
+                          }
+                        >
+                          <b className="cw-num">{g.items.length}</b>
+                        </button>
+                      );
+                    }
+                    return g.items.map((clip) => {
+                      const pos = dayPosition(clip.at, view.start, view.end);
+                      return (
+                        <button
+                          key={clip.id}
+                          type="button"
+                          className="cw-clip"
+                          data-lit={pos <= head + 0.002 ? 'true' : undefined}
+                          data-selected={clip.id === selectedId ? 'true' : clip.id === hoverId ? 'hover' : undefined}
+                          aria-label={clip.title}
+                          onClick={() => onOpen(clip.id)}
+                          onPointerEnter={(e) => {
+                            showTip(e.currentTarget, clip.title, `${platformName(track.platform)} · ${fmtHM(clip.at)} 发布`);
+                            onHover?.(clip.id);
+                          }}
+                          onPointerLeave={() => {
+                            setTip(null);
+                            onHover?.(null);
+                          }}
+                          style={
+                            {
+                              left: `${pos * 100}%`,
+                              '--c': mediaKindColor(clip.media_type),
+                              '--o': heatOpacity(clip.heat),
+                            } as CSSProperties
+                          }
+                        />
+                      );
+                    });
+                  })}
                 </div>
               </div>
             ))
           )}
-          {data && data.now ? (
-            <div className="cw-playhead" style={{ left: `calc(72px + (100% - 72px) * ${nowPos})` }}>
-              <span className="cw-num">{nowLabel}</span>
+          {data && view ? (
+            <div className="cw-playhead" style={{ left: `calc(var(--cw-track-w) + (100% - var(--cw-track-w)) * ${head})` }}>
+              <span className="cw-num">{headLabel}</span>
             </div>
           ) : null}
         </div>
       </div>
+      {tip ? (
+        <div className="cw-tip" style={{ left: tip.x, top: tip.y }} role="tooltip">
+          {tip.title}
+          <small>{tip.sub}</small>
+        </div>
+      ) : null}
     </section>
   );
 }

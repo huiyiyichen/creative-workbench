@@ -1,3 +1,4 @@
+import { CN_OFFSET_MS, cnParts } from './time-cn';
 /**
  * 发现页面的展示逻辑（纯函数，便于测试）：结论标记、话题状态、时间线定位、指标示波、带缺口的曲线。
  */
@@ -71,21 +72,21 @@ export const SIGNAL_TITLE: Record<SignalRange, string> = { today: '今天的信�
  * 时间轴刻度（按本地时间）：今天每 3 小时；48 小时每 6 小时、零点换成日期；7 天每个零点一格写日期。
  * pos 是 0–1 的位置，只返回落在窗口内的刻度。
  */
-export function rulerTicks(range: SignalRange, start: string, end: string): { pos: number; label: string }[] {
+export function rulerTicks(range: SignalRange | 'zoom', start: string, end: string): { pos: number; label: string }[] {
   const s = new Date(start).getTime();
   const e = new Date(end).getTime();
   if (!(e > s)) return [];
-  const stepH = range === 'today' ? 3 : range === '48h' ? 6 : 24;
-  const first = new Date(s);
-  first.setMinutes(0, 0, 0);
-  while (first.getHours() % stepH !== 0 || first.getTime() < s) first.setHours(first.getHours() + 1);
+  const H = 3600 * 1000;
+  const spanH = (e - s) / H;
+  const stepH = range === 'zoom' ? (spanH <= 12 ? 1 : 3) : range === 'today' ? 3 : range === '48h' ? 6 : 24;
+  // 北京时间整点：先把起点推到「北京时间能被 stepH 整除的整点」
+  let t = Math.ceil((s + CN_OFFSET_MS) / H) * H - CN_OFFSET_MS;
+  while (cnParts(t).h % stepH !== 0) t += H;
   const out: { pos: number; label: string }[] = [];
-  const pad = (n: number) => String(n).padStart(2, '0');
-  for (let t = new Date(first); t.getTime() <= e; t.setHours(t.getHours() + stepH)) {
-    const midnight = t.getHours() === 0;
-    const label =
-      range === 'today' ? `${pad(t.getHours())}:00` : midnight ? `${t.getMonth() + 1}/${t.getDate()}` : `${pad(t.getHours())}:00`;
-    out.push({ pos: (t.getTime() - s) / (e - s), label });
+  for (; t <= e; t += stepH * H) {
+    const p = cnParts(t);
+    const label = range === 'today' || range === 'zoom' ? `${String(p.h).padStart(2, '0')}:00` : p.h === 0 ? `${p.mo}/${p.d}` : `${String(p.h).padStart(2, '0')}:00`;
+    out.push({ pos: (t - s) / (e - s), label });
   }
   return out;
 }

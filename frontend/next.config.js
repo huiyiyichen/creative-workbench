@@ -7,6 +7,8 @@ const nextConfig = {
   // Keep the one-click runtime separate from the developer's build/cache.
   distDir: (process.env.WORKBENCH_LOCAL_BUILD || process.env.CREATIVE_WORKBENCH_LOCAL_BUILD) === '1' ? '.next-local' : '.next',
   reactStrictMode: true,
+  // 开发角标会挡住导航底部的小图标行
+  devIndicators: false,
   compress: true,
   poweredByHeader: false,
   allowedDevOrigins: ['localhost', '127.0.0.1'],

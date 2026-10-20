@@ -7,8 +7,8 @@
 import { App as AntdApp, ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { useState, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from 'react';
-import { sparkPath, waveform } from '@/lib/collection';
-import { mediaColor } from './tokens';
+import { sparkPath } from '@/lib/collection';
+import { kindColor, SignalArt } from './signal-art';
 import { cwAntdThemeFor } from './antd-theme';
 import { useCwTheme } from './theme';
 
@@ -197,7 +197,7 @@ export function Cover({
         // eslint-disable-next-line @next/next/no-img-element
         <img src={src!} alt="" loading="lazy" onError={() => setFailed(true)} />
       ) : (
-        <GeneratedCover title={title} kind={kind} />
+        <SignalArt title={title} kind={kind} />
       )}
       {kind ? <span className="cw-cover-kind" style={{ '--c': kindColor(kind) } as CSSProperties} /> : null}
       {badge ? <span className="cw-cover-badge cw-num">{badge}</span> : null}
@@ -205,24 +205,4 @@ export function Cover({
   );
 }
 
-function kindColor(kind: string): string {
-  return (mediaColor as Record<string, string>)[kind] ?? mediaColor.article;
-}
-
-function GeneratedCover({ title, kind }: { title: string; kind?: string | null }) {
-  const wave = waveform(title, 40);
-  const w = 160;
-  const h = 90;
-  const d = wave
-    .map((v, i) => `${i === 0 ? 'M' : 'L'}${((i / (wave.length - 1)) * w).toFixed(1)},${(h - v * h).toFixed(1)}`)
-    .join(' ');
-  return (
-    <svg className="cw-cover-gen" viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" aria-hidden
-      style={{ '--c': kindColor(kind || 'article') } as CSSProperties}>
-      {[0.25, 0.5, 0.75].map((y) => (
-        <line key={y} x1="0" x2={w} y1={h * y} y2={h * y} />
-      ))}
-      <path d={d} />
-    </svg>
-  );
-}
+export { kindColor } from './signal-art';
