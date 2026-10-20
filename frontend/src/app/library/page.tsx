@@ -5,6 +5,7 @@
  * 粘贴链接、拖入文件、粘贴截图收进来；多选改授权、加画板、提炼为风格 / 模板。图谱在独立页签。
  */
 
+import { parseUTC } from '@/lib/datetime';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Input, Select, message } from 'antd';
@@ -276,7 +277,7 @@ function LibraryPage() {
                     <td className="cw-muted">{it.platform || it.author || it.import_method}</td>
                     <td>{LICENSE_LABEL[it.license]}</td>
                     <td className="cw-muted">{it.tags.slice(0, 3).join('、')}</td>
-                    <td className="cw-num">{new Date(it.created_at).toLocaleDateString('zh-CN')}</td>
+                    <td className="cw-num">{parseUTC(it.created_at).toLocaleDateString('zh-CN')}</td>
                   </tr>
                 ))}
               </tbody>

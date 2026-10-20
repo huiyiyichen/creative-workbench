@@ -940,7 +940,8 @@ a.cw-cal-cell:hover { border-color: var(--cw-cy); }
 .cw-lib-add .ant-input-affix-wrapper { flex: 1; }
 .cw-color-pick { display: inline-flex; align-items: center; gap: 6px; color: var(--cw-dim); cursor: pointer; }
 .cw-color-pick input[type='color'] { width: 22px; height: 22px; padding: 0; border: 1px solid var(--cw-line); border-radius: 4px; background: none; }
-.cw-lib-layout { position: relative; }
+.cw-lib-layout { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 280px; gap: 20px; align-items: start; }
+@media (max-width: 1279px) { .cw-lib-layout { grid-template-columns: minmax(0, 1fr) 240px; } }
 .cw-lib-layout > section { position: relative; min-height: 240px; }
 .cw-lib-drop {
   position: absolute; inset: 0; z-index: 5; display: grid; place-items: center;
@@ -1016,5 +1017,5 @@ a.cw-cal-cell:hover { border-color: var(--cw-cy); }
   background: none; color: var(--cw-text); cursor: pointer; text-align: left; font: inherit;
 }
 .cw-style-list nav button[aria-current='true'] { background: var(--cw-raise); }
-.cw-style-list nav button small { margin-left: auto; color: var(--cw-faint); }
+.cw-style-list nav button small { margin-left: auto; flex: none; color: var(--cw-faint); white-space: nowrap; }
 @media (max-width: 1100px) { .cw-style-list { grid-template-columns: 200px minmax(0, 1fr); } }

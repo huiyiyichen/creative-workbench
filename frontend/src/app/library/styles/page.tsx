@@ -79,6 +79,12 @@ function draftPayload(kind: Kind, d: Draft): Record<string, unknown> & { name: s
   return { name: d.name.trim(), purpose: d.purpose || null, audience: d.audience || null, tone: d.tone || null, structure, note: d.note || null };
 }
 
+/** 详情接口只给版本列表，这里补上当前版本 */
+function withCurrent<E extends Entry>(e: E): E {
+  if (e.current || !e.versions) return e;
+  return { ...e, current: (e.versions as { version: number }[]).find((v) => v.version === e.current_version) ?? null } as E;
+}
+
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <label style={{ display: 'block', margin: '0 0 12px' }}>
@@ -121,7 +127,9 @@ function StylesPage() {
       setDetail(null);
       return;
     }
-    (kind === 'style' ? libraryApi.style(selectedKey) : libraryApi.template(selectedKey)).then(setDetail).catch((err) => message.error(errText(err)));
+    (kind === 'style' ? libraryApi.style(selectedKey) : libraryApi.template(selectedKey))
+      .then((d) => setDetail(withCurrent(d)))
+      .catch((err) => message.error(errText(err)));
   }, [kind, selectedKey]);
 
   const open = (k: Kind, key?: string) => router.replace(key ? `/library/styles?${k}=${encodeURIComponent(key)}` : `/library/styles?kind=${k}`);
@@ -136,7 +144,7 @@ function StylesPage() {
       setDraft(null);
       await load();
       if (r.key === selectedKey) {
-        setDetail(await (kind === 'style' ? libraryApi.style(r.key) : libraryApi.template(r.key)));
+        setDetail(withCurrent(await (kind === 'style' ? libraryApi.style(r.key) : libraryApi.template(r.key))));
       } else open(kind, r.key);
     } catch (err) {
       message.error(errText(err));

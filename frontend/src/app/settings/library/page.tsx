@@ -87,7 +87,7 @@ export default function LibrarySettingsPage() {
 
       <Card title="浏览器扩展">
         <p className="cw-muted">
-          Edge / Chrome 扩展在网页右键「存到灵感库」，可存整页、选中文字、图片或视频当前帧。扩展在仓库的 <code>extension/</code> 目录：
+          Edge / Chrome 扩展在网页右键「存到灵感库」，可存整页、链接、图片或选中文字。扩展在仓库的 <code>extension/</code> 目录：
           打开 edge://extensions，开启开发人员模式，选「加载解压缩的扩展」并选择该目录。
         </p>
         <p>

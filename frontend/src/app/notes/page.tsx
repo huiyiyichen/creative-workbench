@@ -5,6 +5,7 @@
  * 支持 #标签、[[双链]]、粘贴图片、录音（千问转写）；保存后显示相关的收藏和热点。
  */
 
+import { parseUTC } from '@/lib/datetime';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Input, message } from 'antd';
@@ -83,7 +84,7 @@ function NotesPage() {
                 <h3 className="cw-num">{d.date}</h3>
                 {d.notes.map((n) => (
                   <article key={n.id} id={`note-${n.id}`} className="cw-note" data-focus={String(n.id) === focus ? 'true' : undefined}>
-                    <span className="cw-note-time cw-num">{new Date(n.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
+                    <span className="cw-note-time cw-num">{parseUTC(n.created_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })}</span>
                     <div className="cw-note-body">
                       {editing === n.id ? (
                         <>

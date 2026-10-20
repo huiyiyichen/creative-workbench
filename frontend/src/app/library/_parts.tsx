@@ -4,6 +4,7 @@
  * 灵感库的部件：条目卡片（瀑布流 / 列表）、详情抽屉、收进来（粘贴链接 / 拖入 / 剪贴板）。
  */
 
+import { parseUTC } from '@/lib/datetime';
 import Link from 'next/link';
 import { Drawer, Input, Popover, Select, Spin, message } from 'antd';
 import { ExternalLink, FileAudio, FileType2, Link2, Palette, Sparkles, Trash2, Wand2 } from 'lucide-react';
@@ -407,7 +408,7 @@ export function LibraryDrawer({
               </span>
             ) : null}
             {data.duration ? <span className="cw-num">{formatDuration(data.duration)}</span> : null}
-            <span>收于 {new Date(data.created_at).toLocaleDateString('zh-CN')}</span>
+            <span>收于 {parseUTC(data.created_at).toLocaleDateString('zh-CN')}</span>
           </div>
           <div className="cw-basis">
             <Row label="授权">
