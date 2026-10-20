@@ -310,3 +310,16 @@
 - design/feedback.tsx：静态 message / Modal / notification 统一套调色台主题（ConfigProvider.config holderRender，AppShell 调用）；confirmAction 替换全部 window.confirm（6 处），toast 替换 alert（3 处）；toastUndo 供删除类操作「先做后撤」。
 - 翻译（google_provider）分块共用一个 httpx 客户端并显式超时；其余 AsyncClient 复查后均已有 timeout。
 - CI：新增 frontend-lint（eslint --quiet，error 阻断）与 backend-tests（postgres:17 服务容器跑全量 pytest），push 触发加上 refactor/** 分支。
+
+## 2026-10-21 清单改进（stage-6）
+
+- fb98deb 今日时间线：刻度 / 播放头 / 日期统一按北京时间（lib/time-cn.ts）；清早自动缩放到 [00:00, max(现在+3h, 09:00)]、未来区斜纹、密集片段合并成带数字的密度柱、扫描点亮、悬停提示与信息流联动；无封面时按形态生成信号图（lib/signal-art.ts）。
+- f1e3bd0 花费总览 /costs（cost_service：LLM 调用按用途 / 场景 / 模型 / 项目，生成任务按种类 / 服务；北京时间分天；今日分析预算）；CI：日报测试按北京时间、导航覆盖测试、aiohttp / multidict 升级、npm audit 只审运行时依赖。
+- 1ad6085 全局事件流 /events/stream（event_hub：tasks 3 秒、notifications 15 秒、sources 60 秒，单循环多订阅，无变化不推）；前端 lib/events.ts 整页一条连接，任务中心 / 抽屉 / 运行列表 / 视频生成改为事件触发刷新。
+- 102ec1b 发布排期与数据回收（publishing_service + work_metric_observations 表）：排期与到点提醒、发布日历、发布链接按时回抓平台指标（2 天内每 3 小时 → 14 天内每 12 小时 → 90 天内每 3 天）、按形态 / 平台的效果中位数。
+- 8086886 公众号草稿箱直推（wechat_mp_service，设置 · 公众号）。
+- 7bc6d1b 一键备份（backup_service，设置 · 备份，每周日自动；scripts/restore_backup.py 还原）。
+- 9ce3f0c 健壮性：静默吞错改记日志、日志轮转（data/logs/backend.log，10MB×5）、重启恢复生图 / 飞书任务、搜索 pg_trgm 索引。
+- c208b6e 项目复制与批量操作。
+- N+1 抽查：任务列表 5、作品 3、项目 3、搜索 9、今日信息流 19 条查询，热路径没有循环查库，不再改。
+- 下一步：前端全站重做，规范见 work/design-review-1.md。
