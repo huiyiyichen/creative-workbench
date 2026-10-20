@@ -759,6 +759,13 @@ async def _maintain_comments() -> str:
         return str(await maintain(db))
 
 
+async def _cleanup_generations() -> str:
+    """生图候选（6.5）：没选中的候选保留 7 天。"""
+    from app.services.generation_service import cleanup_candidates
+
+    return str(cleanup_candidates())
+
+
 async def _obsidian_sync() -> str:
     """Obsidian 双向同步（6.8）：读回你在 vault 里的修改，再写出工作台的笔记。未配置 vault 时跳过。"""
     from app.services.obsidian_sync import sync_once
@@ -1067,6 +1074,15 @@ def start_scheduler() -> None:
         trigger=CronTrigger(minute=35),
         id="maintain_comments",
         name="评论刷新与清理",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.add_job(
+        _cleanup_generations,
+        trigger=CronTrigger(hour=4, minute=20),
+        id="cleanup_generations",
+        name="生图候选清理",
         replace_existing=True,
         max_instances=1,
         coalesce=True,

@@ -11,6 +11,7 @@ import { Input, Modal, message } from 'antd';
 import { Lock, Pencil } from 'lucide-react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 import { Button, Cover } from './components';
+import { ImageGenPanel } from './imagegen';
 import { color, mediaColor } from './tokens';
 import { platformName } from './discover';
 import { discoverApi, type ItemCard } from '@/lib/api/_discover';
@@ -533,6 +534,7 @@ export function SelectedSources({ project, onChanged }: { project: ProjectView; 
 export function MoodBoard({ projectId }: { projectId: number }) {
   const [assets, setAssets] = useState<ProjectAsset[]>([]);
   const [open, setOpen] = useState(false);
+  const [genOpen, setGenOpen] = useState(false);
   const load = useCallback(async () => {
     try {
       setAssets((await projectsApi.assets(projectId, 'moodboard')).items);
@@ -586,8 +588,19 @@ export function MoodBoard({ projectId }: { projectId: number }) {
         <button type="button" className="cw-mood-add" onClick={() => setOpen(true)}>
           + 从灵感库添加
         </button>
+        <button type="button" className="cw-mood-add" onClick={() => setGenOpen(true)}>
+          + 生图
+        </button>
       </div>
       <AssetPicker open={open} onClose={() => setOpen(false)} onPick={add} exclude={assets.map((a) => a.library_item_id)} />
+      <ImageGenPanel
+        open={genOpen}
+        onClose={() => setGenOpen(false)}
+        projectId={projectId}
+        target={{ type: 'moodboard' }}
+        defaultRefIds={assets.filter((a) => a.item?.thumb).map((a) => a.library_item_id).slice(0, 4)}
+        onKept={() => void load()}
+      />
     </>
   );
 }

@@ -45,6 +45,7 @@ from app.models.creation import CreationPlan
 from app.models.dossier import PeriodReport, TopicDossier, VerdictMark
 from app.models.evidence_interaction import EvidenceInteraction
 from app.models.favorite import FavoriteItem
+from app.models.generation import GenerationJob, GenerationService
 from app.models.ignored import IgnoredItem
 from app.models.library import LibraryBoard, LibraryBoardItem, LibraryItem, LibraryLink, Note
 from app.models.metrics import ContentMetrics
@@ -159,6 +160,8 @@ __all__ = [
     "PeriodReport",
     "LibraryBoard",
     "LibraryBoardItem",
+    "GenerationJob",
+    "GenerationService",
     "LibraryItem",
     "LibraryLink",
     "Note",

@@ -20,7 +20,7 @@ export const SOURCES_TABS: SectionTab[] = [
 
 export const SETTINGS_TABS: SectionTab[] = [
   { href: '/admin/model-eval', label: 'AI 模型与配音' },
-  { href: '/settings/generation', label: '生成服务', pending: '阶段 4' },
+  { href: '/settings/generation', label: '生成服务' },
   { href: '/settings/obsidian', label: 'Obsidian' },
   { href: '/settings/feishu', label: '飞书', pending: '阶段 6' },
   { href: '/settings/library', label: '灵感库' },

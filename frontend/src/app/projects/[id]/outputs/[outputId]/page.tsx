@@ -7,6 +7,10 @@ import { Input, Select, Switch, message } from 'antd';
 import { Button, Card } from '@/design/components';
 import { OUTPUT_STATUS, RunStages, apiError, useProject, useRunWatch } from '@/design/studio';
 import { runsApi } from '@/lib/api/_runs';
+import { ImageGenPanel } from '@/design/imagegen';
+import { libraryFileUrl } from '@/lib/api/_library';
+import type { GenTarget } from '@/lib/api/_generations';
+import type { ProjectAsset } from '@/lib/api/_projects';
 import { libraryApi, type StyleEntry } from '@/lib/api/_library';
 import { projectsApi, type OutputView } from '@/lib/api/_projects';
 import { PLATFORM_LIMITS, fmtClock, platformIssues, qaMark, stripTags, textLen } from '@/lib/projects';
@@ -35,6 +39,79 @@ const PUBLISH_URL: Record<string, string> = {
   zhihu: 'https://zhuanlan.zhihu.com/write',
   wechat: 'https://mp.weixin.qq.com/',
 };
+
+// ── 配图 / 封面（生图，设计 6.5）──
+
+function useOutputAssets(projectId: number, outputId: number) {
+  const [assets, setAssets] = useState<ProjectAsset[]>([]);
+  const load = useCallback(async () => {
+    try {
+      const r = await projectsApi.assets(projectId);
+      setAssets(r.items.filter((a) => (a.target as { output_id?: number } | null)?.output_id === outputId));
+    } catch {
+      /* 素材加载失败不影响编辑 */
+    }
+  }, [projectId, outputId]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  return { assets, load };
+}
+
+function OutputImages({ output }: { output: OutputView }) {
+  const { assets, load } = useOutputAssets(output.project_id, output.id);
+  const [target, setTarget] = useState<GenTarget | null>(null);
+  const [mood, setMood] = useState<number[]>([]);
+  useEffect(() => {
+    projectsApi
+      .assets(output.project_id, 'moodboard')
+      .then((r) => setMood(r.items.filter((a) => a.item?.thumb).map((a) => a.library_item_id).slice(0, 4)))
+      .catch(() => {});
+  }, [output.project_id]);
+  const isXhs = output.kind === 'xhs';
+  const slots = isXhs ? Math.max(3, Math.min(9, assets.length + 1)) : 1;
+  const at = (i: number) =>
+    assets.find((a) => (isXhs ? (a.target as { index?: number })?.index === i : a.role === 'cover'));
+  return (
+    <div className="cw-field">
+      <span>{isXhs ? '配图（3–9 张）' : '封面'}</span>
+      <div className="cw-outimgs">
+        {Array.from({ length: slots }).map((_, k) => {
+          const i = k + 1;
+          const a = at(i);
+          return (
+            <button
+              key={i}
+              type="button"
+              className="cw-outimg"
+              data-wide={!isXhs || undefined}
+              onClick={() => setTarget(isXhs ? { type: 'xhs', index: i } : { type: 'cover' })}
+              title={a?.item?.title || '生图'}
+            >
+              {a?.item?.thumb ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={libraryFileUrl(a.library_item_id, 'small')} alt="" />
+              ) : (
+                <span className="cw-muted">{isXhs ? `第 ${i} 张` : '生成封面'}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      {target ? (
+        <ImageGenPanel
+          open
+          onClose={() => setTarget(null)}
+          projectId={output.project_id}
+          outputId={output.id}
+          target={target}
+          defaultRefIds={mood}
+          onKept={() => void load()}
+        />
+      ) : null}
+    </div>
+  );
+}
 
 // ── 平台版本 ──
 
@@ -144,6 +221,7 @@ function PlatformWorkspace({ output, onSaved }: { output: OutputView; onSaved: (
             ) : null}
           </>
         ) : null}
+        {output.kind === 'xhs' || output.kind === 'wechat' ? <OutputImages output={output} /> : null}
         <div className="cw-row">
           <Button onClick={() => copy(c.title, '标题')}>复制标题</Button>
           <Button onClick={() => copy(isWechat ? stripTags(c.body) : c.body, '正文')}>复制正文</Button>
@@ -344,6 +422,57 @@ function QaView({ qa }: { qa: QaReport }) {
   );
 }
 
+/** 分镜关键帧：美术节点优先用这里指定的图；也可以先在这里生图。 */
+function KeyframesCard({ output, locked }: { output: OutputView; locked: boolean }) {
+  const version = output.based_on_version ?? output.latest_finalized;
+  const [shots, setShots] = useState<{ beat: string; visual: string; seconds: number }[]>([]);
+  const { assets, load } = useOutputAssets(output.project_id, output.id);
+  const [shot, setShot] = useState<number | null>(null);
+  const styleId = (output.settings as { style_id?: string | null }).style_id;
+  useEffect(() => {
+    if (!version) return;
+    projectsApi
+      .version(output.project_id, version)
+      .then((v) => setShots(v.draft.shots || []))
+      .catch(() => setShots([]));
+  }, [output.project_id, version]);
+  if (!shots.length || output.kind !== 'video') return null;
+  return (
+    <Card title="分镜关键帧" extra={<small>没指定的镜头由美术出提示词，生成服务可用时自动生图</small>}>
+      <div className="cw-keyframes">
+        {shots.map((s, k) => {
+          const i = k + 1;
+          const a = assets.find((x) => x.role === 'keyframe' && (x.target as { shot?: number })?.shot === i);
+          return (
+            <button key={i} type="button" className="cw-keyframe" onClick={() => setShot(i)} disabled={locked} title={s.visual}>
+              {a?.item?.thumb ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={libraryFileUrl(a.library_item_id, 'small')} alt="" />
+              ) : (
+                <span className="cw-muted">生图</span>
+              )}
+              <small>
+                <b className="cw-num">{i}</b> {s.beat || s.visual.slice(0, 12)}
+              </small>
+            </button>
+          );
+        })}
+      </div>
+      {shot ? (
+        <ImageGenPanel
+          open
+          onClose={() => setShot(null)}
+          projectId={output.project_id}
+          outputId={output.id}
+          target={{ type: 'shot', shot }}
+          styleId={styleId}
+          onKept={() => void load()}
+        />
+      ) : null}
+    </Card>
+  );
+}
+
 function ProductionWorkspace({ output, onSaved }: { output: OutputView; onSaved: (o: OutputView) => void }) {
   const s = output.settings as { style_id?: string | null; presentation?: string | null; aspect_ratio?: string; bilingual?: boolean; executor?: string };
   const styles = useStyles();
@@ -445,6 +574,7 @@ function ProductionWorkspace({ output, onSaved }: { output: OutputView; onSaved:
           </Button>
         </div>
       </Card>
+      <KeyframesCard output={output} locked={active} />
       {run ? (
         <Card title="本次制作" extra={<small className="cw-num">#{run.run.id}</small>}>
           <RunStages detail={run} />

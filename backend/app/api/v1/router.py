@@ -11,6 +11,7 @@ from app.api.v1.daily_reports import router as daily_reports_router
 from app.api.v1.discover import router as discover_router
 from app.api.v1.favorites import router as favorites_router
 from app.api.v1.feedback import router as feedback_router
+from app.api.v1.generations import router as generations_router
 from app.api.v1.library import router as library_router
 from app.api.v1.llm_calls import router as llm_calls_router
 from app.api.v1.llm_evaluations import router as llm_evaluations_router
@@ -49,6 +50,7 @@ router.include_router(discover_router)
 router.include_router(library_router)
 router.include_router(runs_router)
 router.include_router(projects_router)
+router.include_router(generations_router)
 router.include_router(mcp_router)
 router.include_router(reports_router)
 router.include_router(llm_calls_router)
