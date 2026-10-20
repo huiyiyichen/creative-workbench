@@ -12,8 +12,7 @@ from app.models.agent_run import AgentRun, Artifact
 from app.models.content import ContentItem, ContentStatus
 from app.models.studio import StudioOutput
 from app.schemas.projects import ProjectCreate
-from app.services import pipeline_service
-from app.services import project_service as ps
+from app.services import pipeline_service, project_service as ps
 from app.services.flows import engine
 
 BODY = "第一段：智能体每天花 601 美元。\n\n第二段：任务长度每七个月翻倍。\n\n第三段：结论。"

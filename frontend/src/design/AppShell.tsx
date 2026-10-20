@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { CW_NAV, CW_NAV_BOTTOM, activeNavId, type CwNavItem } from './nav';
@@ -10,9 +10,10 @@ import { Moon, Sun } from 'lucide-react';
 import { cwAntdThemeFor } from './antd-theme';
 import { useCwTheme } from './theme';
 import { QuickNote } from './notes';
+import { TaskDrawer, useTaskCount } from './tasks';
 
 /** 已按调色台重做的路由；其余仍是旧页面，包在浅色容器里直到阶段 2 替换 */
-export const CW_ROUTES = ['/', '/sources', '/hot', '/reports', '/dossiers', '/items', '/settings', '/library', '/notes', '/runs', '/projects'];
+export const CW_ROUTES = ['/', '/sources', '/hot', '/reports', '/dossiers', '/items', '/settings', '/library', '/notes', '/runs', '/projects', '/tasks'];
 
 export function isCwRoute(pathname: string): boolean {
   return CW_ROUTES.some((p) => pathname === p || (p !== '/' && pathname.startsWith(`${p}/`)));
@@ -41,6 +42,19 @@ function ThemeToggle() {
     <button type="button" className="cw-nav-item cw-theme-toggle" onClick={() => setMode(next)} title={label} aria-label={label}>
       <Icon aria-hidden="true" />
       <span className="cw-nav-label">{next === 'light' ? '亮色' : '暗色'}</span>
+    </button>
+  );
+}
+
+/** 导航「任务」：显示进行中的数量，点开全局抽屉 */
+function TasksNav({ item, active, onOpen }: { item: CwNavItem; active: boolean; onOpen: () => void }) {
+  const Icon = item.icon;
+  const count = useTaskCount();
+  return (
+    <button type="button" className="cw-nav-item" aria-current={active ? 'page' : undefined} title={item.label} onClick={onOpen}>
+      <Icon aria-hidden="true" />
+      <span className="cw-nav-label">{item.label}</span>
+      {count ? <i className="cw-nav-count" aria-label={`${count} 个进行中`}>{count > 99 ? '99+' : count}</i> : null}
     </button>
   );
 }
@@ -78,6 +92,7 @@ export default function AppShell({
   const active = activeNavId(pathname);
   const cw = isCwRoute(pathname);
   const [mode] = useCwTheme();
+  const [tasksOpen, setTasksOpen] = useState(false);
 
   return (
     <div className="cw-app cw-shell">
@@ -85,9 +100,13 @@ export default function AppShell({
         <Mark />
         {CW_NAV.map((group) => (
           <div key={group.id} className="cw-nav-group">
-            {group.items.map((item) => (
-              <NavLink key={item.id} item={item} active={active === item.id} />
-            ))}
+            {group.items.map((item) =>
+              item.id === 'tasks' ? (
+                <TasksNav key={item.id} item={item} active={active === item.id} onOpen={() => setTasksOpen(true)} />
+              ) : (
+                <NavLink key={item.id} item={item} active={active === item.id} />
+              ),
+            )}
           </div>
         ))}
         <span className="cw-nav-spacer" />
@@ -110,6 +129,7 @@ export default function AppShell({
       </main>
       <ConfigProvider theme={cwAntdThemeFor(mode)} locale={zhCN}>
         <QuickNote />
+        <TaskDrawer open={tasksOpen} onClose={() => setTasksOpen(false)} />
       </ConfigProvider>
     </div>
   );

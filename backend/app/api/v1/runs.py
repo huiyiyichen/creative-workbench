@@ -103,6 +103,87 @@ async def stream_all(request: Request):
     return StreamingResponse(_sse(request, None, None), media_type="text/event-stream", headers=_SSE_HEADERS)
 
 
+# ── 任务中心（流程运行 + 生成 + 采集 + 分析）──
+
+
+@router.get("/tasks")
+async def list_tasks(
+    type: list[str] | None = Query(default=None),
+    status: str | None = None,
+    project: int | None = None,
+    days: int = Query(default=7, ge=1, le=90),
+    limit: int = Query(default=100, ge=1, le=300),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services import task_service
+
+    return await task_service.list_tasks(db, types=type, status=status, project_id=project, days=days, limit=limit)
+
+
+@router.get("/tasks/summary")
+async def tasks_summary(db: AsyncSession = Depends(get_db)):
+    from app.services import task_service
+
+    return await task_service.summary(db)
+
+
+@router.post("/tasks/{key}/retry")
+async def retry_task(key: str, db: AsyncSession = Depends(get_db)):
+    from app.services import task_service
+
+    try:
+        return await task_service.retry(db, key)
+    except engine.FlowError as exc:
+        raise _bad(exc) from exc
+
+
+@router.post("/tasks/{key}/stop")
+async def stop_task(key: str, db: AsyncSession = Depends(get_db)):
+    from app.services import task_service
+
+    try:
+        return await task_service.stop(db, key)
+    except engine.FlowError as exc:
+        raise _bad(exc) from exc
+
+
+@router.get("/tasks/stream")
+async def tasks_stream(request: Request):
+    """任务中心实时更新：进行中的任务有变化时推送摘要（3 秒检查一次），完成 / 失败时带上那一行。"""
+    from app.core.database import async_session
+    from app.services import task_service
+
+    async def gen():
+        last: dict[str, str] = {}
+        first = True
+        while not await request.is_disconnected():
+            async with async_session() as db:
+                data = await task_service.list_tasks(db, days=2, limit=60)
+            now = {r["key"]: r["status"] for r in data["items"]}
+            finished = [
+                r
+                for r in data["items"]
+                if r["key"] in last
+                and last[r["key"]] != r["status"]
+                and r["status"] in ("done", "failed", "stopped", "waiting")
+            ]
+            if first or now != last:
+                payload = {
+                    "active": data["active"],
+                    "counts": data["counts"],
+                    "items": [r for r in data["items"] if r["status"] in ("running", "waiting")][:20],
+                    "finished": finished,
+                }
+                yield f"event: tasks\ndata: {json.dumps(jsonable_encoder(payload), ensure_ascii=False)}\n\n"
+                first = False
+                last = now
+            else:
+                yield ": ping\n\n"
+            await asyncio.sleep(3)
+
+    return StreamingResponse(gen(), media_type="text/event-stream", headers=_SSE_HEADERS)
+
+
 @router.get("/runs/spans/{span_id}/payload")
 async def span_payload(span_id: str, db: AsyncSession = Depends(get_db)):
     data = await trace_service.span_payload(db, span_id)
