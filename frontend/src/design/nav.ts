@@ -56,7 +56,7 @@ export const CW_NAV: CwNavGroup[] = [
     id: 'output',
     items: [
       { id: 'works', label: '作品', href: '/works', icon: FileStack, pending: '阶段 5 上线' },
-      { id: 'tasks', label: '任务', href: '/stats/jobs', icon: ListChecks },
+      { id: 'tasks', label: '任务', href: '/runs', icon: ListChecks, match: ['/stats/jobs'] },
     ],
   },
 ];

@@ -114,3 +114,14 @@
 - 前端：条目详情底部「评论」折叠区（默认收起、按点赞排序、点要点高亮依据评论）。
 - 验证：tests/test_stage3_comments.py 5 项通过；alembic 升降级往返；ruff、分层检查、tsc、eslint 通过。
 - 未验证：真实平台评论接口（沙箱 B站易风控、无 YouTube Key）。
+
+### 阶段 3 · 流程引擎、运行记录、选题研究、工作台工具（2026-10-20）
+- 依赖：`langgraph==1.2.16`、`langgraph-checkpoint-postgres==3.2.0`（锁定）。
+- 表（迁移 f6b8d3e5a712）：`agent_runs`、`agent_steps`、`trace_spans`、`artifacts`、`artifact_links`、`agent_decisions`、`workbench_tokens`。模型调用沿用 `llm_call_logs`（run_id / step_id），调用树查询时并入。
+- `services/flows/`：YAML 模板（`templates/topic_research.yaml`）→ `spec.py` 校验 → `engine.py` 编译为 LangGraph（并行分支用 Send，关卡用 interrupt / Command(resume)，PostgreSQL checkpointer 同库；测试用内存）。预算（花费 / 步数 / 时间）超限暂停，可追加后继续；失败可从失败步骤继续（上游不重跑）；停止；「从这里重跑」建分叉运行，上游复用原产物；服务重启时运行中的流程改为暂停。checkpointer 建表在启动时、DuckDB ATTACH 之前完成（CREATE INDEX CONCURRENTLY 会等其他事务）。
+- 角色（`roles.py`）：研究员（按平台分工，只读工具循环，最多 N 次调用；结论必须带真实出处，否则丢弃）→ 汇总（引用条目编号，来源链到分支简报条目）→ 策划（3 个方向卡，引用简报条目）→〔选方向〕关卡（可关闭）。
+- `trace_service.py`：步骤、调用（载荷脱敏压缩存 data/traces）、产物与来源、人工决定、运行详情、调用树、节点详情（含渲染后的提示词）、溯源（向上到采集内容 / 灵感库 / 网页，向下被谁使用）。`run_events.py` 进程内事件总线；`/runs/{id}/stream` SSE 先发快照再推事件。导出 JSON / Markdown。
+- 工作台工具第一批（`workbench_tools.py`）：search_library、search_content、read_content（原文 / 字幕 / 评论）、platform_search、fetch_url、add_favorite、write_note；每次调用写调用树。MCP 端点 `POST /api/v1/mcp`（Streamable HTTP，JSON 响应；initialize / tools/list / tools/call / ping），按限定范围令牌鉴权（工具白名单、过期、吊销），调用标记 via=mcp。
+- 前端：`/runs`（发起选题研究、运行列表；导航「任务」指向这里，采集任务仍在 /stats/jobs）、`/runs/[id]`（节点图 @xyflow/react、时间线、调用树、节点详情、关卡选方向、追加预算 / 继续 / 停止 / 从这里重跑、导出）、`/settings/workbench`（工具清单、MCP 令牌与配置片段）；条目详情加「选题研究」入口。顺手修了 `design/graph.tsx` 渲染期写 ref 的 lint 错误。
+- 验证：tests/test_stage3_flows.py 10 项（关卡中断恢复、关卡关闭、预算暂停继续、失败继续、分叉复用、停止、调用树 / 节点详情 / 溯源、载荷脱敏与 MCP 令牌、重启恢复）；后端全量 pytest 通过；迁移升降级往返；dev 库用 PostgreSQL checkpointer 实跑（另一进程创建的运行在服务进程里从关卡恢复成功）；1280 / 1024 截图检查运行列表、节点图、节点详情、时间线、调用树、设置页；vitest 181、tsc、eslint（0 错误）通过。
+- 未验证：真实模型下的研究质量与花费；外部 agent（Claude Code / Codex）实际连 MCP；Obsidian 写入运行摘要（随项目在阶段 4 做）；「被项目用作来源」触发评论采集（阶段 4）。

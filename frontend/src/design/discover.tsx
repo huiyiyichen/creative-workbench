@@ -7,7 +7,7 @@
 
 import Link from 'next/link';
 import { Drawer, Input, Popover, Spin, message } from 'antd';
-import { Bookmark, ExternalLink, Maximize2, Sparkles, ThumbsDown, ThumbsUp, Unlink } from 'lucide-react';
+import { Bookmark, ExternalLink, Maximize2, Sparkles, ThumbsDown, ThumbsUp, Unlink, Workflow } from 'lucide-react';
 import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { Button, Cover, Sparkline } from '@/design/components';
 import { color } from '@/design/tokens';
@@ -411,6 +411,15 @@ export function ItemDetailView({ id, compact, onClose, onChanged }: { id: number
             <ExternalLink size={15} />
             原文
           </a>
+          <Link
+            className="cw-btn"
+            data-variant="ghost"
+            href={`/runs?topic=${encodeURIComponent(data.title)}&content=${id}`}
+            title="以这条内容为起点发起选题研究"
+          >
+            <Workflow size={15} />
+            选题研究
+          </Link>
           {onClose ? (
             <Button variant="ghost" onClick={onClose}>
               关闭

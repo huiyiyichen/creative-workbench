@@ -20,6 +20,7 @@ describe('主导航', () => {
     expect(activeNavId('/admin/sources')).toBe('sources');
     expect(activeNavId('/admin/settings')).toBe('settings');
     expect(activeNavId('/stats/jobs')).toBe('tasks');
+    expect(activeNavId('/runs/3')).toBe('tasks');
     expect(activeNavId('/admin/contents')).toBe('sources');
     expect(activeNavId('/works')).toBeNull();
   });

@@ -88,9 +88,12 @@ export function LibraryGraph({
 }) {
   const box = useRef<HTMLDivElement>(null);
   const onSelectRef = useRef(onSelect);
-  onSelectRef.current = onSelect;
   const selectedRef = useRef(selected);
-  selectedRef.current = selected;
+  // 渲染期间不写 ref（React 19 规则）：提交后同步给 sigma 回调读取
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+    selectedRef.current = selected;
+  });
   const refresh = useRef<(() => void) | null>(null);
 
   useEffect(() => {
