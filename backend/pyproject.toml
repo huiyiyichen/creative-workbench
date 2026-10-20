@@ -52,6 +52,9 @@ dependencies = [
     "tokenizers==0.23.2",
     "fonttools>=4.50,<5",
     "pyyaml>=6.0,<7",
+    # 流程引擎（改造方案 2.2）：图、并行、中断恢复、PostgreSQL checkpointer
+    "langgraph==1.2.16",
+    "langgraph-checkpoint-postgres==3.2.0",
 ]
 
 [dependency-groups]

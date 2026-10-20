@@ -372,6 +372,18 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning("Prompt registry sync skipped (non-fatal): %s", exc)
 
+    # 流程运行：重启前仍在运行的流程改为暂停，可从上次完成的步骤继续（改造方案 2.2）
+    try:
+        from app.services.flows.engine import get_checkpointer, recover_on_startup
+
+        # checkpointer 建表要在 DuckDB ATTACH 之前：它的 CREATE INDEX CONCURRENTLY 会等其他事务结束
+        await asyncio.wait_for(get_checkpointer(), 60)
+        recovered = await recover_on_startup()
+        if recovered:
+            logger.info("Paused %d flow runs interrupted by restart", recovered)
+    except Exception as exc:
+        logger.warning("Flow run recovery skipped (non-fatal): %s", exc)
+
     # Initialize DuckDB analytical layer (in-memory + ATTACH SQLite/Postgres)
     # 关键:analytics.available 是同步 @property,内部要执行 INSTALL/LOAD 扩展 +
     # ATTACH + 跨引擎 SELECT。这些都是 C 同步调用,直接在 event loop 上跑会冻死

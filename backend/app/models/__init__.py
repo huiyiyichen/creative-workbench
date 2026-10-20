@@ -1,3 +1,12 @@
+from app.models.agent_run import (
+    AgentDecision,
+    AgentRun,
+    AgentStep,
+    Artifact,
+    ArtifactLink,
+    TraceSpan,
+    WorkbenchToken,
+)
 from app.models.analysis import AiAnalysis
 from app.models.analysis_job import AnalysisJobRecord
 from app.models.app_setting import AppSetting
@@ -59,6 +68,13 @@ from app.models.user_interest_vector import UserInterestVector
 from app.models.webhook_delivery_log import WebhookDeliveryLog
 
 __all__ = [
+    "AgentDecision",
+    "AgentRun",
+    "AgentStep",
+    "Artifact",
+    "ArtifactLink",
+    "TraceSpan",
+    "WorkbenchToken",
     "StudioProject",
     "StudioRevision",
     "StudioAsset",

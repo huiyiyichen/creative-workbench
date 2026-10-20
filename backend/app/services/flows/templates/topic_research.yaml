@@ -1,0 +1,47 @@
+# 选题研究（改造方案 2.2）：研究员并行（按平台分工）→ 汇总 → 策划出方向 →〔选方向〕
+key: topic_research
+name: 选题研究
+version: 1
+description: 研究员按平台分头搜灵感库、采集内容和网页，汇总成研究简报（每条结论带出处），策划据此给出方向卡，由你选方向。
+inputs:
+  topic: {type: string, required: true, label: 选题}
+  platforms:
+    type: list
+    label: 研究范围
+    default: [library, bilibili, youtube, hn]
+    options: [library, bilibili, youtube, hn, reddit, github, web]
+  content_ids: {type: list, label: 起点内容, default: []}
+  notes: {type: string, label: 补充要求}
+budget:
+  cost: 2.0       # 元
+  seconds: 1200
+  steps: 30
+nodes:
+  - id: research
+    role: researcher
+    label: 研究员
+    executor: internal
+    parallel: platforms   # 每个平台一个分支
+    routing_group: default
+    params:
+      max_tool_calls: 6
+  - id: aggregate
+    role: aggregator
+    label: 汇总
+    after: [research]
+    routing_group: default
+  - id: plan
+    role: planner
+    label: 策划
+    after: [aggregate]
+    routing_group: default
+    params:
+      directions: 3
+  - id: choose
+    type: gate
+    label: 选方向
+    after: [plan]
+    gate:
+      kind: choose_direction
+      can_disable: true
+      enabled: true
