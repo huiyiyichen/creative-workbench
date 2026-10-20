@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Input, Modal, message } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/design/components';
+import { BodyEditor, type BodyEditorHandle } from '@/design/body-editor';
 import { MODE_LABEL, RunStages, apiError, useProject, useRunWatch } from '@/design/studio';
 import { AssistantPanel, ScriptTable, SourcesPanel, SuggestionReview, VersionsPanel } from '@/design/studio-draft';
 import {
@@ -14,7 +15,6 @@ import {
   fmtClock,
   joinNarration,
   outline,
-  paragraphIndexesInRange,
   readSeconds,
   shotTotal,
   splitNarration,
@@ -33,7 +33,7 @@ export default function DraftPage() {
   const [conflictToken, setConflictToken] = useState<string | null>(null);
   const [side, setSide] = useState<SideTab>('assist');
   const [scriptTab, setScriptTab] = useState<'narration' | 'table'>('table');
-  const [sel, setSel] = useState<{ start: number; end: number } | null>(null);
+  const [sel, setSel] = useState<number[]>([]);
   const [shotSel, setShotSel] = useState<number[]>([]);
   const [review, setReview] = useState<Suggestion | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -41,7 +41,7 @@ export default function DraftPage() {
   const [narration, setNarration] = useState('');
   const queueRef = useRef<AutosaveQueue<Draft> | null>(null);
   const composing = useRef(false);
-  const bodyRef = useRef<HTMLTextAreaElement | null>(null);
+  const bodyRef = useRef<BodyEditorHandle | null>(null);
   const pid = project?.id;
 
   const load = useCallback(async () => {
@@ -130,10 +130,7 @@ export default function DraftPage() {
 
   const scope: SuggestionScope = useMemo(() => {
     if (isVideo && shotSel.length && scriptTab === 'table') return { type: 'shots', indexes: shotSel };
-    if (!isVideo && draft && sel && sel.end > sel.start) {
-      const idx = paragraphIndexesInRange(draft.body, sel.start, sel.end);
-      if (idx.length) return { type: 'paragraphs', ids: idx.map(String) };
-    }
+    if (!isVideo && draft && sel.length) return { type: 'paragraphs', ids: sel.map(String) };
     return { type: 'all' };
   }, [isVideo, shotSel, scriptTab, draft, sel]);
 
@@ -191,9 +188,8 @@ export default function DraftPage() {
 
   const insertAtCursor = (text: string) => {
     if (!draft || locked) return;
-    const el = bodyRef.current;
-    const pos = el ? el.selectionEnd : draft.body.length;
-    change({ ...draft, body: draft.body.slice(0, pos) + text + draft.body.slice(pos) });
+    if (bodyRef.current) bodyRef.current.insert(text);
+    else change({ ...draft, body: `${draft.body}${text}` });
   };
 
   if (!project || !view || !draft) return <div className="cw-empty" style={{ padding: 24 }}>加载中…</div>;
@@ -263,11 +259,7 @@ export default function DraftPage() {
                     type="button"
                     className="cw-link-btn"
                     onClick={() => {
-                      const el = bodyRef.current;
-                      if (!el) return;
-                      const at = draft.body.indexOf(paras[h.index]);
-                      el.focus();
-                      el.setSelectionRange(at, at);
+                      bodyRef.current?.focusParagraph(h.index);
                     }}
                   >
                     {h.text}
@@ -324,22 +316,13 @@ export default function DraftPage() {
                   aria-label="梗概"
                 />
                 {!isVideo ? (
-                  <textarea
+                  <BodyEditor
                     ref={bodyRef}
-                    className="cw-paper-body"
                     value={draft.body}
                     readOnly={locked}
-                    placeholder="正文。空一行分段；「## 」开头是小标题；引用写 [1]。"
-                    onChange={(e) => change({ ...draft, body: e.target.value })}
-                    onSelect={(e) => setSel({ start: e.currentTarget.selectionStart, end: e.currentTarget.selectionEnd })}
-                    onCompositionStart={() => {
-                      composing.current = true;
-                    }}
-                    onCompositionEnd={(e) => {
-                      composing.current = false;
-                      change({ ...draft, body: e.currentTarget.value });
-                    }}
-                    aria-label="正文"
+                    placeholder="正文。回车分段；「## 」开头是小标题；引用写 [1]。"
+                    onChange={(body) => change({ ...draft, body })}
+                    onSelectParagraphs={(idx, hasRange) => setSel(hasRange ? idx : [])}
                   />
                 ) : null}
               </div>
