@@ -10,6 +10,7 @@ from app.api.v1.contents import router as contents_router
 from app.api.v1.costs import router as costs_router
 from app.api.v1.daily_reports import router as daily_reports_router
 from app.api.v1.discover import router as discover_router
+from app.api.v1.events import router as events_router
 from app.api.v1.favorites import router as favorites_router
 from app.api.v1.feedback import router as feedback_router
 from app.api.v1.feishu import router as feishu_router
@@ -51,6 +52,7 @@ router.include_router(sources_router)
 router.include_router(collection_router)
 router.include_router(search_router)
 router.include_router(costs_router)
+router.include_router(events_router)
 router.include_router(discover_router)
 router.include_router(library_router)
 router.include_router(runs_router)

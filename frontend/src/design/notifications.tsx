@@ -10,6 +10,7 @@ import { notificationsApi } from '@/lib/api';
 import { relativeTime } from '@/lib/collection';
 import { notifyColor, notifyHref } from '@/lib/notify';
 import type { NotificationItem } from '@/types';
+import { onEvent } from '@/lib/events';
 
 export function useUnreadCount(): [number, () => void] {
   const [count, setCount] = useState(0);
@@ -21,10 +22,12 @@ export function useUnreadCount(): [number, () => void] {
   }, []);
   useEffect(() => {
     load();
-    const t = setInterval(load, 60_000);
+    const off = onEvent<{ count: number }>('notifications', (d) => setCount(d.count));
+    const t = setInterval(load, 300_000);
     const onFocus = () => load();
     window.addEventListener('focus', onFocus);
     return () => {
+      off();
       clearInterval(t);
       window.removeEventListener('focus', onFocus);
     };

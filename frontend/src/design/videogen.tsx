@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button, Card } from './components';
 import { genApi, type GenJob, type GenService } from '@/lib/api/_generations';
 import type { ProjectAsset } from '@/lib/api/_projects';
+import { onTasksChanged } from '@/lib/events';
 
 type Shot = { beat: string; visual: string; seconds: number; prompt?: string };
 type Aspect = '16:9' | '9:16' | '1:1';
@@ -64,8 +65,12 @@ export function VideoClipsCard({
   const active = jobs.some((j) => j.status === 'queued' || j.status === 'running');
   useEffect(() => {
     if (!active) return;
-    const t = setInterval(() => void load(), 4000);
-    return () => clearInterval(t);
+    const off = onTasksChanged(() => void load());
+    const t = setInterval(() => void load(), 15_000);
+    return () => {
+      off();
+      clearInterval(t);
+    };
   }, [active, load]);
   if (!services || !services.length || !shots.length) return null;
   const service = services.find((s) => s.id === serviceId) || services[0];

@@ -1,5 +1,6 @@
 /** 任务中心（创作工作台设计 7）：流程运行、生成、采集、分析合成的一张任务表。 */
 import { BASE_URL, request } from './_core';
+import { onEvent } from '../events';
 
 export type TaskType = 'flow' | 'generation' | 'sync' | 'analysis' | 'feishu';
 export type TaskStatus = 'running' | 'waiting' | 'failed' | 'done' | 'stopped';
@@ -68,11 +69,14 @@ export const tasksApi = {
   },
 };
 
+/** 任务摘要推送（全局事件流的 tasks 主题，整页共用一条连接） */
 export function subscribeTasks(onPush: (p: TaskPush) => void): () => void {
-  if (typeof EventSource === 'undefined') return () => {};
-  const es = new EventSource(tasksApi.streamUrl(), { withCredentials: true });
-  es.addEventListener('tasks', (e) => onPush(JSON.parse((e as MessageEvent).data)));
-  return () => es.close();
+  let first = true;
+  return onEvent<TaskPush>('tasks', (p) => {
+    // 订阅时补发的是缓存快照：不带「刚结束」，免得重复弹通知
+    onPush(first ? { ...p, finished: [] } : p);
+    first = false;
+  });
 }
 
 export const TASK_STATUS_LABEL: Record<TaskStatus, string> = {

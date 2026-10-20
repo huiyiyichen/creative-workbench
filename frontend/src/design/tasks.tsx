@@ -8,6 +8,7 @@ import { Bot, Download, Image as ImageIcon, ScanSearch, Table2 } from 'lucide-re
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from './components';
 import { TASK_STATUS_LABEL, fmtDuration, groupTasks, subscribeTasks, tasksApi, type TaskStatus, type TaskType, type TaskView } from '@/lib/api/_tasks';
+import { onTasksChanged } from '@/lib/events';
 
 const TYPE_ICON: Record<TaskType, typeof Bot> = { flow: Bot, generation: ImageIcon, sync: Download, analysis: ScanSearch, feishu: Table2 };
 export const TASK_STATUS_COLOR: Record<TaskStatus, string> = {
@@ -83,7 +84,7 @@ export function useTaskCount(): number {
         .then((d) => setActive(d.active))
         .catch(() => undefined);
     void load();
-    const t = setInterval(load, 30_000);
+    const t = setInterval(load, 120_000);
     return () => clearInterval(t);
   }, []);
   useEffect(
@@ -116,8 +117,13 @@ export function TaskDrawer({ open, onClose }: { open: boolean; onClose: () => vo
   useEffect(() => {
     if (!open) return;
     load();
-    const t = setInterval(load, 4000);
-    return () => clearInterval(t);
+    // 任务有变化时由全局事件流触发刷新；30 秒兜底（事件流被代理缓冲时）
+    const off = onTasksChanged(load);
+    const t = setInterval(load, 30_000);
+    return () => {
+      off();
+      clearInterval(t);
+    };
   }, [open, load]);
   const groups = groupTasks(items || []);
   return (

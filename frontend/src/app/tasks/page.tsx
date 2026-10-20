@@ -8,6 +8,7 @@ import { CwPage, TopBar } from '@/design/components';
 import { TaskRow } from '@/design/tasks';
 import { projectsApi, type ProjectSummary } from '@/lib/api/_projects';
 import { TASK_STATUS_LABEL, TASK_TYPE_LABEL, tasksApi, type TaskList, type TaskStatus, type TaskType } from '@/lib/api/_tasks';
+import { onTasksChanged } from '@/lib/events';
 
 const STATUS_ORDER: TaskStatus[] = ['running', 'waiting', 'failed', 'done', 'stopped'];
 
@@ -26,8 +27,12 @@ export default function TasksPage() {
   }, [types, status, project, days]);
   useEffect(() => {
     load();
-    const t = setInterval(load, 5000);
-    return () => clearInterval(t);
+    const off = onTasksChanged(load);
+    const t = setInterval(load, 30_000);
+    return () => {
+      off();
+      clearInterval(t);
+    };
   }, [load]);
   useEffect(() => {
     projectsApi

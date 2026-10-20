@@ -150,39 +150,10 @@ async def stop_task(key: str, db: AsyncSession = Depends(get_db)):
 
 @router.get("/tasks/stream")
 async def tasks_stream(request: Request):
-    """任务中心实时更新：进行中的任务有变化时推送摘要（3 秒检查一次），完成 / 失败时带上那一行。"""
-    from app.core.database import async_session
-    from app.services import task_service
+    """任务中心实时更新（兼容旧入口；数据来自全局事件流的 tasks 主题）。"""
+    from app.api.v1.events import hub_stream
 
-    async def gen():
-        last: dict[str, str] = {}
-        first = True
-        while not await request.is_disconnected():
-            async with async_session() as db:
-                data = await task_service.list_tasks(db, days=2, limit=60)
-            now = {r["key"]: r["status"] for r in data["items"]}
-            finished = [
-                r
-                for r in data["items"]
-                if r["key"] in last
-                and last[r["key"]] != r["status"]
-                and r["status"] in ("done", "failed", "stopped", "waiting")
-            ]
-            if first or now != last:
-                payload = {
-                    "active": data["active"],
-                    "counts": data["counts"],
-                    "items": [r for r in data["items"] if r["status"] in ("running", "waiting")][:20],
-                    "finished": finished,
-                }
-                yield f"event: tasks\ndata: {json.dumps(jsonable_encoder(payload), ensure_ascii=False)}\n\n"
-                first = False
-                last = now
-            else:
-                yield ": ping\n\n"
-            await asyncio.sleep(3)
-
-    return StreamingResponse(gen(), media_type="text/event-stream", headers=_SSE_HEADERS)
+    return StreamingResponse(hub_stream(request, None, {"tasks"}), media_type="text/event-stream", headers=_SSE_HEADERS)
 
 
 @router.get("/runs/spans/{span_id}/payload")

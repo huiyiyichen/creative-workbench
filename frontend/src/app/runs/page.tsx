@@ -9,6 +9,7 @@ import { Suspense, useCallback, useEffect, useState } from 'react';
 import { Button, Card, CwPage, Segmented, TopBar } from '@/design/components';
 import { BRANCH_LABEL, STATUS_COLOR, STATUS_LABEL, fmtCost, fmtMs } from '@/design/runs';
 import { runsApi, type FlowCatalogItem, type RunView } from '@/lib/api/_runs';
+import { onTasksChanged } from '@/lib/events';
 
 const FILTERS = [
   { value: '', label: '全部' },
@@ -113,8 +114,12 @@ function RunsInner() {
   }, []);
   useEffect(() => {
     load();
-    const t = window.setInterval(load, 5000);
-    return () => window.clearInterval(t);
+    const off = onTasksChanged(load);
+    const t = window.setInterval(load, 30_000);
+    return () => {
+      off();
+      window.clearInterval(t);
+    };
   }, [load]);
 
   const research = flows.find((f) => f.key === 'topic_research');
