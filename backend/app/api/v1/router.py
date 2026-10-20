@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from app.api.v1.admin_prompts import router as admin_prompts_router
 from app.api.v1.analyses import router as analyses_router
 from app.api.v1.auth import router as auth_router
+from app.api.v1.backups import router as backups_router
 from app.api.v1.categories import router as categories_router
 from app.api.v1.collection import router as collection_router
 from app.api.v1.content_events import router as content_events_router
@@ -57,6 +58,7 @@ router.include_router(costs_router)
 router.include_router(events_router)
 router.include_router(publishing_router)
 router.include_router(wechat_router)
+router.include_router(backups_router)
 router.include_router(discover_router)
 router.include_router(library_router)
 router.include_router(runs_router)

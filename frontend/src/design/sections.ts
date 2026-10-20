@@ -27,6 +27,7 @@ export const SETTINGS_TABS: SectionTab[] = [
   { href: '/settings/library', label: '灵感库' },
   { href: '/settings/workbench', label: '工作台工具' },
   { href: '/settings/notify', label: '通知' },
+  { href: '/settings/backup', label: '备份' },
   { href: '/admin/prompts', label: 'Prompt' },
   { href: '/settings/scoring', label: '评分说明' },
   { href: '/admin/settings', label: '系统' },

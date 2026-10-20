@@ -1007,6 +1007,23 @@ def start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # 每周日 03:30 自动备份（数据库 + 素材目录，保留最近 10 份）
+    async def _weekly_backup() -> None:
+        from app.services import backup_service
+
+        try:
+            await backup_service.run_backup(backup_service.new_name())
+        except Exception:
+            logger.warning("weekly backup failed", exc_info=True)
+
+    scheduler.add_job(
+        _weekly_backup,
+        trigger=CronTrigger(day_of_week="sun", hour=3, minute=30),
+        id="weekly_backup",
+        name="每周自动备份",
+        replace_existing=True,
+    )
+
     # 指标阈值告警：每 2 分钟检查一次关键指标
     async def _check_metrics_alerts() -> None:
         try:
