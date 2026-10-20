@@ -18,6 +18,7 @@ import { inWorks, projectsApi, type Delivery, type OutputView } from '@/lib/api/
 import { PLATFORM_LIMITS, fmtClock, platformIssues, qaMark, stripTags, textLen } from '@/lib/projects';
 import { useOutputs } from '../_ctx';
 import { confirmAction } from '@/design/feedback';
+import { PublishPanel } from '@/design/publishing';
 
 async function copy(text: string, what: string) {
   try {
@@ -251,6 +252,7 @@ function PlatformWorkspace({ output, onSaved }: { output: OutputView; onSaved: (
             </Button>
           </div>
         </label>
+        <PublishPanel key={`${output.id}:${output.status}`} outputId={output.id} published={output.status === 'published'} settings={output.settings} />
       </div>
       <div className="cw-platform-preview" aria-label="平台预览">
         {output.kind === 'xhs' ? (

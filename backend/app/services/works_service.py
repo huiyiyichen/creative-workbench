@@ -113,6 +113,8 @@ async def list_works(
                 "preview_path": media["preview_path"] if media else None,
                 "download_path": media["download_path"] if media else None,
                 "published_url": o.published_url,
+                "schedule": (o.settings or {}).get("schedule"),
+                "metrics": ((o.settings or {}).get("metrics") or {}).get("latest") or {},
                 "manual": (o.settings or {}).get("in_works") is True,
                 "href": f"/projects/{o.project_id}/outputs/{o.id}",
                 "updated_at": ps._iso(o.updated_at),

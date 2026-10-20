@@ -971,6 +971,42 @@ def start_scheduler() -> None:
         replace_existing=True,
     )
 
+    # 发布排期提醒（10 分钟）与发布后数据回收（30 分钟，按发布时长决定每件作品多久抓一次）
+    async def _publishing_tick() -> None:
+        from app.core.database import async_session
+        from app.services import publishing_service
+
+        try:
+            async with async_session() as db:
+                await publishing_service.remind_due(db)
+        except Exception:
+            logger.warning("publishing reminder failed", exc_info=True)
+
+    async def _work_metrics_tick() -> None:
+        from app.core.database import async_session
+        from app.services import publishing_service
+
+        try:
+            async with async_session() as db:
+                await publishing_service.refresh_due(db)
+        except Exception:
+            logger.warning("work metrics refresh failed", exc_info=True)
+
+    scheduler.add_job(
+        _publishing_tick,
+        trigger=IntervalTrigger(minutes=10),
+        id="publishing_remind",
+        name="发布排期提醒",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        _work_metrics_tick,
+        trigger=IntervalTrigger(minutes=30),
+        id="work_metrics",
+        name="作品数据回收",
+        replace_existing=True,
+    )
+
     # 指标阈值告警：每 2 分钟检查一次关键指标
     async def _check_metrics_alerts() -> None:
         try:

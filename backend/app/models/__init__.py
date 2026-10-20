@@ -62,6 +62,7 @@ from app.models.project import (
     ProjectSource,
     ProjectSuggestion,
     ProjectUpload,
+    WorkMetricObservation,
 )
 from app.models.prompt_registry import PromptRegistry
 from app.models.ranking_eval import EvalSurface, RankingEvalSnapshot
@@ -83,6 +84,7 @@ __all__ = [
     "ProjectSource",
     "ProjectSuggestion",
     "ProjectOutput",
+    "WorkMetricObservation",
     "AgentDecision",
     "AgentRun",
     "AgentStep",

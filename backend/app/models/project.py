@@ -135,3 +135,15 @@ class ProjectAsset(Base):
     role: Mapped[str] = mapped_column(String(16), default="moodboard")
     target: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     added_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
+
+
+class WorkMetricObservation(Base):
+    """发布后的数据回收：一次回抓一行（播放、点赞、评论……），用于看哪类作品效果好。"""
+
+    __tablename__ = "work_metric_observations"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    output_id: Mapped[int] = mapped_column(ForeignKey("studio_outputs.id", ondelete="CASCADE"), index=True)
+    metric: Mapped[str] = mapped_column(String(20))
+    value: Mapped[float] = mapped_column()
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC), index=True)

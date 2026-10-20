@@ -1,4 +1,5 @@
 /** 创作工作台（阶段 4）：项目、来源、设定、文稿工作副本、版本、AI 建议、产出物、素材。 */
+import type { PublishSchedule } from './_publishing';
 import { BASE_URL, request } from './_core';
 
 export type ProjectMode = 'article' | 'video_prompt' | 'animation_video' | 'music_video';
@@ -268,6 +269,8 @@ export interface WorkItem {
   preview_path: string | null;
   download_path: string | null;
   published_url: string | null;
+  schedule?: PublishSchedule | null;
+  metrics?: Record<string, number>;
   manual: boolean;
   href: string;
   updated_at: string | null;
