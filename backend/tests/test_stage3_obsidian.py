@@ -196,3 +196,32 @@ async def test_graph_global_and_local(db):
     assert all(n["type"] == "item" for n in only_items["nodes"])
     with pytest.raises(ValueError):
         library_graph.parse_key("bad:1")
+
+
+@pytest.mark.asyncio
+async def test_graph_similar_edges_from_vectors(db):
+    import numpy as np
+
+    from app.models.content import ContentItem, ContentStatus
+    from app.models.content_observation import ContentEmbedding
+    from app.models.library import LibraryItem
+    from app.services import embeddings
+    from app.services.library_graph import build_graph
+
+    vecs = [np.array([1, 0, 0], np.float32), np.array([0.95, 0.1, 0], np.float32), np.array([0, 0, 1], np.float32)]
+    items = []
+    for i, v in enumerate(vecs):
+        c = ContentItem(
+            title=f"内容{i}", url=f"https://ex.com/sim{i}", status=ContentStatus.PENDING, crawled_at=datetime.now(UTC)
+        )
+        db.add(c)
+        await db.flush()
+        db.add(ContentEmbedding(content_id=c.id, model=embeddings.MODEL_NAME, vector=embeddings.to_bytes(v)))
+        li = LibraryItem(kind="article", title=f"收藏{i}", content_id=c.id)
+        db.add(li)
+        await db.flush()
+        items.append(li.id)
+    await db.commit()
+    g = await build_graph(db, types=["item"])
+    sim = {(e["source"], e["target"]) for e in g["edges"] if e["relation"] == "similar"}
+    assert sim == {tuple(sorted([f"item:{items[0]}", f"item:{items[1]}"]))}

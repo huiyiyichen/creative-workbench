@@ -155,6 +155,9 @@ async def build_graph(
             chain(events, "same_event")
         chain(authors, "same_author")
         chain(tags, "same_tag")
+        if by_content:
+            for a, b in await _similar_pairs(db, by_content):
+                add(_key("item", a), _key("item", b), "similar")
 
     edge_list = [{"source": a, "target": b, "relation": r} for (a, b), r in edges.items()]
 
@@ -188,3 +191,45 @@ async def build_graph(
         degree[e["target"]] += 1
     out_nodes = [{**v, "degree": degree[k]} for k, v in nodes.items()]
     return {"nodes": out_nodes, "edges": edge_list, "center": center}
+
+
+SIMILAR_MIN = 0.78
+SIMILAR_TOP = 3
+
+
+async def _similar_pairs(db: AsyncSession, by_content: dict[int, int]) -> list[tuple[int, int]]:
+    """语义相似（6.7）：收藏条目对应内容的本地向量，余弦 ≥ 阈值的每条取最相近的前 3 条。"""
+    import numpy as np
+
+    from app.models.content_observation import ContentEmbedding
+    from app.services import embeddings
+
+    rows = (
+        await db.execute(
+            select(ContentEmbedding.content_id, ContentEmbedding.vector).where(
+                ContentEmbedding.content_id.in_(list(by_content)), ContentEmbedding.model == embeddings.MODEL_NAME
+            )
+        )
+    ).all()
+    seen: set[int] = set()
+    ids: list[int] = []
+    vecs = []
+    for cid, raw in rows:
+        if cid in seen:
+            continue
+        seen.add(cid)
+        ids.append(by_content[cid])
+        vecs.append(embeddings.from_bytes(raw))
+    if len(ids) < 2:
+        return []
+    mat = np.vstack(vecs).astype(np.float32)
+    norms = np.linalg.norm(mat, axis=1, keepdims=True)
+    mat = mat / np.where(norms == 0, 1, norms)
+    sims = mat @ mat.T
+    np.fill_diagonal(sims, -1)
+    pairs: list[tuple[int, int]] = []
+    for i in range(len(ids)):
+        for j in np.argsort(-sims[i])[:SIMILAR_TOP]:
+            if sims[i, j] >= SIMILAR_MIN:
+                pairs.append((ids[i], ids[int(j)]))
+    return pairs
