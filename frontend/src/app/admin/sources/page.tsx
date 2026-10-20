@@ -24,6 +24,7 @@ import { AddSourceModal, BatchImportModal, EditSourceModal } from './_modals';
 import { EvidenceProfileModal } from '@/components/EvidenceProfileModal';
 import { RSSHubManager, SourceListPanel } from './_panels';
 import { describeBatchResult, recomputeSelectionAfterBatch, runBatchToggle } from './_batch-utils';
+import { confirmAction } from '@/design/feedback';
 
 // ─── Page Component ───
 
@@ -219,7 +220,7 @@ export default function SourcesPage() {
 
   // ─── Delete instance ───
   const deleteInstance = async (url: string) => {
-    if (!confirm(`删除实例 ${url}？`)) return;
+    if (!(await confirmAction({ title: `删除实例 ${url}？`, danger: true }))) return;
     const prev = rsshubInstances;
     setRsshubInstances((prev) => prev.filter((i) => i.url !== url));
     try {
@@ -484,7 +485,7 @@ export default function SourcesPage() {
 
   // ─── Delete source ───
   const handleDelete = async (id: number) => {
-    if (!confirm('确定要删除此信源吗？')) return;
+    if (!(await confirmAction({ title: '删除这个信源？', danger: true }))) return;
     try {
       setDeletingIds((prev) => new Set(prev).add(id));
       await sourcesApi.delete(id);

@@ -28,6 +28,7 @@ import { Button, Panel, Toolbar, cx } from '@/components/ui';
 import { StatusPill, Surface } from './_components';
 import { modelsApi } from '@/lib/api';
 import type { EvalResult, LlmModelItem } from '@/lib/api';
+import { toast } from '@/design/feedback';
 
 export function EvaluateTab({ models }: { models: LlmModelItem[] }) {
   const enabledModels = useMemo(() => models.filter((m) => m.enabled), [models]);
@@ -57,7 +58,7 @@ export function EvaluateTab({ models }: { models: LlmModelItem[] }) {
 
   const handleRun = async () => {
     if (selected.size < 2) {
-      alert('至少选择 2 个模型进行对比');
+      toast.warning('至少选择 2 个模型进行对比');
       return;
     }
     setRunning(true);
@@ -70,7 +71,7 @@ export function EvaluateTab({ models }: { models: LlmModelItem[] }) {
       const detail = await modelsApi.getEvalRun(res.eval_run_id);
       setResult(detail);
     } catch (e) {
-      alert('测评失败: ' + String(e));
+      toast.error(e, '测评失败');
     }
     setRunning(false);
   };
@@ -86,7 +87,7 @@ export function EvaluateTab({ models }: { models: LlmModelItem[] }) {
         });
       }
     } catch (e) {
-      alert('评分失败: ' + String(e));
+      toast.error(e, '评分失败');
     } finally {
       setScoringId(null);
     }

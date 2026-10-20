@@ -13,6 +13,7 @@ import { QuickNote } from './notes';
 import { TaskDrawer, useTaskCount } from './tasks';
 import { CommandPalette, OPEN_EVENT } from './command';
 import { NotificationDrawer, NotifyButton, useUnreadCount } from './notifications';
+import { useStaticTheme } from './feedback';
 
 /** 已按调色台重做的路由；其余旧页面（管理页、日报 / 周刊 / 月刊）包在 .cw-legacy 里，调色板换成 --cw-* 变量跟随主题 */
 export const CW_ROUTES = ['/', '/sources', '/hot', '/reports', '/dossiers', '/items', '/settings', '/library', '/notes', '/runs', '/projects', '/tasks', '/works', '/search'];
@@ -95,6 +96,7 @@ export default function AppShell({
   const [mode, setMode] = useCwTheme();
   const [tasksOpen, setTasksOpen] = useState(false);
   const [notifyOpen, setNotifyOpen] = useState(false);
+  useStaticTheme(mode);
   const [unread, reloadUnread] = useUnreadCount();
   const toggleTheme = useCallback(() => setMode(mode === 'light' ? 'dark' : 'light'), [mode, setMode]);
   const openTasks = useCallback(() => setTasksOpen(true), []);

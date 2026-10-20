@@ -32,6 +32,7 @@ import { modelsApi } from '@/lib/api';
 import type { LlmModelItem } from '@/lib/api';
 import { formatPerMillion } from './_model-eval-utils';
 import { ModelEditForm } from './ModelEditForm';
+import { confirmAction } from '@/design/feedback';
 
 export function ModelsTab({ models, onRefresh }: { models: LlmModelItem[]; onRefresh: () => void }) {
   const [editing, setEditing] = useState<LlmModelItem | null>(null);
@@ -56,7 +57,7 @@ export function ModelsTab({ models, onRefresh }: { models: LlmModelItem[]; onRef
   };
 
   const handleDelete = async (id: number) => {
-    if (!confirm('确定删除该模型配置？')) return;
+    if (!(await confirmAction({ title: '删除这个模型配置？', danger: true }))) return;
     await modelsApi.delete(id);
     onRefresh();
   };

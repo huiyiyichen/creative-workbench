@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Button, Card } from '@/design/components';
 import { genApi, type GenService } from '@/lib/api/_generations';
 import StudioVoice from '@/components/StudioVoice';
+import { confirmAction } from '@/design/feedback';
 
 interface FormState {
   id?: number;
@@ -136,7 +137,7 @@ export default function GenerationSettingsPage() {
   };
 
   const remove = async (s: GenService) => {
-    if (!window.confirm(`删除「${s.name}」？已生成的图不受影响。`)) return;
+    if (!(await confirmAction({ title: `删除「${s.name}」？`, content: '已生成的图不受影响。', danger: true }))) return;
     await genApi.deleteService(s.id).catch((err) => message.error(errText(err)));
     await load();
   };

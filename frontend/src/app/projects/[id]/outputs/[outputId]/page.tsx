@@ -17,6 +17,7 @@ import { libraryApi, type StyleEntry } from '@/lib/api/_library';
 import { inWorks, projectsApi, type Delivery, type OutputView } from '@/lib/api/_projects';
 import { PLATFORM_LIMITS, fmtClock, platformIssues, qaMark, stripTags, textLen } from '@/lib/projects';
 import { useOutputs } from '../_ctx';
+import { confirmAction } from '@/design/feedback';
 
 async function copy(text: string, what: string) {
   try {
@@ -661,7 +662,7 @@ function ProductionWorkspace({ output, onSaved }: { output: OutputView; onSaved:
     }
   };
   const stop = async () => {
-    if (!runId || !window.confirm('停止这次制作？')) return;
+    if (!runId || !(await confirmAction({ title: '停止这次制作？', okText: '停止' }))) return;
     await runsApi.stop(runId).catch((err) => message.error(apiError(err)));
     await refresh();
   };
@@ -796,7 +797,7 @@ export default function OutputWorkspace({ params }: { params: Promise<{ outputId
     void reload();
   };
   const remove = async () => {
-    if (!window.confirm(`删除「${output.title}」？`)) return;
+    if (!(await confirmAction({ title: `删除「${output.title}」？`, danger: true }))) return;
     await projectsApi.deleteOutput(output.id);
     await reload();
     window.location.assign(`/projects/${project.id}/outputs`);

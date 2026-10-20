@@ -304,3 +304,9 @@
 - Ctrl+K：输入即显示库内命中（每类 3 条），第一项「搜索『词』」进搜索页；`/` 打开面板。
 - 通知中心：导航底部铃铛（未读红点，60 秒 + 窗口聚焦刷新）、抽屉（只看未读、全部已读、删除，按类别 / 正文路径跳转，lib/notify.ts）。
 - 仍为 ilike，全文索引（pg_trgm）留待数据量上来再加。
+
+## 兜底页、统一提示、CI（2026-10-21）
+- app/error.tsx（检测后端是否可达：连不上给启动提示，连得上给错误信息与编号，重试 / 回今日）、global-error.tsx、not-found.tsx（去搜索 / 回今日）、loading.tsx（骨架，尊重 prefers-reduced-motion）；design/fallback.tsx。
+- design/feedback.tsx：静态 message / Modal / notification 统一套调色台主题（ConfigProvider.config holderRender，AppShell 调用）；confirmAction 替换全部 window.confirm（6 处），toast 替换 alert（3 处）；toastUndo 供删除类操作「先做后撤」。
+- 翻译（google_provider）分块共用一个 httpx 客户端并显式超时；其余 AsyncClient 复查后均已有 timeout。
+- CI：新增 frontend-lint（eslint --quiet，error 阻断）与 backend-tests（postgres:17 服务容器跑全量 pytest），push 触发加上 refactor/** 分支。

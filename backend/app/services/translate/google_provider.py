@@ -88,18 +88,19 @@ class GoogleTranslateProvider:
         semaphore = asyncio.Semaphore(_MAX_CONCURRENT)
         results: list[str] = [""] * len(chunks)
 
-        async def _translate_one(idx: int, chunk: str) -> None:
+        async def _translate_one(client: httpx.AsyncClient, idx: int, chunk: str) -> None:
             async with semaphore:
                 for attempt in range(2):
-                    async with httpx.AsyncClient() as client:
-                        result = await self._translate_chunk(chunk, client)
+                    result = await self._translate_chunk(chunk, client)
                     if result:
                         results[idx] = result
                         return
                     if attempt == 0:
                         await asyncio.sleep(0.5)
 
-        await asyncio.gather(*[_translate_one(i, c) for i, c in enumerate(chunks)])
+        # 所有分块共用一个客户端（连接复用），并显式给超时，免得卡住整条翻译
+        async with httpx.AsyncClient(timeout=httpx.Timeout(15.0, connect=5.0)) as client:
+            await asyncio.gather(*[_translate_one(client, i, c) for i, c in enumerate(chunks)])
 
         translated = "\n".join(r for r in results if r)
         return translated or None
