@@ -98,23 +98,18 @@ async def _call_model(messages: list[dict]) -> tuple[Any, dict]:
     )
 
 
-async def _base_spec(db: AsyncSession, project) -> tuple[dict, int | None]:
+async def base_spec(db: AsyncSession, project) -> tuple[dict, int | None]:
     if project.finalized_version:
         return await ps.finalized_spec(db, project), project.finalized_version
     return project.spec or {}, None
 
 
-async def generate_platform(db: AsyncSession, output_id: int) -> dict:
-    output = await ps.get_output(db, output_id)
-    if output.kind not in rules.PLATFORM_RULES:
-        raise ValidationError("这个产出物不是平台版本")
-    project = await ps.get_project(db, output.project_id)
-    spec, version = await _base_spec(db, project)
+def platform_messages(kind: str, spec: dict, sources: list[dict]) -> list[dict]:
+    """平台编辑的提示词（直接改写与平台改写流程共用）。"""
     draft = StudioDraft.model_validate(spec.get("draft") or {})
     if not draft.body.strip():
         raise ValidationError("文稿是空的，先写稿")
-    r = rules.PLATFORM_RULES[output.kind]
-    sources = await ps.list_sources(db, project.id)
+    r = rules.PLATFORM_RULES[kind]
     system = (
         f"你是{r['label']}编辑。把文稿改写成{r['label']}版本。规则：{r['guide']}"
         "事实只来自文稿和来源，不编造。"
@@ -130,43 +125,63 @@ async def generate_platform(db: AsyncSession, output_id: int) -> dict:
         },
         ensure_ascii=False,
     )
-    messages = [{"role": "system", "content": system}, {"role": "user", "content": user}]
-    meta: dict = {}
-    try:
-        reply, meta = await _call_model(messages)
-        if not isinstance(reply, dict) or not reply.get("body"):
-            raise ValueError("模型没有返回正文")
-        issues = rules.check(
-            output.kind,
-            {
-                **reply,
-                "body": sanitize_wechat_html(reply.get("body", "")) if output.kind == "wechat" else reply.get("body"),
-            },
-        )
-        if issues:  # 带着问题重写一次
-            messages += [
-                {"role": "assistant", "content": json.dumps(reply, ensure_ascii=False)},
-                {
-                    "role": "user",
-                    "content": "以下超出平台限制，请修改后重新返回完整 JSON："
-                    + "；".join(i["message"] for i in issues),
-                },
-            ]
-            retry, meta = await _call_model(messages)
-            if isinstance(retry, dict) and retry.get("body"):
-                reply = retry
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("platform rewrite failed: %s", str(exc)[:200])
-        raise AppException("平台改写失败，请检查模型配置或稍后重试", 503, {"code": "model_unavailable"}) from exc
-    content = normalize_platform(output.kind, reply)
-    if output.kind == "zhihu":
+    return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+
+
+def platform_issues(kind: str, reply: dict) -> list[dict]:
+    body = reply.get("body", "")
+    return rules.check(kind, {**reply, "body": sanitize_wechat_html(body) if kind == "wechat" else body})
+
+
+def retry_messages(messages: list[dict], reply: dict, issues: list[dict]) -> list[dict]:
+    return messages + [
+        {"role": "assistant", "content": json.dumps(reply, ensure_ascii=False)},
+        {
+            "role": "user",
+            "content": "以下超出平台限制，请修改后重新返回完整 JSON：" + "；".join(i["message"] for i in issues),
+        },
+    ]
+
+
+def finalize_platform(kind: str, reply: dict, sources: list[dict]) -> dict:
+    content = normalize_platform(kind, reply)
+    if kind == "zhihu":
         content["body"] = zhihu_with_sources(content["body"], sources)
-    content["model"] = (meta or {}).get("model")
+    return content
+
+
+async def save_platform(db: AsyncSession, output, content: dict, version: int | None) -> None:
     output.content = content
     output.based_on_version = version
     output.title = output.title or ps.OUTPUT_TITLES[output.kind]
     await db.commit()
     await _register_artifact(db, output, content, version)
+
+
+async def generate_platform(db: AsyncSession, output_id: int) -> dict:
+    output = await ps.get_output(db, output_id)
+    if output.kind not in rules.PLATFORM_RULES:
+        raise ValidationError("这个产出物不是平台版本")
+    project = await ps.get_project(db, output.project_id)
+    spec, version = await base_spec(db, project)
+    sources = await ps.list_sources(db, project.id)
+    messages = platform_messages(output.kind, spec, sources)
+    meta: dict = {}
+    try:
+        reply, meta = await _call_model(messages)
+        if not isinstance(reply, dict) or not reply.get("body"):
+            raise ValueError("模型没有返回正文")
+        issues = platform_issues(output.kind, reply)
+        if issues:  # 带着问题重写一次
+            retry, meta = await _call_model(retry_messages(messages, reply, issues))
+            if isinstance(retry, dict) and retry.get("body"):
+                reply = retry
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("platform rewrite failed: %s", str(exc)[:200])
+        raise AppException("平台改写失败，请检查模型配置或稍后重试", 503, {"code": "model_unavailable"}) from exc
+    content = finalize_platform(output.kind, reply, sources)
+    content["model"] = (meta or {}).get("model")
+    await save_platform(db, output, content, version)
     return await ps.output_view(db, output_id)
 
 

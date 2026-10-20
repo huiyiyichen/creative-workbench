@@ -1,0 +1,27 @@
+# 平台改写（改造方案 2.2）：平台编辑并行 → 规则校验
+key: platform_rewrite
+name: 平台改写
+version: 1
+description: 每个平台一位平台编辑，从定稿（未定稿时用当前文稿）改写；规则校验逐个检查字数、话题、封面等限制，超限截断并提示，写入项目的平台版本。
+inputs:
+  project_id: {type: string, required: true, label: 项目}
+  platforms:
+    type: list
+    label: 平台
+    default: [xhs, zhihu, wechat]
+    options: [xhs, zhihu, wechat]
+  output_ids: {type: dict, label: 写入哪个产出物, default: {}}
+budget:
+  cost: 1.0
+  seconds: 900
+  steps: 12
+nodes:
+  - id: edit
+    role: platform_editor
+    label: 平台编辑
+    parallel: platforms
+    routing_group: default
+  - id: check
+    role: platform_checker
+    label: 规则校验
+    after: [edit]

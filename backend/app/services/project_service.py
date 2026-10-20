@@ -247,6 +247,7 @@ async def project_view(db: AsyncSession, project_id: int) -> dict:
         "brief": copy_brief(spec.get("brief")),
         "idea": spec.get("idea") or {},
         "ai_draft": spec.get("ai_draft") or {},
+        "platform_rewrite": spec.get("platform_rewrite") or {},
         "sources": sources,
         "running_tasks": running,
         "draft_token": project.draft_token,

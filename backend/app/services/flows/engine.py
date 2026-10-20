@@ -558,6 +558,7 @@ async def _drive(run_id: int, command: Any) -> None:
 FINISH_HOOKS: dict[str, str] = {
     "video_production": "app.services.production_service:on_run_finished",
     "draft_writing": "app.services.draft_flow:on_run_finished",
+    "platform_rewrite": "app.services.platform_flow:on_run_finished",
 }
 
 
@@ -602,6 +603,8 @@ def _validate_inputs(spec: FlowSpec, inputs: dict[str, Any]) -> dict[str, Any]:
             opts = meta.get("options")
             if opts:
                 val = [v for v in val if v in opts]
+        elif meta.get("type") == "dict":
+            val = dict(val or {})
         elif val is not None:
             val = str(val).strip()
         if meta.get("required") and not val:
@@ -770,7 +773,9 @@ async def fork_run(
     inputs = {k: v for k, v in (parent.inputs or {}).items() if k not in ("_reuse", "_overrides")}
     inputs["_reuse"] = reuse
     clean_override = {
-        k: v for k, v in (override or {}).items() if k in ("prompt_extra", "routing_group", "executor") and str(v or "").strip()
+        k: v
+        for k, v in (override or {}).items()
+        if k in ("prompt_extra", "routing_group", "executor") and str(v or "").strip()
     }
     if clean_override:
         inputs["_overrides"] = {node_id: clean_override}

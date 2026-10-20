@@ -384,8 +384,11 @@ ROLE_IMPLS: dict[str, Any] = {"researcher": researcher, "aggregator": aggregator
 
 
 def _register_creative_roles() -> None:
-    from app.services.flows import roles_draft, roles_video
+    from app.services.flows import roles_draft, roles_platform, roles_video
 
     ROLE_IMPLS.update(roles_draft.ROLES)
+    ROLE_IMPLS.update(roles_platform.ROLES)
     ROLE_IMPLS.update(roles_video.ROLES)
+
+
 _register_creative_roles()

@@ -67,6 +67,7 @@ export interface ProjectView extends ProjectSummary {
   brief: CopyBrief;
   idea: IdeaState;
   ai_draft?: { run_id?: number; status?: string; reason?: string | null };
+  platform_rewrite?: { run_id?: number; status?: string; reason?: string | null; kinds?: string[] };
   sources: ProjectSource[];
   running_tasks: number;
   draft_token: string | null;
@@ -268,6 +269,10 @@ export const projectsApi = {
   /** AI 写初稿：启动成稿流程（写手 → 审校 → 写手修改），返回运行 id */
   aiDraft(id: number): Promise<{ run_id: number; status: string }> {
     return request(`/projects/${id}/draft/generate`, { method: 'POST', body: j({ mode: 'ai' }), timeoutMs: 60_000 });
+  },
+  /** 生成平台版本：启动平台改写流程（平台编辑按平台并行 → 规则校验），返回运行 id */
+  rewritePlatforms(id: number, kinds: string[], outputIds: Record<string, number> = {}): Promise<{ run_id: number; status: string }> {
+    return request(`/projects/${id}/platforms/rewrite`, { method: 'POST', body: j({ kinds, output_ids: outputIds }), timeoutMs: 60_000 });
   },
   /** 讲解视频 / MV：启动成片流程（分镜 → 美术 → 制作 → 质检） */
   render(oid: number): Promise<{ run_id: number; output: OutputView }> {

@@ -68,6 +68,13 @@ class DraftGenerate(BoundedModel):
     mode: Literal["blank", "template", "ai"] = "blank"
 
 
+class PlatformRewrite(BoundedModel):
+    kinds: list[Literal["xhs", "zhihu", "wechat"]] = Field(
+        default_factory=lambda: ["xhs", "zhihu", "wechat"], max_length=3
+    )
+    output_ids: dict[str, int] = Field(default_factory=dict)
+
+
 class VersionCreate(BoundedModel):
     reason: str = Field(default="manual", max_length=50)
 

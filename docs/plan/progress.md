@@ -206,3 +206,13 @@
 - 文稿纸面改用 `--cw-paper-bg / ink / sub / line / ph`：暗色下是深灰纸，亮色下是米白纸，修订样式也跟着走。cw.css 里写死的暗色值（hover 底、首卡渐变、主按钮字色、状态胶囊等）换成变量；手机预览、知乎预览等模拟外观保持白底。
 - 导航栏底部加切换按钮；存 localStorage `cw-theme`，`<head>` 内联脚本在渲染前设 `data-theme`，不闪。默认仍为暗色。
 - 1280 下两种主题截图验收了项目、选题、文稿、信源页。
+
+## 阶段 5（refactor/stage-5，从 stage-4 切出）
+
+### 阶段 5 · 第 ① 步：平台改写流程（2026-10-20）
+- 模板 `platform_rewrite.yaml`：平台编辑（按 `platforms` 并行，每个平台一个分支）→ 规则校验。输入支持 `dict` 类型（`output_ids`：指定写进哪个产出物）。
+- 角色 `roles_platform.py`：平台编辑沿用直接改写的提示词（`output_service.platform_messages`），超限时带问题重写一次，模型调用记入调用树；规则校验逐个平台规整（截断并提示、公众号 HTML 清洗、知乎补来源），写入平台版本产出物（指定的 → 最新一个未发布的同平台版本 → 新建），登记平台稿产物，产出校验报告（每个平台是否通过 / 截断 / 提示）。
+- `output_service` 拆出 `platform_messages / platform_issues / retry_messages / finalize_platform / save_platform`，单个产出物的「AI 从定稿改写」与流程共用。
+- `POST /projects/{id}/platforms/rewrite {kinds, output_ids}` → 运行 id；运行中重复点击复用；结束回调写回 `project.platform_rewrite`。
+- 前端：产出页左栏「AI 生成平台版本」（选平台弹窗 → 阶段条 → 结束后刷新列表），「查看过程」打开运行视图。
+- 验证：tests/test_stage5_platform_flow.py 3 项（并行分支、超限重写、写进指定产出物与新建、清洗与补来源、报告、复用运行、空稿 / 非法平台拒绝）。

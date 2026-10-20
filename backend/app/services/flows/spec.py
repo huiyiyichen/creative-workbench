@@ -22,6 +22,9 @@ ROLES = {
     "artist",
     "producer",
     "qa",
+    # 平台改写流程
+    "platform_editor",
+    "platform_checker",
 }
 GATE_KINDS = {"choose_direction", "accept"}
 EXECUTORS = {"internal", "deepseek_harness", "claude_code", "codex"}

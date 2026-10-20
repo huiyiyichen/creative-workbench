@@ -16,6 +16,7 @@ from app.schemas.projects import (
     FinalizeRequest,
     OutputCreate,
     OutputPatch,
+    PlatformRewrite,
     ProjectCreate,
     ProjectPatch,
     SourceAdd,
@@ -24,7 +25,7 @@ from app.schemas.projects import (
     SuggestionCreate,
     VersionCreate,
 )
-from app.services import output_service as out_svc, project_service as svc, suggestion_service as sug_svc
+from app.services import output_service as out_svc, platform_flow, project_service as svc, suggestion_service as sug_svc
 
 router = APIRouter(tags=["projects"], dependencies=[Depends(get_current_user)])
 
@@ -109,6 +110,12 @@ async def save_draft(project_id: int, request: DraftSave, db: AsyncSession = Dep
 @router.post("/projects/{project_id}/draft/generate")
 async def generate_draft(project_id: int, request: DraftGenerate, db: AsyncSession = Depends(get_db)):
     return await svc.generate_draft(db, project_id, request.mode)
+
+
+@router.post("/projects/{project_id}/platforms/rewrite")
+async def rewrite_platforms(project_id: int, request: PlatformRewrite, db: AsyncSession = Depends(get_db)):
+    """生成平台版本：启动平台改写流程（平台编辑按平台并行 → 规则校验），返回运行 id。"""
+    return await platform_flow.start_platform_rewrite(db, project_id, list(request.kinds), request.output_ids)
 
 
 @router.get("/projects/{project_id}/versions")
