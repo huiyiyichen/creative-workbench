@@ -46,7 +46,7 @@ export const CW_NAV: CwNavGroup[] = [
   },
   {
     id: 'inspire',
-    items: [{ id: 'library', label: '灵感库', href: '/favorites', icon: Bookmark }],
+    items: [{ id: 'library', label: '灵感库', href: '/library', icon: Bookmark, match: ['/notes', '/favorites'] }],
   },
   {
     id: 'create',

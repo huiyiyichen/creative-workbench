@@ -23,6 +23,7 @@ export const SETTINGS_TABS: SectionTab[] = [
   { href: '/settings/generation', label: '生成服务', pending: '阶段 4' },
   { href: '/settings/obsidian', label: 'Obsidian', pending: '阶段 3' },
   { href: '/settings/feishu', label: '飞书', pending: '阶段 6' },
+  { href: '/settings/library', label: '灵感库' },
   { href: '/settings/notify', label: '通知' },
   { href: '/admin/prompts', label: 'Prompt' },
   { href: '/settings/scoring', label: '评分说明' },

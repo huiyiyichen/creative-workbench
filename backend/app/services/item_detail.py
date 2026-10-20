@@ -377,6 +377,14 @@ async def on_favorited(content_id: int) -> None:
                 return
             await record_journey(db, content_id, "favorited", "收进灵感库")
             await db.commit()
+            try:  # 旧收藏入口同时写入新灵感库（阶段 3），同一条只收一次
+                from app.services.library import add_from_content
+
+                await add_from_content(db, content_id)
+                await db.commit()
+            except Exception:
+                await db.rollback()
+                log.warning("library mirror after favorite failed for %s", content_id, exc_info=True)
             if item.analysis_level != "full":
                 await analyze_now(db, content_id)
     except Exception:

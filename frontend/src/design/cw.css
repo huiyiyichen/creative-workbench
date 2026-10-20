@@ -931,3 +931,90 @@ a.cw-cal-cell:hover { border-color: var(--cw-cy); }
 .cw-seg button, .cw-seg a { white-space: nowrap; }
 .cw-feed-head { flex-wrap: wrap; row-gap: 8px; }
 .cw-feed-head h2, .cw-feed-head > span { white-space: nowrap; }
+
+/* ── 灵感库 / 随笔（阶段 3） ── */
+.cw-stack { display: flex; flex-direction: column; gap: 16px; }
+.cw-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.cw-ok { color: var(--cw-gr); }
+.cw-lib-add { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; }
+.cw-lib-add .ant-input-affix-wrapper { flex: 1; }
+.cw-color-pick { display: inline-flex; align-items: center; gap: 6px; color: var(--cw-dim); cursor: pointer; }
+.cw-color-pick input[type='color'] { width: 22px; height: 22px; padding: 0; border: 1px solid var(--cw-line); border-radius: 4px; background: none; }
+.cw-lib-layout { position: relative; }
+.cw-lib-layout > section { position: relative; min-height: 240px; }
+.cw-lib-drop {
+  position: absolute; inset: 0; z-index: 5; display: grid; place-items: center;
+  border: 2px dashed var(--cw-cy); border-radius: 10px; background: rgb(0 0 0 / 55%);
+  color: var(--cw-text); font-size: 16px; pointer-events: none;
+}
+.cw-masonry { columns: 5 200px; column-gap: 12px; }
+.cw-lib-card {
+  break-inside: avoid; margin: 0 0 12px; border: 1px solid var(--cw-grat); border-radius: 8px;
+  background: var(--cw-panel); overflow: hidden;
+}
+.cw-lib-card[data-selected='true'] { border-color: var(--cw-cy); box-shadow: 0 0 0 1px var(--cw-cy); }
+.cw-lib-media {
+  position: relative; display: block; width: 100%; min-height: 72px; padding: 0; border: 0;
+  background: var(--cw-deep); cursor: pointer; overflow: hidden;
+}
+.cw-lib-media img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.cw-lib-media:hover img { opacity: .92; }
+.cw-lib-check {
+  position: absolute; top: 8px; left: 8px; display: grid; place-items: center; width: 20px; height: 20px;
+  border: 1px solid var(--cw-wh); border-radius: 4px; background: rgb(0 0 0 / 50%); color: var(--cw-wh); font-size: 12px;
+}
+.cw-lib-card[data-selected='true'] .cw-lib-check { background: var(--cw-cy); border-color: var(--cw-cy); color: #000; }
+.cw-lib-card figcaption { display: flex; align-items: center; gap: 6px; padding: 7px 10px; min-width: 0; }
+.cw-lib-kind { flex: none; color: var(--c); font-size: 11px; }
+.cw-lib-title { flex: 1; min-width: 0; overflow: hidden; color: var(--cw-text); font-size: 13px; text-overflow: ellipsis; white-space: nowrap; }
+.cw-lib-lic { flex: none; padding: 0 5px; border: 1px solid var(--c); border-radius: 3px; color: var(--c); font-size: 11px; line-height: 16px; }
+.cw-lib-ph {
+  display: flex; align-items: center; justify-content: center; min-height: 96px; padding: 12px;
+  color: var(--cw-dim); font-size: 12px; text-align: left;
+}
+.cw-lib-ph[data-kind='text'] { align-items: flex-start; justify-content: flex-start; max-height: 180px; overflow: hidden; line-height: 1.6; white-space: pre-wrap; }
+.cw-lib-ph[data-kind='gen'] { font-size: 28px; color: var(--cw-faint); }
+.cw-lib-swatches { padding: 0; gap: 0; align-items: stretch; }
+.cw-lib-swatches > * { flex: 1; min-height: 96px; }
+.cw-lib-swatches-inline { display: inline-flex; gap: 3px; vertical-align: middle; }
+.cw-lib-swatches-inline > * { width: 16px; height: 16px; border-radius: 3px; border: 1px solid var(--cw-grat); }
+.cw-lib-wave { width: 100%; height: 48px; fill: var(--cw-mg); }
+.cw-lib-preview { display: grid; place-items: center; margin: 0 0 12px; border-radius: 8px; overflow: hidden; max-height: 60vh; }
+.cw-lib-preview img { max-width: 100%; max-height: 60vh; object-fit: contain; }
+.cw-lib-frame { margin: 0 0 12px; }
+.cw-lib-frame .cw-filters { margin-top: 8px; }
+.cw-lib-title-edit { font-size: 18px; font-weight: 600; }
+.cw-lib-body {
+  max-height: 320px; margin: 8px 0; padding: 10px 12px; overflow: auto; border-radius: 6px;
+  background: var(--cw-deep); color: var(--cw-text); font: 12px/1.6 var(--cw-num); white-space: pre-wrap; word-break: break-word;
+}
+
+.cw-note-composer { padding: 12px; border: 1px solid var(--cw-grat); border-radius: 8px; background: var(--cw-panel); }
+.cw-note-images { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.cw-note-images img { width: 96px; height: 72px; border-radius: 4px; object-fit: cover; border: 1px solid var(--cw-grat); }
+.cw-note-day { margin: 20px 0 0; }
+.cw-note-day > h3 { margin: 0 0 8px; color: var(--cw-dim); font-size: 13px; font-weight: 600; }
+.cw-note { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 10px; padding: 10px 0; border-top: 1px solid var(--cw-grat); }
+.cw-note[data-focus='true'] { background: var(--cw-raise); border-radius: 6px; }
+.cw-note-time { color: var(--cw-faint); font-size: 12px; padding-top: 2px; }
+.cw-note-body { min-width: 0; }
+.cw-note-text { margin: 0; white-space: pre-wrap; word-break: break-word; }
+.cw-note-text a { color: var(--cw-cy); }
+.cw-note-tag { padding: 0; border: 0; background: none; color: var(--cw-yl); cursor: pointer; font: inherit; }
+.cw-note-wiki { color: var(--cw-cy); border-bottom: 1px solid currentColor; text-decoration: none; }
+.cw-note-wiki[data-missing='true'] { color: var(--cw-dim); border-bottom-style: dashed; cursor: help; }
+.cw-quick-note {
+  position: fixed; right: 20px; bottom: 20px; z-index: 900; display: grid; place-items: center;
+  width: 40px; height: 40px; border: 1px solid var(--cw-line); border-radius: 50%;
+  background: var(--cw-panel); color: var(--cw-text); cursor: pointer; box-shadow: 0 4px 14px rgb(0 0 0 / 35%);
+}
+.cw-quick-note:hover { border-color: var(--cw-cy); color: var(--cw-cy); }
+.cw-style-list { display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 16px; align-items: start; }
+.cw-style-list nav { display: flex; flex-direction: column; gap: 2px; }
+.cw-style-list nav button {
+  display: flex; align-items: center; gap: 8px; padding: 7px 10px; border: 0; border-radius: 6px;
+  background: none; color: var(--cw-text); cursor: pointer; text-align: left; font: inherit;
+}
+.cw-style-list nav button[aria-current='true'] { background: var(--cw-raise); }
+.cw-style-list nav button small { margin-left: auto; color: var(--cw-faint); }
+@media (max-width: 1100px) { .cw-style-list { grid-template-columns: 200px minmax(0, 1fr); } }

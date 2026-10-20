@@ -38,6 +38,7 @@ const nextConfig = {
       { source: '/settings', destination: '/settings/scoring', permanent: false },
       { source: '/model-eval', destination: '/admin/model-eval', permanent: false },
       { source: '/contents', destination: '/admin/contents', permanent: false },
+      { source: '/favorites', destination: '/library', permanent: false },
     ];
   },
 
