@@ -295,10 +295,11 @@ async def today_signals(db: AsyncSession, *, now: datetime | None = None, range_
     tracks: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for c in rows:
         latest = {m: r[-1][1] for m, r in series.get(c.id, {}).items() if r}
-        tracks[c.platform or "web"].append(
+        tracks[platform_group(c.platform)].append(
             {
                 "id": c.id,
                 "title": c.title,
+                "source": c.platform,
                 "at": _aware(c.published_at or c.crawled_at),
                 "media_type": c.media_type or "article",
                 "heat": heat_of(latest),
@@ -356,6 +357,33 @@ async def watch_term_panel(db: AsyncSession, *, now: datetime | None = None, hou
     return out
 
 
+# 内容平台归组：真正的平台保留，其余（RSS 信源名、网站名）都算「web」——时间线和共振矩阵按平台看，不按信源看
+_PLATFORM_ALIASES = {
+    "bilibili": "bilibili",
+    "b站": "bilibili",
+    "douyin": "douyin",
+    "抖音": "douyin",
+    "xiaohongshu": "xiaohongshu",
+    "小红书": "xiaohongshu",
+    "youtube": "youtube",
+    "github": "github",
+    "hn": "hn",
+    "hacker news": "hn",
+    "hackernews": "hn",
+    "reddit": "reddit",
+    "zhihu": "zhihu",
+    "知乎": "zhihu",
+    "weibo": "weibo",
+    "微博": "weibo",
+    "x": "x",
+    "twitter": "x",
+}
+
+
+def platform_group(platform: str | None) -> str:
+    return _PLATFORM_ALIASES.get((platform or "").strip().lower(), "web")
+
+
 async def resonance_matrix(
     db: AsyncSession, *, now: datetime | None = None, hours: int = 48, min_platforms: int = 2, limit: int = 8
 ) -> dict[str, Any]:
@@ -375,7 +403,8 @@ async def resonance_matrix(
     ).all()
     by_event: dict[int, dict[str, int]] = defaultdict(dict)
     for gid, platform, n in rows:
-        by_event[gid][platform or "web"] = n
+        key = platform_group(platform)
+        by_event[gid][key] = by_event[gid].get(key, 0) + n
     picked = sorted(
         (g for g, p in by_event.items() if len(p) >= min_platforms),
         key=lambda g: (-len(by_event[g]), -sum(by_event[g].values())),

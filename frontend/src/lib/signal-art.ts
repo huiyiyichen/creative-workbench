@@ -83,11 +83,11 @@ export function artSpec(title: string, kind: ArtKind): ArtSpec {
       break;
     }
     case 'article': {
-      let y = 16;
+      let y = 26;
       for (let i = 0; i < 5; i += 1) {
         const w = i === 0 ? 70 + r() * 30 : 96 + r() * 44;
         spec.rects.push({ x: 12, y, w: Math.min(w, ART_W - 24), h: i === 0 ? 6 : 3, o: i === 0 ? 0.55 : 0.18 + r() * 0.12 });
-        y += i === 0 ? 14 : 9;
+        y += i === 0 ? 12 : 8;
       }
       spec.traces.push({ d: tracePath(seed, { base: 74, amp: 5, freq: 11, noise: 3 }), strong: true });
       break;

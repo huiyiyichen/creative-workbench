@@ -55,6 +55,7 @@ export interface TodayFeed {
 export interface SignalClip {
   id: number;
   title: string;
+  source?: string | null;
   at: string;
   media_type: string;
   heat: number | null;

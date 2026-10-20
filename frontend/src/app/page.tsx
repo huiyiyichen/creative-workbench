@@ -8,7 +8,7 @@
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
-import { Button, Card, CwPage, Segmented, StatusDot, TopBar } from '@/design/components';
+import { Button, Card, CwPage, Segmented, TopBar } from '@/design/components';
 import { DotMatrix, FeedItem, ItemDrawer, PlatformBars, ResonanceTable, SignalTimeline, platformName } from '@/design/discover';
 import { mediaColor } from '@/design/tokens';
 import { discoverApi, type TodayFeed, type TodaySide, type TodaySignals } from '@/lib/api/_discover';
@@ -17,6 +17,8 @@ import { Onboarding } from '@/design/onboarding';
 import { OPEN_EVENT } from '@/design/command';
 import { Search } from 'lucide-react';
 import { fmtDay } from '@/lib/time-cn';
+import { EmptyInstrument, Readout, Readouts, ScanSkeleton, StatusLamp } from '@/design/instrument';
+import { useSourcesAlert } from '@/design/useSourcesAlert';
 
 const LEGEND: { key: keyof typeof mediaColor; label: string }[] = [
   { key: 'article', label: '文章' },
@@ -95,6 +97,7 @@ function TodayPage() {
   const setView = (v: 'all' | 'picks') => router.replace(v === 'picks' ? '/?view=picks' : '/');
 
   const healthy = side?.collection;
+  const sourcesAlert = useSourcesAlert();
   const term = side?.watch_terms[0];
 
   const legend = useMemo(
@@ -115,11 +118,11 @@ function TodayPage() {
     <CwPage>
       <TopBar title="今日" sub={<span className="cw-num" suppressHydrationWarning>{todayLabel()}</span>}>
         {healthy ? (
-          <span className="cw-health">
-            <StatusDot tone={healthy.paused ? 'warn' : 'ok'} />
-            {healthy.paused ? '采集已暂停' : `今日新增 ${healthy.today_new.value ?? 0} 条`}
-            {healthy.missed.value ? ` · 漏采 ${healthy.missed.value}` : ''}
-          </span>
+          <StatusLamp
+            tone={healthy.paused ? 'warn' : sourcesAlert ? 'warn' : 'ok'}
+            href="/sources"
+            label={healthy.paused ? '采集已暂停' : sourcesAlert ? '有信源需要处理' : `采集正常${healthy.missed.value ? ` · 漏采 ${healthy.missed.value}` : ''}`}
+          />
         ) : null}
         <button type="button" className="cw-search" onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))}>
           <Search size={15} aria-hidden />
@@ -151,29 +154,37 @@ function TodayPage() {
         <section>
           <div className="cw-feed-head">
             <h2>信号流</h2>
-            <Segmented
-              label="视图"
-              value={view}
-              onChange={setView}
-              options={[
-                { value: 'all', label: '全部' },
-                { value: 'picks', label: '精选' },
-              ]}
-            />
             <Segmented label="形态" value={media} onChange={setMedia} options={MEDIA_FILTERS} />
+            <button type="button" className="cw-chip cw-toggle" aria-pressed={view === 'picks'} onClick={() => setView(view === 'picks' ? 'all' : 'picks')} title="近 7 天结论为「值得做」的内容">
+              <b />
+              只看精选
+            </button>
             <span className="cw-grow" />
-            <span className="cw-muted">{feed ? `${feed.total} 条` : ''}</span>
+            <span className="cw-muted cw-num">{feed ? `${feed.total} 条` : ''}</span>
           </div>
           {error ? <div className="cw-error">{error}</div> : null}
           {!feed ? (
-            <div className="cw-empty">加载中…</div>
+            <ScanSkeleton height={240} />
           ) : feed.items.length === 0 ? (
-            <div className="cw-empty">{view === 'picks' ? '近 7 天还没有「值得做」的内容' : '今天还没有采到内容'}</div>
+            view === 'picks' ? (
+              <EmptyInstrument kind="dark" title="近 7 天还没有「值得做」的内容" reason="分析给出「值得做」的结论后会出现在这里；也可以在条目里手动改结论。" actions={<Button onClick={() => setView('all')}>看全部</Button>} />
+            ) : (
+              <EmptyInstrument
+                kind="flat"
+                title="今天还没有采到内容"
+                reason="信源按计划定时采集；刚加的信源会在下一轮出现。"
+                actions={
+                  <Link className="cw-btn" data-variant="primary" href="/sources">
+                    去信源
+                  </Link>
+                }
+              />
+            )
           ) : view === 'picks' && feed.days ? (
             feed.days.map((d) => (
               <div key={d.date}>
                 <div className="cw-feed-day cw-num">{d.date}</div>
-                <ul className="cw-feed">
+                <ul className="cw-feed cw-stagger">
                   {d.items.map((item) => (
                     <FeedItem key={item.id} item={item} selected={item.id === openId} hovered={item.id === hoverId} onHover={setHoverId} onOpen={setOpenId} />
                   ))}
@@ -181,7 +192,7 @@ function TodayPage() {
               </div>
             ))
           ) : (
-            <ul className="cw-feed">
+            <ul className="cw-feed cw-stagger">
               {feed.items.map((item) => (
                 <FeedItem key={item.id} item={item} selected={item.id === openId} hovered={item.id === hoverId} onHover={setHoverId} onOpen={setOpenId} />
               ))}
@@ -199,11 +210,19 @@ function TodayPage() {
         <aside className="cw-today-side">
           <Card title="追踪词" extra={<small className="cw-muted">近 24 小时</small>}>
             {!side ? (
-              <div className="cw-muted">加载中…</div>
+              <ScanSkeleton height={120} />
             ) : side.watch_terms.length === 0 ? (
-              <div className="cw-muted">
-                还没有追踪词。<Link href="/hot?tab=terms">添加追踪词</Link>
-              </div>
+              <EmptyInstrument
+                compact
+                kind="dark"
+                title="还没有追踪词"
+                reason="追一个关键词，24 小时里每小时在各平台出现几次会点亮在这里。"
+                actions={
+                  <Link className="cw-btn" href="/hot?tab=terms">
+                    添加追踪词
+                  </Link>
+                }
+              />
             ) : (
               <>
                 {term ? (
@@ -232,26 +251,21 @@ function TodayPage() {
             )}
           </Card>
           <Card title="跨平台共振" extra={<small className="cw-muted">近 48 小时</small>}>
-            {side ? <ResonanceTable data={side.resonance} onOpen={setOpenId} /> : <div className="cw-muted">加载中…</div>}
+            {side ? <ResonanceTable data={side.resonance} onOpen={setOpenId} /> : <ScanSkeleton height={120} />}
           </Card>
           <Card title="采集" extra={<Link href="/sources" className="cw-muted">查看信源</Link>}>
             {healthy ? (
-              <div className="cw-mini-kpis">
-                <div>
-                  今日新增 <b className="cw-num">{healthy.today_new.value ?? '—'}</b>
-                </div>
-                <div>
-                  7 天成功率 <b className="cw-num">{healthy.success_rate_7d.value === null ? '—' : `${Math.round(healthy.success_rate_7d.value)}%`}</b>
-                </div>
-                <div>
-                  待分析 <b className="cw-num">{healthy.pending_analysis.value ?? '—'}</b>
-                </div>
-                <div>
-                  漏采 <b className="cw-num">{healthy.missed.value ?? '—'}</b>
-                </div>
-              </div>
+              <Readouts>
+                <Readout label="今日新增" value="—" count={healthy.today_new.value} />
+                <Readout
+                  label="7 天成功率"
+                  value={healthy.success_rate_7d.value === null ? '—' : `${Math.round(healthy.success_rate_7d.value)}%`}
+                  sub={`待分析 ${healthy.pending_analysis.value ?? '—'} · 漏采 ${healthy.missed.value ?? '—'}`}
+                  tone={healthy.missed.value ? 'warn' : undefined}
+                />
+              </Readouts>
             ) : (
-              <div className="cw-muted">加载中…</div>
+              <ScanSkeleton height={80} />
             )}
           </Card>
           {signals && signals.tracks.length ? (

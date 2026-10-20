@@ -6,7 +6,7 @@
 
 import { App as AntdApp, ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
-import { useState, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from 'react';
+import { useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from 'react';
 import { sparkPath } from '@/lib/collection';
 import { kindColor, SignalArt } from './signal-art';
 import { cwAntdThemeFor } from './antd-theme';
@@ -71,15 +71,24 @@ export function Segmented<T extends string>({
   label,
 }: {
   value: T;
-  options: { value: T; label: string }[];
+  options: { value: T; label: ReactNode; count?: number | null; tone?: 'bad' }[];
   onChange: (value: T) => void;
   label: string;
 }) {
+  // 选中底块是一块滑块，切换时平移过去（设计评审 C13）
+  const ref = useRef<HTMLDivElement>(null);
+  const [thumb, setThumb] = useState<{ x: number; w: number } | null>(null);
+  useLayoutEffect(() => {
+    const el = ref.current?.querySelector<HTMLElement>('[aria-pressed="true"]');
+    setThumb(el ? { x: el.offsetLeft, w: el.offsetWidth } : null);
+  }, [value, options.length]);
   return (
-    <div className="cw-seg" role="group" aria-label={label}>
+    <div className="cw-seg" role="group" aria-label={label} ref={ref} data-slide={thumb ? 'true' : undefined}>
+      {thumb ? <i className="cw-seg-thumb" style={{ transform: `translateX(${thumb.x}px)`, width: thumb.w }} aria-hidden /> : null}
       {options.map((opt) => (
         <button key={opt.value} type="button" aria-pressed={opt.value === value} onClick={() => onChange(opt.value)}>
           {opt.label}
+          {opt.count !== undefined && opt.count !== null ? <em data-tone={opt.tone}>{opt.count}</em> : null}
         </button>
       ))}
     </div>

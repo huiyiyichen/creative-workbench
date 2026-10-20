@@ -47,6 +47,7 @@ import {
 } from '@/lib/discover';
 import { clusterClips, timelineView } from '@/lib/timeline';
 import { fmtHM } from '@/lib/time-cn';
+import { EmptyInstrument } from './instrument';
 
 export function platformName(p: string | null | undefined): string {
   return PLATFORM_LABEL[p || 'web'] || p || '网页';
@@ -157,15 +158,32 @@ export function FeedItem({
           <span className="cw-plat">{platformName(item.platform)}</span>
           {item.author ? <span>{item.author}</span> : item.source_name ? <span>{item.source_name}</span> : null}
           <span>{relativeTime(item.published_at || item.crawled_at)}发布</span>
-          {item.event && item.event.members > 1 ? <span>同一事件 {item.event.members} 条</span> : null}
         </div>
-        <div className="cw-item-verdict">
-          <VerdictMark verdict={item.verdict} user={Boolean(item.user_verdict)} size="small" />
-          {item.key_points.length ? <span className="cw-num">{item.key_points.join(' · ')}</span> : null}
-          {item.analysis_level !== 'full' ? <span className="cw-muted">未分析</span> : null}
-        </div>
+        {item.verdict && item.verdict !== 'watch' ? (
+          <div className="cw-item-verdict">
+            <VerdictMark verdict={item.verdict} user={Boolean(item.user_verdict)} size="small" />
+            {item.key_points.length ? <span className="cw-num">{item.key_points.join(' · ')}</span> : null}
+          </div>
+        ) : item.key_points.length ? (
+          <div className="cw-item-verdict">
+            <span className="cw-num cw-muted">{item.key_points.join(' · ')}</span>
+          </div>
+        ) : null}
       </div>
-      <MetricScope metric={item.metric} accent={c} />
+      {item.metric.metric ? (
+        <MetricScope metric={item.metric} accent={c} />
+      ) : item.event && item.event.members > 1 ? (
+        <div className="cw-item-event" title={`同一事件在 ${item.event.members} 处出现`}>
+          <span aria-hidden>
+            {Array.from({ length: Math.min(8, item.event.members) }, (_, i) => (
+              <i key={i} />
+            ))}
+          </span>
+          <small>同一事件 {item.event.members} 条</small>
+        </div>
+      ) : (
+        <span aria-hidden />
+      )}
       <FeedActions item={item} />
     </li>
   );
@@ -363,7 +381,7 @@ export function SignalTimeline({
                           aria-label={clip.title}
                           onClick={() => onOpen(clip.id)}
                           onPointerEnter={(e) => {
-                            showTip(e.currentTarget, clip.title, `${platformName(track.platform)} · ${fmtHM(clip.at)} 发布`);
+                            showTip(e.currentTarget, clip.title, `${clip.source && track.platform === 'web' ? clip.source : platformName(track.platform)} · ${fmtHM(clip.at)} 发布`);
                             onHover?.(clip.id);
                           }}
                           onPointerLeave={() => {
@@ -441,7 +459,8 @@ export function PlatformBars({ dist, accent = color.mg }: { dist: Record<string,
 }
 
 export function ResonanceTable({ data, onOpen }: { data: ResonanceMatrix; onOpen: (id: number) => void }) {
-  if (!data.rows.length) return <div className="cw-muted">近 48 小时没有跨平台的事件</div>;
+  if (!data.rows.length)
+    return <EmptyInstrument compact kind="dark" title="近 48 小时没有跨平台的事件" reason="同一件事同时出现在两个以上平台（比如网页和 B站）时会在这里亮起。" />;
   // 侧栏只有 340px：按出现次数取前 4 个平台，其余省略，避免把侧栏撑出屏幕
   const hits = (p: string) => data.rows.filter((r) => r.cells[p]).length;
   const platforms = [...data.platforms].sort((a, b) => hits(b) - hits(a)).slice(0, 4);

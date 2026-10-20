@@ -7,10 +7,12 @@
 
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { InputNumber, Select, Switch, message } from 'antd';
+import { Select, Switch, message } from 'antd';
 import { Plus, RefreshCw, Star } from 'lucide-react';
 import { Suspense, useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { Button, Card, CwPage, Segmented, TopBar } from '@/design/components';
+import { EmptyInstrument, Instrument, ScanSkeleton, StatusLamp } from '@/design/instrument';
+import { PhaseChart } from '@/design/phase-chart';
 import { GapSpark, ItemDrawer, PlatformBars, StatusTag, VerdictMark, platformName } from '@/design/discover';
 import { color } from '@/design/tokens';
 import { motherTopicsApi } from '@/lib/api/_mother-topics';
@@ -29,6 +31,31 @@ const TABS: { id: Tab; label: string }[] = [
   { id: 'rising', label: '升温' },
   { id: 'terms', label: '追踪词' },
 ];
+
+const HOT_SOURCE_LABEL: Record<string, string> = {
+  baidu: '百度热搜',
+  bilibili: 'B站热门',
+  douban: '豆瓣',
+  douyin: '抖音热榜',
+  weibo: '微博热搜',
+  zhihu: '知乎热榜',
+  toutiao: '今日头条',
+  xiaohongshu: '小红书',
+  thepaper: '澎湃新闻',
+  '36kr': '36氪',
+  ithome: 'IT之家',
+  sspai: '少数派',
+  juejin: '掘金',
+  github: 'GitHub Trending',
+  hackernews: 'Hacker News',
+  producthunt: 'Product Hunt',
+  v2ex: 'V2EX',
+  xueqiu: '雪球',
+  wallstreetcn: '华尔街见闻',
+  cls: '财联社',
+  xiaoyuzhou: '小宇宙',
+};
+const HOT_CATEGORY_LABEL: Record<string, string> = { hot: '综合', tech: '科技', finance: '财经', podcast: '播客', news: '新闻', video: '视频', dev: '开发' };
 
 function errText(err: unknown): string {
   return err instanceof Error ? err.message : '请求失败';
@@ -64,7 +91,10 @@ function HotList() {
   }, [items]);
 
   const categories = useMemo(() => Array.from(new Set(sources.map((s) => s.category))), [sources]);
-  const label = (src: string) => sources.find((s) => s.source === src)?.display_name || src;
+  const label = (src: string) => {
+    const d = sources.find((s) => s.source === src)?.display_name;
+    return d && d !== src ? d : HOT_SOURCE_LABEL[src] || src;
+  };
   const synced = (src: string) => sources.find((s) => s.source === src)?.last_synced;
 
   const syncAll = async () => {
@@ -87,7 +117,7 @@ function HotList() {
           label="分类"
           value={category}
           onChange={setCategory}
-          options={[{ value: '', label: '全部' }, ...categories.map((c) => ({ value: c, label: c }))]}
+          options={[{ value: '', label: '全部' }, ...categories.map((c) => ({ value: c, label: HOT_CATEGORY_LABEL[c] || c }))]}
         />
         <span className="cw-grow" />
         <Button icon={<RefreshCw size={15} />} onClick={syncAll} disabled={syncing}>
@@ -95,26 +125,52 @@ function HotList() {
         </Button>
       </div>
       {!items ? (
-        <div className="cw-empty">加载中…</div>
+        <ScanSkeleton height={300} />
       ) : bySource.size === 0 ? (
-        <div className="cw-empty">还没有热榜数据，点「手动同步」抓一次</div>
+        <EmptyInstrument
+          kind="unplugged"
+          title="还没有热榜数据"
+          reason="热榜每小时从各平台抓一次；第一次可以手动同步。"
+          actions={
+            <Button variant="primary" icon={<RefreshCw size={15} />} onClick={syncAll} disabled={syncing}>
+              {syncing ? '同步中…' : '现在同步'}
+            </Button>
+          }
+        />
       ) : (
-        <div className="cw-hotlist">
-          {Array.from(bySource.entries()).map(([src, rows]) => (
-            <Card key={src} title={label(src)} extra={<small className="cw-num">{relativeTime(synced(src))}</small>}>
-              <ol>
-                {rows.slice(0, 15).map((r) => (
-                  <li key={r.id}>
-                    <span className="cw-rank cw-num">{r.rank}</span>
-                    <a href={r.url} target="_blank" rel="noreferrer" title={r.title}>
-                      {r.title}
-                    </a>
-                    <span className="cw-num cw-muted">{r.hot_value_raw || ''}</span>
-                  </li>
-                ))}
-              </ol>
-            </Card>
-          ))}
+        <div className="cw-hotgrid cw-stagger">
+          {Array.from(bySource.entries()).map(([src, rows]) => {
+            const top = Math.max(1, ...rows.slice(0, 15).map((r) => r.hot_value || 0));
+            return (
+              <Instrument
+                key={src}
+                className="cw-hotcol"
+                title={label(src)}
+                extra={
+                  <StatusLamp tone={synced(src) ? 'ok' : 'off'} label={<span className="cw-num">{synced(src) ? relativeTime(synced(src)) : '未同步'}</span>} />
+                }
+              >
+                <ol>
+                  {rows.slice(0, 15).map((r) => (
+                    <li key={r.id} data-top={r.rank <= 3 ? 'true' : undefined}>
+                      <b className="cw-num">{r.rank}</b>
+                      <a href={r.url} target="_blank" rel="noreferrer" title={r.title}>
+                        {r.title}
+                      </a>
+                      <small className="cw-num">{r.hot_value && r.hot_value_raw && !/^0(\.0+)?$/.test(r.hot_value_raw) ? r.hot_value_raw : ''}</small>
+                      {r.hot_value ? (
+                        <s
+                          style={{
+                            width: `${Math.max(2, (r.hot_value / top) * 100)}%`,
+                          }}
+                        />
+                      ) : null}
+                    </li>
+                  ))}
+                </ol>
+              </Instrument>
+            );
+          })}
         </div>
       )}
     </>
@@ -141,26 +197,41 @@ function Resonance() {
   return (
     <>
       <div className="cw-filters">
-        <span className="cw-muted">最低平台数</span>
-        <InputNumber min={2} max={8} value={min} onChange={(v) => setMin(Number(v) || 2)} size="small" />
-        <span className="cw-muted">同一事件在多个平台同时上榜</span>
+        <span className="cw-muted">同一事件同时上榜的平台数</span>
+        <Segmented
+          label="最低平台数"
+          value={String(min)}
+          onChange={(v) => setMin(Number(v))}
+          options={[2, 3, 4].map((n) => ({
+            value: String(n),
+            label: `≥ ${n}`,
+          }))}
+        />
       </div>
       {!clusters ? (
-        <div className="cw-empty">加载中…</div>
+        <ScanSkeleton height={240} />
       ) : clusters.length === 0 ? (
-        <div className="cw-empty">现在没有 {min} 个平台以上同时上榜的话题</div>
+        <EmptyInstrument
+          kind="dark"
+          title={`现在没有 ${min} 个平台以上同时上榜的话题`}
+          reason="各平台热榜里同一件事被归到一起后会出现在这里。"
+          actions={min > 2 ? <Button onClick={() => setMin(2)}>放宽到 2 个平台</Button> : undefined}
+        />
       ) : (
-        <ul className="cw-rows">
+        <ul className="cw-rows cw-stagger">
           {clusters.map((c) => (
-            <li key={c.topic} className="cw-rise" style={{ gridTemplateColumns: 'minmax(0,1.6fr) 90px minmax(0,2fr)' }}>
+            <li key={c.topic} className="cw-resrow">
               <div className="cw-rise-title">
                 <b>{c.topic}</b>
                 <small>{c.keywords.slice(0, 5).join(' · ')}</small>
               </div>
               <div>
-                <b className="cw-num" style={{ fontSize: 18 }}>{c.resonance}</b> <span className="cw-muted">平台</span>
+                <b className="cw-num" style={{ fontSize: 18 }}>
+                  {c.resonance}
+                </b>{' '}
+                <span className="cw-muted">平台</span>
               </div>
-              <div className="cw-rise-plats">
+              <div className="cw-res-plats">
                 {c.source_items.slice(0, 6).map((s, i) => (
                   <a key={i} href={s.url} target="_blank" rel="noreferrer" title={s.title}>
                     {s.source_label} <span className="cw-num">#{s.rank}</span>
@@ -190,6 +261,7 @@ function Rising({ onOpen }: { onOpen: (id: number) => void }) {
   const router = useRouter();
   const [status, setStatus] = useState<'' | TopicStatus>('');
   const [board, setBoard] = useState<RisingBoard | null>(null);
+  const [now] = useState(() => Date.now());
 
   const load = useCallback(() => {
     discoverApi
@@ -204,7 +276,10 @@ function Rising({ onOpen }: { onOpen: (id: number) => void }) {
 
   const follow = async (eventId: number | null, watchId: number | null) => {
     try {
-      const d = await discoverApi.follow({ event_id: eventId ?? undefined, watch_source_id: watchId ?? undefined });
+      const d = await discoverApi.follow({
+        event_id: eventId ?? undefined,
+        watch_source_id: watchId ?? undefined,
+      });
       message.success('已关注，进入专题');
       router.push(`/dossiers/${d.id}`);
     } catch (err) {
@@ -228,53 +303,96 @@ function Rising({ onOpen }: { onOpen: (id: number) => void }) {
         <span className="cw-muted">{board?.computed_at ? `每小时计算 · ${relativeTime(board.computed_at)}` : ''}</span>
       </div>
       {!board ? (
-        <div className="cw-empty">加载中…</div>
+        <ScanSkeleton height={280} />
       ) : board.items.length === 0 ? (
-        <div className="cw-empty">还没有话题信号。事件归并和追踪词采到内容后，每小时计算一次</div>
+        <EmptyInstrument
+          kind="flat"
+          title={status ? `现在没有「${STATUS_FILTERS.find((f) => f.value === status)?.label}」的话题` : '还没有话题信号'}
+          reason={`话题信号每小时计算一次${board.computed_at ? `，上次 ${relativeTime(board.computed_at)}` : ''}；一个话题至少要有两次观测才能判断升降。`}
+          actions={
+            <>
+              {status ? <Button onClick={() => setStatus('')}>看全部</Button> : null}
+              <Link className="cw-btn" data-variant="primary" href="/hot?tab=list">
+                看热榜
+              </Link>
+              <Link className="cw-link-btn" href="/hot?tab=terms">
+                添加追踪词
+              </Link>
+            </>
+          }
+        />
       ) : (
-        <ul className="cw-rows">
-          {board.items.map((t) => (
-            <li key={t.id} className="cw-rise">
-              <div className="cw-rise-title">
-                {t.dossier_id ? (
-                  <Link href={`/dossiers/${t.dossier_id}`}>
+        <>
+          <Instrument
+            title="热度相位"
+            legend={
+              <span className="cw-muted" style={{ fontSize: 12 }}>
+                横轴：出现多久 · 纵轴：最近的变化 · 圆点大小：条数
+              </span>
+            }
+          >
+            <PhaseChart
+              rows={board.items}
+              now={now}
+              active={status}
+              onPick={setStatus}
+              onOpen={(id) => {
+                const t = board.items.find((x) => x.id === id);
+                if (t?.representative) onOpen(t.representative.id);
+              }}
+            />
+          </Instrument>
+          <ul className="cw-rows cw-stagger" style={{ marginTop: 16 }}>
+            {board.items.map((t) => (
+              <li key={t.id} className="cw-rise">
+                <div className="cw-rise-title">
+                  {t.dossier_id ? (
+                    <Link href={`/dossiers/${t.dossier_id}`}>
+                      <b>{t.title}</b>
+                    </Link>
+                  ) : (
                     <b>{t.title}</b>
-                  </Link>
-                ) : (
-                  <b>{t.title}</b>
-                )}
-                <small>
-                  {t.kind === 'watch_term' ? '追踪词' : '事件'} · {t.content_count} 条 · {t.source_count ?? 0} 个信源
-                  {t.first_platform ? ` · 最先出现在${platformName(t.first_platform)}` : ''}
-                </small>
-              </div>
-              <GapSpark values={bucketSeries(t.series, 3)} label={`${t.title} 72 小时信号`} accent={t.status === 'cooling' ? color.bl : color.rd} />
-              <StatusTag status={t.status} />
-              <div className="cw-rise-rep">
-                <div className="cw-rise-plats">
-                  {topPlatforms(t.platforms, 4).map(([p, n]) => (
-                    <span key={p}>
-                      {platformName(p)} <b className="cw-num">{n}</b>
-                    </span>
-                  ))}
+                  )}
+                  <small>
+                    {t.kind === 'watch_term' ? '追踪词' : '事件'} · {t.content_count} 条 · {t.source_count ?? 0} 个信源
+                    {t.first_platform ? ` · 最先出现在${platformName(t.first_platform)}` : ''}
+                  </small>
                 </div>
-                {t.representative ? (
-                  <button type="button" className="cw-link-btn" onClick={() => onOpen(t.representative!.id)} title={t.representative.title}>
-                    {t.representative.title}
-                  </button>
-                ) : null}
-              </div>
-              <div style={{ display: 'flex', gap: 6, alignItems: 'center', justifyContent: 'flex-end' }}>
-                {t.representative ? <VerdictMark verdict={t.representative.verdict} size="small" /> : null}
-                {t.dossier_id ? null : (
-                  <Button variant="ghost" icon={<Star size={14} />} onClick={() => follow(t.event_id, t.watch_source_id)}>
-                    关注
-                  </Button>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
+                <GapSpark values={bucketSeries(t.series, 3)} label={`${t.title} 72 小时信号`} accent={t.status === 'cooling' ? color.bl : color.rd} />
+                <StatusTag status={t.status} />
+                <div className="cw-rise-rep">
+                  <div className="cw-rise-plats">
+                    {topPlatforms(t.platforms, 4).map(([p, n]) => (
+                      <span key={p}>
+                        {platformName(p)} <b className="cw-num">{n}</b>
+                      </span>
+                    ))}
+                  </div>
+                  {t.representative ? (
+                    <button type="button" className="cw-link-btn" onClick={() => onOpen(t.representative!.id)} title={t.representative.title}>
+                      {t.representative.title}
+                    </button>
+                  ) : null}
+                </div>
+                <div
+                  style={{
+                    display: 'flex',
+                    gap: 6,
+                    alignItems: 'center',
+                    justifyContent: 'flex-end',
+                  }}
+                >
+                  {t.representative ? <VerdictMark verdict={t.representative.verdict} size="small" /> : null}
+                  {t.dossier_id ? null : (
+                    <Button variant="ghost" icon={<Star size={14} />} onClick={() => follow(t.event_id, t.watch_source_id)}>
+                      关注
+                    </Button>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </>
   );
@@ -298,17 +416,31 @@ function WatchTerms() {
 
   useEffect(() => {
     load();
-    collectionApi.platforms().then((r) => setPlatforms(r.items)).catch(() => undefined);
-    motherTopicsApi.list(false, 'all').then(setPresets).catch(() => setPresets([]));
+    collectionApi
+      .platforms()
+      .then((r) => setPlatforms(r.items))
+      .catch(() => undefined);
+    motherTopicsApi
+      .list(false, 'all')
+      .then(setPresets)
+      .catch(() => setPresets([]));
   }, [load]);
 
   const existing = new Set((items || []).map((t) => t.term));
-  const presetWords = Array.from(new Set(presets.flatMap((p) => p.keywords))).filter((k) => !existing.has(k)).slice(0, 24);
+  const presetWords = Array.from(new Set(presets.flatMap((p) => p.keywords)))
+    .filter((k) => !existing.has(k))
+    .slice(0, 24);
 
   const addPreset = async (word: string) => {
     try {
       const rec = await collectionApi.recognize(word);
-      await collectionApi.createSource({ ...rec, kind: 'keyword', query: word, name: word, sync_now: false });
+      await collectionApi.createSource({
+        ...rec,
+        kind: 'keyword',
+        query: word,
+        name: word,
+        sync_now: false,
+      });
       message.success(`已添加追踪词「${word}」`);
       load();
     } catch (err) {
@@ -335,13 +467,29 @@ function WatchTerms() {
         <Switch size="small" checked={split} onChange={setSplit} />
       </div>
       {!items ? (
-        <div className="cw-empty">加载中…</div>
+        <ScanSkeleton height={200} />
       ) : items.length === 0 ? (
-        <div className="cw-empty">还没有追踪词</div>
+        <EmptyInstrument
+          kind="dark"
+          title="还没有追踪词"
+          reason="追一个关键词（比如一个产品名），各平台 24 小时里出现几次会画成点阵，涨起来会进「升温」。"
+          actions={
+            <Button variant="primary" icon={<Plus size={15} />} onClick={() => setAdding(true)}>
+              添加追踪词
+            </Button>
+          }
+        />
       ) : (
         <ul className="cw-rows">
           {items.map((t) => (
-            <li key={t.source_id} id={`term-${t.source_id}`} className="cw-rise" style={{ gridTemplateColumns: 'minmax(0,1.2fr) 220px 76px minmax(0,1fr) 210px' }}>
+            <li
+              key={t.source_id}
+              id={`term-${t.source_id}`}
+              className="cw-rise"
+              style={{
+                gridTemplateColumns: 'minmax(0,1.2fr) 220px 76px minmax(0,1fr) 210px',
+              }}
+            >
               <div className="cw-rise-title">
                 <b>{t.term}</b>
                 <small>
@@ -368,13 +516,23 @@ function WatchTerms() {
                   <span className="cw-muted">还没有计算</span>
                 )}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8, justifyContent: 'flex-end' }}>
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 8,
+                  justifyContent: 'flex-end',
+                }}
+              >
                 <Select
                   size="small"
                   value={t.interval_minutes}
                   style={{ width: 104 }}
                   onChange={(v) => update(t.source_id, { interval_minutes: v })}
-                  options={INTERVAL_OPTIONS.map((m) => ({ value: m, label: intervalLabel(m) }))}
+                  options={INTERVAL_OPTIONS.map((m) => ({
+                    value: m,
+                    label: intervalLabel(m),
+                  }))}
                 />
                 <Switch size="small" checked={t.enabled} onChange={(v) => update(t.source_id, { enabled: v })} />
               </div>
@@ -410,19 +568,19 @@ function WatchTerms() {
 function HotPage() {
   const router = useRouter();
   const params = useSearchParams();
-  const tab = (TABS.find((t) => t.id === params.get('tab'))?.id || 'rising') as Tab;
+  const tab = (TABS.find((t) => t.id === params.get('tab'))?.id || 'list') as Tab;
   const [openId, setOpenId] = useState<number | null>(null);
 
   return (
     <CwPage>
-      <TopBar title="热点" />
-      <nav className="cw-tabs" role="tablist" aria-label="热点分页">
-        {TABS.map((t) => (
-          <button key={t.id} type="button" role="tab" aria-selected={t.id === tab} onClick={() => router.replace(`/hot?tab=${t.id}`)}>
-            {t.label}
-          </button>
-        ))}
-      </nav>
+      <TopBar title="热点" sub="各平台热榜、跨平台共振、话题升降与追踪词">
+        <Segmented
+          label="热点分页"
+          value={tab}
+          onChange={(t) => router.replace(`/hot?tab=${t}`)}
+          options={TABS.map((t) => ({ value: t.id, label: t.label }))}
+        />
+      </TopBar>
       <div style={{ '--c': color.rd } as CSSProperties}>
         {tab === 'list' ? <HotList /> : null}
         {tab === 'resonance' ? <Resonance /> : null}

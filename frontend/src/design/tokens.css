@@ -38,6 +38,20 @@
   --cw-serif: var(--font-display), "Noto Serif SC", "Songti SC", serif;
 
   --cw-nav-w: 84px;
+
+  /* 动效（设计评审 #1：扫描 = 时间流过；点亮 = 数据到了；脉冲 = 正在运行；滑入 = 打开细节） */
+  --cw-dur-1: 120ms;
+  --cw-dur-2: 200ms;
+  --cw-dur-3: 280ms;
+  --cw-dur-enter: 240ms;
+  --cw-dur-sweep: 1600ms;
+  --cw-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --cw-ease-std: cubic-bezier(0.2, 0, 0, 1);
+  --cw-stagger: 30ms;
+  /* 仪器表面 */
+  --cw-surface-grid: repeating-linear-gradient(0deg, transparent 0 47px, rgba(255, 255, 255, 0.025) 47px 48px),
+    repeating-linear-gradient(90deg, transparent 0 47px, rgba(255, 255, 255, 0.025) 47px 48px);
+  --cw-glass: rgba(22, 25, 31, 0.94);
 }
 
 /* 亮色主题：<html data-theme="light">（设计/主题切换，localStorage cw-theme） */
@@ -71,6 +85,9 @@
   --cw-hover: rgba(0, 0, 0, 0.035);
   --cw-overlay: rgba(251, 251, 249, 0.9);
   --cw-hero: radial-gradient(120% 140% at 85% -20%, rgba(61, 90, 214, 0.08), transparent 55%), linear-gradient(180deg, #fbfbf9, #f0f1ed);
+  --cw-surface-grid: repeating-linear-gradient(0deg, transparent 0 47px, rgba(0, 0, 0, 0.04) 47px 48px),
+    repeating-linear-gradient(90deg, transparent 0 47px, rgba(0, 0, 0, 0.04) 47px 48px);
+  --cw-glass: rgba(251, 251, 249, 0.95);
 }
 
 @media (max-width: 1279px) {
