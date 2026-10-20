@@ -14,6 +14,8 @@ import { mediaColor } from '@/design/tokens';
 import { discoverApi, type TodayFeed, type TodaySide, type TodaySignals } from '@/lib/api/_discover';
 import { MEDIA_FILTERS } from '@/lib/discover';
 import { Onboarding } from '@/design/onboarding';
+import { OPEN_EVENT } from '@/design/command';
+import { Search } from 'lucide-react';
 
 const LEGEND: { key: keyof typeof mediaColor; label: string }[] = [
   { key: 'article', label: '文章' },
@@ -112,6 +114,11 @@ function TodayPage() {
             {healthy.missed.value ? ` · 漏采 ${healthy.missed.value}` : ''}
           </span>
         ) : null}
+        <button type="button" className="cw-search" onClick={() => window.dispatchEvent(new Event(OPEN_EVENT))}>
+          <Search size={15} aria-hidden />
+          <span>搜索选题、收藏、项目</span>
+          <kbd>Ctrl K</kbd>
+        </button>
       </TopBar>
 
       <Onboarding />

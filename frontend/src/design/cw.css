@@ -147,38 +147,96 @@
   --color-gray-700: color-mix(in srgb, var(--cw-dim) 35%, var(--cw-text));
   --color-gray-800: color-mix(in srgb, var(--cw-dim) 15%, var(--cw-text));
   --color-gray-900: var(--cw-text);
-  --color-primary: var(--cw-bl);
-  --color-primary-hover: color-mix(in srgb, var(--cw-bl) 85%, var(--cw-text));
-  --color-primary-solid: var(--cw-bl);
-  --color-primary-text: var(--cw-bl);
-  --color-primary-light: color-mix(in srgb, var(--cw-bl) 12%, transparent);
-  --color-primary-soft: color-mix(in srgb, var(--cw-bl) 20%, transparent);
-  --color-primary-border: color-mix(in srgb, var(--cw-bl) 40%, transparent);
+  --font-sans: var(--cw-sans);
+  font-family: var(--cw-sans);
+  /* 调色台样张：主按钮白底黑字、强调色只用在文字 / 点 / 细条上，色块底一律中性面板色 */
+  --color-primary: var(--cw-wh);
+  --color-primary-hover: color-mix(in srgb, var(--cw-wh) 88%, var(--cw-base));
+  --color-primary-solid: var(--cw-wh);
+  --color-primary-text: var(--cw-text);
+  --color-primary-light: var(--cw-raise);
+  --color-primary-soft: var(--cw-raise);
+  --color-primary-border: var(--cw-line);
   --color-teal: var(--cw-cy);
   --color-teal-hover: color-mix(in srgb, var(--cw-cy) 85%, var(--cw-text));
   --color-teal-text: var(--cw-cy);
-  --color-teal-light: color-mix(in srgb, var(--cw-cy) 12%, transparent);
-  --color-teal-border: color-mix(in srgb, var(--cw-cy) 40%, transparent);
+  --color-teal-light: var(--cw-raise);
+  --color-teal-border: var(--cw-line);
   --color-amber: var(--cw-yl);
-  --color-amber-light: color-mix(in srgb, var(--cw-yl) 14%, transparent);
-  --color-amber-border: color-mix(in srgb, var(--cw-yl) 40%, transparent);
+  --color-amber-light: var(--cw-raise);
+  --color-amber-border: var(--cw-line);
   --color-red: var(--cw-rd);
-  --color-red-light: color-mix(in srgb, var(--cw-rd) 14%, transparent);
+  --color-red-light: var(--cw-raise);
   --color-purple: var(--cw-mg);
-  --color-purple-light: color-mix(in srgb, var(--cw-mg) 12%, transparent);
-  --color-purple-border: color-mix(in srgb, var(--cw-mg) 40%, transparent);
-  --color-blue-50: color-mix(in srgb, var(--cw-bl) 12%, transparent);
-  --color-indigo-50: color-mix(in srgb, var(--cw-bl) 12%, transparent);
-  --color-emerald-50: color-mix(in srgb, var(--cw-gr) 12%, transparent);
-  --color-green-100: color-mix(in srgb, var(--cw-gr) 16%, transparent);
-  --color-red-50: color-mix(in srgb, var(--cw-rd) 12%, transparent);
-  --color-amber-50: color-mix(in srgb, var(--cw-yl) 12%, transparent);
+  --color-purple-light: var(--cw-raise);
+  --color-purple-border: var(--cw-line);
+  --color-blue-50: var(--cw-raise); --color-blue-100: var(--cw-raise); --color-blue-200: var(--cw-line); --color-blue-300: color-mix(in srgb, var(--cw-bl) 50%, var(--cw-line));
+  --color-blue-400: var(--cw-bl); --color-blue-500: var(--cw-bl); --color-blue-600: var(--cw-bl); --color-blue-700: var(--cw-bl); --color-blue-800: var(--cw-bl); --color-blue-900: var(--cw-bl); --color-blue-950: var(--cw-raise);
+  --color-indigo-50: var(--cw-raise); --color-indigo-100: var(--cw-raise); --color-indigo-200: var(--cw-line); --color-indigo-300: color-mix(in srgb, var(--cw-bl) 50%, var(--cw-line));
+  --color-indigo-400: var(--cw-bl); --color-indigo-500: var(--cw-bl); --color-indigo-600: var(--cw-bl); --color-indigo-700: var(--cw-bl); --color-indigo-800: var(--cw-bl); --color-indigo-900: var(--cw-bl); --color-indigo-950: var(--cw-raise);
+  --color-sky-50: var(--cw-raise); --color-sky-100: var(--cw-raise); --color-sky-200: var(--cw-line); --color-sky-300: color-mix(in srgb, var(--cw-cy) 50%, var(--cw-line));
+  --color-sky-400: var(--cw-cy); --color-sky-500: var(--cw-cy); --color-sky-600: var(--cw-cy); --color-sky-700: var(--cw-cy); --color-sky-800: var(--cw-cy); --color-sky-900: var(--cw-cy); --color-sky-950: var(--cw-raise);
+  --color-cyan-50: var(--cw-raise); --color-cyan-100: var(--cw-raise); --color-cyan-200: var(--cw-line); --color-cyan-300: color-mix(in srgb, var(--cw-cy) 50%, var(--cw-line));
+  --color-cyan-400: var(--cw-cy); --color-cyan-500: var(--cw-cy); --color-cyan-600: var(--cw-cy); --color-cyan-700: var(--cw-cy); --color-cyan-800: var(--cw-cy); --color-cyan-900: var(--cw-cy); --color-cyan-950: var(--cw-raise);
+  --color-teal-50: var(--cw-raise); --color-teal-100: var(--cw-raise); --color-teal-200: var(--cw-line); --color-teal-300: color-mix(in srgb, var(--cw-cy) 50%, var(--cw-line));
+  --color-teal-400: var(--cw-cy); --color-teal-500: var(--cw-cy); --color-teal-600: var(--cw-cy); --color-teal-700: var(--cw-cy); --color-teal-800: var(--cw-cy); --color-teal-900: var(--cw-cy); --color-teal-950: var(--cw-raise);
+  --color-emerald-50: var(--cw-raise); --color-emerald-100: var(--cw-raise); --color-emerald-200: var(--cw-line); --color-emerald-300: color-mix(in srgb, var(--cw-gr) 50%, var(--cw-line));
+  --color-emerald-400: var(--cw-gr); --color-emerald-500: var(--cw-gr); --color-emerald-600: var(--cw-gr); --color-emerald-700: var(--cw-gr); --color-emerald-800: var(--cw-gr); --color-emerald-900: var(--cw-gr); --color-emerald-950: var(--cw-raise);
+  --color-green-50: var(--cw-raise); --color-green-100: var(--cw-raise); --color-green-200: var(--cw-line); --color-green-300: color-mix(in srgb, var(--cw-gr) 50%, var(--cw-line));
+  --color-green-400: var(--cw-gr); --color-green-500: var(--cw-gr); --color-green-600: var(--cw-gr); --color-green-700: var(--cw-gr); --color-green-800: var(--cw-gr); --color-green-900: var(--cw-gr); --color-green-950: var(--cw-raise);
+  --color-lime-50: var(--cw-raise); --color-lime-100: var(--cw-raise); --color-lime-200: var(--cw-line); --color-lime-300: color-mix(in srgb, var(--cw-gr) 50%, var(--cw-line));
+  --color-lime-400: var(--cw-gr); --color-lime-500: var(--cw-gr); --color-lime-600: var(--cw-gr); --color-lime-700: var(--cw-gr); --color-lime-800: var(--cw-gr); --color-lime-900: var(--cw-gr); --color-lime-950: var(--cw-raise);
+  --color-yellow-50: var(--cw-raise); --color-yellow-100: var(--cw-raise); --color-yellow-200: var(--cw-line); --color-yellow-300: color-mix(in srgb, var(--cw-yl) 50%, var(--cw-line));
+  --color-yellow-400: var(--cw-yl); --color-yellow-500: var(--cw-yl); --color-yellow-600: var(--cw-yl); --color-yellow-700: var(--cw-yl); --color-yellow-800: var(--cw-yl); --color-yellow-900: var(--cw-yl); --color-yellow-950: var(--cw-raise);
+  --color-amber-50: var(--cw-raise); --color-amber-100: var(--cw-raise); --color-amber-200: var(--cw-line); --color-amber-300: color-mix(in srgb, var(--cw-yl) 50%, var(--cw-line));
+  --color-amber-400: var(--cw-yl); --color-amber-500: var(--cw-yl); --color-amber-600: var(--cw-yl); --color-amber-700: var(--cw-yl); --color-amber-800: var(--cw-yl); --color-amber-900: var(--cw-yl); --color-amber-950: var(--cw-raise);
+  --color-orange-50: var(--cw-raise); --color-orange-100: var(--cw-raise); --color-orange-200: var(--cw-line); --color-orange-300: color-mix(in srgb, var(--cw-yl) 50%, var(--cw-line));
+  --color-orange-400: var(--cw-yl); --color-orange-500: var(--cw-yl); --color-orange-600: var(--cw-yl); --color-orange-700: var(--cw-yl); --color-orange-800: var(--cw-yl); --color-orange-900: var(--cw-yl); --color-orange-950: var(--cw-raise);
+  --color-red-50: var(--cw-raise); --color-red-100: var(--cw-raise); --color-red-200: var(--cw-line); --color-red-300: color-mix(in srgb, var(--cw-rd) 50%, var(--cw-line));
+  --color-red-400: var(--cw-rd); --color-red-500: var(--cw-rd); --color-red-600: var(--cw-rd); --color-red-700: var(--cw-rd); --color-red-800: var(--cw-rd); --color-red-900: var(--cw-rd); --color-red-950: var(--cw-raise);
+  --color-rose-50: var(--cw-raise); --color-rose-100: var(--cw-raise); --color-rose-200: var(--cw-line); --color-rose-300: color-mix(in srgb, var(--cw-rd) 50%, var(--cw-line));
+  --color-rose-400: var(--cw-rd); --color-rose-500: var(--cw-rd); --color-rose-600: var(--cw-rd); --color-rose-700: var(--cw-rd); --color-rose-800: var(--cw-rd); --color-rose-900: var(--cw-rd); --color-rose-950: var(--cw-raise);
+  --color-pink-50: var(--cw-raise); --color-pink-100: var(--cw-raise); --color-pink-200: var(--cw-line); --color-pink-300: color-mix(in srgb, var(--cw-mg) 50%, var(--cw-line));
+  --color-pink-400: var(--cw-mg); --color-pink-500: var(--cw-mg); --color-pink-600: var(--cw-mg); --color-pink-700: var(--cw-mg); --color-pink-800: var(--cw-mg); --color-pink-900: var(--cw-mg); --color-pink-950: var(--cw-raise);
+  --color-fuchsia-50: var(--cw-raise); --color-fuchsia-100: var(--cw-raise); --color-fuchsia-200: var(--cw-line); --color-fuchsia-300: color-mix(in srgb, var(--cw-mg) 50%, var(--cw-line));
+  --color-fuchsia-400: var(--cw-mg); --color-fuchsia-500: var(--cw-mg); --color-fuchsia-600: var(--cw-mg); --color-fuchsia-700: var(--cw-mg); --color-fuchsia-800: var(--cw-mg); --color-fuchsia-900: var(--cw-mg); --color-fuchsia-950: var(--cw-raise);
+  --color-purple-50: var(--cw-raise); --color-purple-100: var(--cw-raise); --color-purple-200: var(--cw-line); --color-purple-300: color-mix(in srgb, var(--cw-mg) 50%, var(--cw-line));
+  --color-purple-400: var(--cw-mg); --color-purple-500: var(--cw-mg); --color-purple-600: var(--cw-mg); --color-purple-700: var(--cw-mg); --color-purple-800: var(--cw-mg); --color-purple-900: var(--cw-mg); --color-purple-950: var(--cw-raise);
+  --color-violet-50: var(--cw-raise); --color-violet-100: var(--cw-raise); --color-violet-200: var(--cw-line); --color-violet-300: color-mix(in srgb, var(--cw-mg) 50%, var(--cw-line));
+  --color-violet-400: var(--cw-mg); --color-violet-500: var(--cw-mg); --color-violet-600: var(--cw-mg); --color-violet-700: var(--cw-mg); --color-violet-800: var(--cw-mg); --color-violet-900: var(--cw-mg); --color-violet-950: var(--cw-raise);
 }
 /* text-white 和 bg-white 共用 --color-white：彩色按钮上的白字保持白色 */
 .cw-legacy .text-white,
 .cw-legacy .hover\:text-white:hover,
 .cw-legacy-area .text-white {
   color: #fff;
+}
+/* 主色块（按钮、选中态）现在是白底：字和图标改成深色 */
+.cw-legacy :is(.bg-primary, .bg-primary-solid, .bg-primary-hover, .hover\:bg-primary-hover:hover),
+.cw-legacy :is(.bg-primary, .bg-primary-solid) :is(.text-white, svg),
+.cw-legacy-area :is(.bg-primary, .bg-primary-solid),
+.cw-legacy-area :is(.bg-primary, .bg-primary-solid) .text-white {
+  color: var(--cw-on-wh) !important;
+}
+/* 样张没有渐变色块和重投影：一律换成面板色 */
+.cw-legacy [class*='bg-gradient-'],
+.cw-legacy-area [class*='bg-gradient-'] {
+  background-image: none !important;
+  background-color: var(--cw-panel) !important;
+}
+.cw-legacy :is(.shadow, .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl),
+.cw-legacy-area :is(.shadow, .shadow-sm, .shadow-md, .shadow-lg, .shadow-xl) {
+  box-shadow: none !important;
+}
+.cw-legacy .font-black,
+.cw-legacy-area .font-black {
+  font-weight: 700;
+}
+/* 数字统一用等宽数字字体 */
+.cw-legacy :is(.tabular-nums, .font-mono),
+.cw-legacy-area :is(.tabular-nums, .font-mono) {
+  font-family: var(--cw-num, var(--font-mono));
+  font-variant-numeric: tabular-nums;
 }
 .cw-legacy input,
 .cw-legacy select,
@@ -778,6 +836,7 @@ a.cw-chip:hover { color: var(--cw-text); border-color: var(--cw-faint); }
 /* 指标示波 */
 .cw-scope { display: grid; gap: 2px; min-width: 0; }
 .cw-scope[data-empty='true'] { color: var(--cw-faint); font-size: 12px; }
+.cw-scope-none { height: 26px; display: flex; align-items: center; padding: 0 8px; border: 1px dashed var(--cw-line); border-radius: 4px; color: var(--cw-faint); }
 .cw-scope-bars { display: flex; align-items: flex-end; gap: 2px; height: 24px; }
 .cw-scope-bars i { flex: 1; min-width: 4px; border-radius: 1px; background: color-mix(in srgb, var(--c) 35%, var(--cw-raise)); }
 .cw-scope-bars i[data-last='true'] { background: var(--c); box-shadow: 0 0 8px var(--c); }
@@ -791,7 +850,7 @@ a.cw-chip:hover { color: var(--cw-text); border-color: var(--cw-faint); }
 .cw-feed-head h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .cw-feed-day { margin: 14px 0 4px; color: var(--cw-dim); font-size: 12px; }
 .cw-item {
-  display: grid; grid-template-columns: 136px minmax(0, 1fr) 168px; gap: 16px; align-items: center;
+  display: grid; grid-template-columns: 136px minmax(0, 1fr) 168px auto; gap: 16px; align-items: center;
   padding: 12px 10px; border-bottom: 1px solid var(--cw-grat); border-radius: 10px;
 }
 .cw-item:hover { background: var(--cw-hover); }
@@ -809,9 +868,12 @@ a.cw-chip:hover { color: var(--cw-text); border-color: var(--cw-faint); }
 .cw-item-meta { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--cw-dim); font-size: 12px; }
 .cw-item-meta a { color: var(--cw-dim); }
 .cw-plat { color: var(--c, var(--cw-dim)); }
+.cw-item-acts { display: flex; gap: 6px; align-items: center; }
+.cw-item-acts .cw-btn[data-icon] { width: 30px; padding: 0; display: inline-grid; place-items: center; }
+.cw-item-acts .cw-btn[aria-pressed='true'] { color: var(--cw-yl); }
 .cw-item-verdict { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; color: var(--cw-dim); }
 @media (max-width: 1279px) {
-  .cw-item { grid-template-columns: 112px minmax(0, 1fr) 140px; }
+  .cw-item { grid-template-columns: 112px minmax(0, 1fr) 140px auto; }
   .cw-item-cover .cw-cover { width: 112px; }
 }
 
@@ -873,7 +935,12 @@ a.cw-chip:hover { color: var(--cw-text); border-color: var(--cw-faint); }
 .cw-plat-bars div { display: grid; grid-template-columns: 56px 1fr 32px; align-items: center; gap: 8px; font-size: 12px; color: var(--cw-dim); }
 .cw-plat-bars s { height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--c), color-mix(in srgb, var(--c) 25%, transparent)); text-decoration: none; }
 .cw-plat-bars b { font-size: 12px; font-weight: 600; color: var(--cw-text); text-align: right; }
-.cw-res { width: 100%; border-collapse: collapse; font-size: 12px; }
+.cw-today-side { min-width: 0; }
+.cw-res-wrap { overflow-x: auto; }
+.cw-res { width: 100%; border-collapse: collapse; font-size: 12px; table-layout: fixed; }
+.cw-res th:not(:first-child), .cw-res td:not(:first-child) { width: 40px; overflow: hidden; text-overflow: ellipsis; }
+.cw-res-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cw-res-title .cw-link-btn { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; text-align: left; }
 .cw-res th { font-weight: 400; color: var(--cw-faint); padding: 0 2px 6px; text-align: center; white-space: nowrap; }
 .cw-res th:first-child { text-align: left; }
 .cw-res td { padding: 5px 2px; text-align: center; border-top: 1px solid var(--cw-grat); }
@@ -1562,3 +1629,8 @@ button.cw-dircard { cursor: pointer; }
 .cw-onboard li[data-done] b { color: var(--cw-dim); text-decoration: line-through; }
 .cw-onboard li > div { flex: 1; display: grid; min-width: 0; }
 .cw-onboard li small { color: var(--cw-faint); font-size: 12px; }
+
+/* 顶栏搜索入口（打开 Ctrl+K） */
+.cw-search { display: flex; align-items: center; gap: 8px; width: 300px; height: 36px; padding: 0 12px; border: 1px solid var(--cw-line); border-radius: 8px; background: var(--cw-panel); color: var(--cw-faint); cursor: pointer; font-size: 13px; }
+.cw-search:hover { border-color: var(--cw-dim); }
+.cw-search kbd { margin-left: auto; font: 12px var(--cw-num); color: var(--cw-faint); border: 1px solid var(--cw-line); border-radius: 4px; padding: 0 5px; }

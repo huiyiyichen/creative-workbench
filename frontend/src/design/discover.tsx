@@ -81,7 +81,13 @@ export function StatusTag({ status }: { status: TopicStatus | null | undefined }
 
 export function MetricScope({ metric, accent }: { metric: MetricView; accent: string }) {
   const t = metricText(metric);
-  if (!metric.metric) return <div className="cw-scope" data-empty="true">{t.value}</div>;
+  if (!metric.metric)
+    return (
+      <div className="cw-scope" data-empty="true">
+        <span className="cw-scope-none">{t.value}</span>
+        <span className="cw-scope-time">按发布时间排序</span>
+      </div>
+    );
   const obs = Math.min(12, Math.max(2, metric.observations ?? 2));
   return (
     <div className="cw-scope" style={{ '--c': accent } as CSSProperties}>
@@ -134,7 +140,43 @@ export function FeedItem({ item, selected, onOpen }: { item: ItemCard; selected?
         </div>
       </div>
       <MetricScope metric={item.metric} accent={c} />
+      <FeedActions item={item} />
     </li>
+  );
+}
+
+/** 信息流行尾：收藏（一次点击，收进灵感库）+ 开始创作（以这条为主来源新建项目） */
+function FeedActions({ item }: { item: ItemCard }) {
+  const [fav, setFav] = useState(item.is_favorited);
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="cw-item-acts">
+      <button
+        type="button"
+        className="cw-btn"
+        data-icon="true"
+        aria-pressed={fav}
+        aria-label={fav ? '已收藏' : '收藏'}
+        title={fav ? '已收藏' : '收藏到灵感库'}
+        disabled={busy || fav}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            await favoritesApi.create({ target_type: 'content', target_id: item.id, title: item.title, url: item.url, source_name: item.source_name });
+            setFav(true);
+          } catch {
+            /* 失败保持未收藏，用户可再点 */
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        <Bookmark size={15} fill={fav ? 'currentColor' : 'none'} aria-hidden />
+      </button>
+      <Link className="cw-btn" data-variant="primary" href={`/projects/new?source=content:${item.id}`}>
+        开始创作
+      </Link>
+    </div>
   );
 }
 
@@ -258,20 +300,24 @@ export function PlatformBars({ dist, accent = color.mg }: { dist: Record<string,
 
 export function ResonanceTable({ data, onOpen }: { data: ResonanceMatrix; onOpen: (id: number) => void }) {
   if (!data.rows.length) return <div className="cw-muted">近 48 小时没有跨平台的事件</div>;
+  // 侧栏只有 340px：按出现次数取前 4 个平台，其余省略，避免把侧栏撑出屏幕
+  const hits = (p: string) => data.rows.filter((r) => r.cells[p]).length;
+  const platforms = [...data.platforms].sort((a, b) => hits(b) - hits(a)).slice(0, 4);
   return (
+    <div className="cw-res-wrap">
     <table className="cw-res">
       <thead>
         <tr>
           <th>主题</th>
-          {data.platforms.map((p) => (
-            <th key={p}>{platformName(p)}</th>
+          {platforms.map((p) => (
+            <th key={p} title={platformName(p)}>{platformName(p)}</th>
           ))}
         </tr>
       </thead>
       <tbody>
         {data.rows.map((r) => (
           <tr key={r.event_id}>
-            <td>
+            <td className="cw-res-title" title={r.title}>
               {r.representative_id ? (
                 <button type="button" className="cw-link-btn" onClick={() => onOpen(r.representative_id!)}>
                   {r.title}
@@ -280,7 +326,7 @@ export function ResonanceTable({ data, onOpen }: { data: ResonanceMatrix; onOpen
                 r.title
               )}
             </td>
-            {data.platforms.map((p) => (
+            {platforms.map((p) => (
               <td key={p}>
                 <i className="cw-res-dot" data-on={r.cells[p] ? 'true' : undefined} title={`${r.cells[p] || 0} 条`} />
               </td>
@@ -289,6 +335,7 @@ export function ResonanceTable({ data, onOpen }: { data: ResonanceMatrix; onOpen
         ))}
       </tbody>
     </table>
+    </div>
   );
 }
 
