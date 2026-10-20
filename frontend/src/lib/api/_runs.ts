@@ -183,7 +183,26 @@ export interface LineageNode {
   title?: string;
   kind?: string;
   version?: number;
+  platform?: string | null;
+  run_id?: number | null;
   sources?: LineageNode[];
+}
+
+export interface LineageView {
+  artifact: ArtifactView;
+  anchor?: string | null;
+  sources: LineageNode[];
+  used_by: { id: number; kind: string; title: string; version: number }[];
+}
+
+export interface LineageQuery {
+  target: 'paragraph' | 'version' | 'shot' | 'video' | 'platform';
+  project_id?: number;
+  version?: number;
+  anchor?: string;
+  output_id?: number;
+  studio_artifact_id?: number;
+  shot?: number;
 }
 
 export interface WorkbenchTool {
@@ -240,8 +259,13 @@ export const runsApi = {
   fork(id: number, body: { node: string; prompt_extra?: string; routing_group?: string; executor?: string }): Promise<RunView> {
     return request(`/runs/${id}/fork`, { method: 'POST', body: JSON.stringify(body) });
   },
-  lineage(artifactId: number): Promise<{ artifact: ArtifactView; sources: LineageNode[]; used_by: { id: number; kind: string; title: string; version: number }[] }> {
-    return request(`/artifacts/${artifactId}/lineage`);
+  lineage(artifactId: number, anchor?: string): Promise<LineageView> {
+    return request(`/artifacts/${artifactId}/lineage${anchor ? `?anchor=${encodeURIComponent(anchor)}` : ''}`);
+  },
+  /** 界面溯源入口：段落 / 版本 / 分镜 / 成片 / 平台稿 */
+  resolveLineage(params: LineageQuery): Promise<LineageView> {
+    const q = new URLSearchParams(Object.entries(params).filter(([, v]) => v != null && v !== '').map(([k, v]) => [k, String(v)])).toString();
+    return request(`/lineage?${q}`);
   },
   exportUrl(id: number, format: 'json' | 'md'): string {
     return `${BASE_URL}/runs/${id}/export?format=${format}`;

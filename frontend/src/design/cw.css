@@ -1350,3 +1350,18 @@ button.cw-dircard { cursor: pointer; }
 .cw-keyframe { display: flex; flex-direction: column; gap: 4px; padding: 0 0 6px; border: 1px solid var(--cw-line); border-radius: 6px; background: var(--cw-panel); overflow: hidden; cursor: pointer; text-align: left; }
 .cw-keyframe > img, .cw-keyframe > span { width: 100%; aspect-ratio: 16 / 9; object-fit: cover; display: grid; place-items: center; background: var(--cw-deep, #0f1216); font-size: 12px; }
 .cw-keyframe small { padding: 0 6px; font-size: 11px; color: var(--cw-dim); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* 溯源抽屉 */
+.cw-lineage header { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-bottom: 6px; }
+.cw-lineage h4 { margin: 14px 0 6px; font-size: 13px; color: var(--cw-dim); }
+.cw-lin-tree { list-style: none; margin: 0; padding-left: 14px; border-left: 1px solid var(--cw-line); }
+.cw-lin-tree[data-root] { padding-left: 0; border-left: 0; }
+.cw-lin-node { margin: 6px 0; }
+.cw-lin-head { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 13px; }
+.cw-lin-dot { width: 8px; height: 8px; border-radius: 2px; flex: none; }
+.cw-lin-title { color: var(--cw-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 260px; }
+.cw-lin-anchor { padding: 0 6px; border: 1px solid var(--cw-line); border-radius: 10px; font-size: 11px; color: var(--cw-dim); }
+.cw-lin-journey { margin: 4px 0 4px 16px; padding: 0; font-size: 12px; list-style: decimal; }
+.cw-lin-used { margin: 0; padding-left: 16px; font-size: 13px; }
+.cw-vpara { cursor: pointer; border-radius: 4px; }
+.cw-vpara:hover { background: rgba(255, 255, 255, 0.05); }

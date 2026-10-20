@@ -540,17 +540,60 @@ async def list_runs(
     return [{**run_view(r), "step_count": counts.get(r.id, 0)} for r in runs]
 
 
-async def lineage(db: AsyncSession, artifact_id: int, *, depth: int = 6) -> dict[str, Any] | None:
-    """溯源：向上展开来源链（直到采集内容 / 灵感库条目 / 网页），向下列出被谁使用。"""
+async def lineage(
+    db: AsyncSession, artifact_id: int, *, depth: int = 6, anchor: str | None = None
+) -> dict[str, Any] | None:
+    """溯源：向上展开来源链（直到采集内容 / 灵感库条目 / 网页），向下列出被谁使用。
+
+    anchor：只看产物里某一处（文稿段落 id、``shot_3``、方向卡 id）的来源——保留锚点相同或不带锚点的关系，
+    沿关系的 target_anchor 继续往上。采集内容 / 灵感库节点带标题、平台和链接；生成图继续展开它的参考条目。
+    """
+    from app.models.content import ContentItem
+    from app.models.library import LibraryItem, LibraryLink
+
     root = await db.get(Artifact, artifact_id)
     if root is None:
         return None
 
-    async def up(aid: int, level: int, seen: set[int]) -> list[dict[str, Any]]:
+    async def library_sources(item_id: int, level: int, seen: set[int]) -> list[dict[str, Any]]:
+        if level >= depth:
+            return []
+        rows = (
+            await db.execute(
+                select(LibraryLink).where(
+                    LibraryLink.to_type == "library", LibraryLink.to_id == item_id, LibraryLink.relation == "generated"
+                )
+            )
+        ).scalars()
+        out = []
+        for ln in rows:
+            if ln.from_type != "library" or ln.from_id in seen:
+                continue
+            node = {"relation": "generated", "type": "library", "id": ln.from_id, "url": None, "anchor": None}
+            await describe(node, level + 1, seen | {ln.from_id})
+            out.append(node)
+        return out
+
+    async def describe(node: dict[str, Any], level: int, seen: set[int]) -> None:
+        if node["type"] == "content" and node.get("id"):
+            c = await db.get(ContentItem, node["id"])
+            if c:
+                node.update({"title": c.title, "platform": c.platform, "url": node.get("url") or c.url})
+        elif node["type"] == "library" and node.get("id"):
+            li = await db.get(LibraryItem, node["id"])
+            if li:
+                node.update({"title": li.title, "kind": li.kind, "url": node.get("url") or li.url})
+                if li.kind == "generated":
+                    node["sources"] = await library_sources(li.id, level, seen)
+
+    async def up(aid: int, level: int, seen: set[int], anc: str | None) -> list[dict[str, Any]]:
         if level >= depth:
             return []
         out = []
+        expanded: set[int] = set()
         for ln in (await db.execute(select(ArtifactLink).where(ArtifactLink.artifact_id == aid))).scalars():
+            if anc is not None and ln.anchor not in (None, anc):
+                continue
             node: dict[str, Any] = {
                 "relation": ln.relation,
                 "type": ln.target_type,
@@ -562,8 +605,14 @@ async def lineage(db: AsyncSession, artifact_id: int, *, depth: int = 6) -> dict
             if ln.target_type == "artifact" and ln.target_id and ln.target_id not in seen:
                 a = await db.get(Artifact, ln.target_id)
                 if a:
-                    node.update({"title": a.title, "kind": a.kind, "version": a.version})
-                    node["sources"] = await up(a.id, level + 1, seen | {a.id})
+                    node.update({"title": a.title, "kind": a.kind, "version": a.version, "run_id": a.run_id})
+                    nxt = ln.target_anchor if anc is not None else None
+                    # 整体溯源时同一上游产物的逐处关系只展开一次
+                    if anc is not None or ln.target_id not in expanded:
+                        expanded.add(ln.target_id)
+                        node["sources"] = await up(a.id, level + 1, seen | {a.id}, nxt)
+            else:
+                await describe(node, level, seen)
             out.append(node)
         return out
 
@@ -573,6 +622,7 @@ async def lineage(db: AsyncSession, artifact_id: int, *, depth: int = 6) -> dict
                 select(Artifact)
                 .join(ArtifactLink, ArtifactLink.artifact_id == Artifact.id)
                 .where(ArtifactLink.target_type == "artifact", ArtifactLink.target_id == artifact_id)
+                .distinct()
             )
         )
         .scalars()
@@ -580,6 +630,7 @@ async def lineage(db: AsyncSession, artifact_id: int, *, depth: int = 6) -> dict
     )
     return {
         "artifact": artifact_view(root),
-        "sources": await up(root.id, 0, {root.id}),
+        "anchor": anchor,
+        "sources": await up(root.id, 0, {root.id}, anchor),
         "used_by": [{"id": a.id, "kind": a.kind, "title": a.title, "version": a.version} for a in users],
     }

@@ -472,3 +472,47 @@ async def test_run_agent_with_fake_cli(tmp_path):
 
     with pytest.raises(ValidationError):
         await agent_adapters.run_agent("codex", ws2, on_stage, None, argv=[sys.executable, str(bad)])
+
+
+# ── 溯源入口（第 ⑤ 步）──
+
+
+@pytest.mark.asyncio
+async def test_anchored_lineage_paragraph_and_shot(video_env, monkeypatch):
+    async with video_env["factory"]() as db:
+        res = await production_service.start_render(db, video_env["output_id"])
+        await engine.wait_run(res["run_id"])
+        # 分镜第 2 镜 → 文稿段落 2 → 主来源
+        art, anc = await project_lineage.resolve(db, target="shot", output_id=video_env["output_id"], shot=2)
+        assert art.kind == "storyboard" and anc == "shot_2"
+        lin = await trace_service.lineage(db, art.id, anchor=anc)
+        p2 = ps.paragraphs_with_ids(BODY1)[1]["id"]
+        version_nodes = [s for s in lin["sources"] if s.get("kind") == "draft_version"]
+        assert {s["target_anchor"] for s in version_nodes if s["target_anchor"]} == {p2}
+        assert any(n["type"] == "content" and n.get("title") for v in version_nodes for n in v.get("sources") or [])
+        # 成片入口按 StudioArtifact 找到成片产物
+        sa = (await ps.output_view(db, video_env["output_id"]))["content"]["artifact_id"]
+        vid, _ = await project_lineage.resolve(db, target="video", output_id=video_env["output_id"], studio_artifact_id=sa)
+        assert vid.kind == "video" and vid.content["studio_artifact_id"] == sa
+
+
+@pytest.mark.asyncio
+async def test_paragraph_markers_and_platform_lineage(env):
+    async with env["factory"]() as db:
+        pid = await _project(db, env)
+        body = "引言。\n\n数据来自 METR [1]。\n\n结尾 [7]。"
+        await ps.write_draft_version(db, pid, StudioDraft(title="t", body=body), "manual")
+        await ps.finalize(db, pid)
+        paras = ps.paragraphs_with_ids(body)
+        art, anc = await project_lineage.resolve(db, target="paragraph", project_id=pid, anchor=paras[1]["id"])
+        lin = await trace_service.lineage(db, art.id, anchor=anc)
+        assert [(s["type"], s["id"]) for s in lin["sources"]] == [("content", env["content_id"])]
+        assert lin["sources"][0]["title"] == "METR：任务长度翻倍"
+        lin0 = await trace_service.lineage(db, art.id, anchor=paras[0]["id"])
+        assert lin0["sources"] == []  # 第一段没有引用
+        # 平台稿 ← 文稿版本
+        out = await ps.create_output(db, pid, OutputCreate(kind="xhs"))
+        plat, _ = await project_lineage.resolve(db, target="platform", output_id=out["id"])
+        assert plat.kind == "platform_xhs"
+        up = await trace_service.lineage(db, plat.id)
+        assert up["sources"][0]["kind"] == "draft_version" and up["sources"][0]["id"] == art.id

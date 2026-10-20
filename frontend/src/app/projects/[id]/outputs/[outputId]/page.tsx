@@ -8,6 +8,8 @@ import { Button, Card } from '@/design/components';
 import { OUTPUT_STATUS, RunStages, apiError, useProject, useRunWatch } from '@/design/studio';
 import { runsApi } from '@/lib/api/_runs';
 import { ImageGenPanel } from '@/design/imagegen';
+import { LineageDrawer } from '@/design/lineage';
+import type { LineageQuery } from '@/lib/api/_runs';
 import { libraryFileUrl } from '@/lib/api/_library';
 import type { GenTarget } from '@/lib/api/_generations';
 import type { ProjectAsset } from '@/lib/api/_projects';
@@ -124,6 +126,7 @@ function PlatformWorkspace({ output, onSaved }: { output: OutputView; onSaved: (
     summary: output.content.summary || '',
   }));
   const [busy, setBusy] = useState<string | null>(null);
+  const [lin, setLin] = useState<LineageQuery | null>(null);
   const [url, setUrl] = useState(output.published_url || '');
   useEffect(() => {
     setC({
@@ -235,7 +238,9 @@ function PlatformWorkspace({ output, onSaved }: { output: OutputView; onSaved: (
           <a className="cw-btn" data-variant="ghost" href={PUBLISH_URL[output.kind]} target="_blank" rel="noreferrer">
             打开发布页 ↗
           </a>
+          {output.based_on_version ? <Button onClick={() => setLin({ target: 'platform', output_id: output.id })}>溯源</Button> : null}
         </div>
+        <LineageDrawer query={lin} onClose={() => setLin(null)} title="溯源：平台稿" />
         <label className="cw-field">
           <span>发布链接（填入后状态变为「已发布」）</span>
           <div className="cw-row">
@@ -477,6 +482,7 @@ function ProductionWorkspace({ output, onSaved }: { output: OutputView; onSaved:
   const s = output.settings as { style_id?: string | null; presentation?: string | null; aspect_ratio?: string; bilingual?: boolean; executor?: string };
   const styles = useStyles();
   const [executors, setExecutors] = useState<{ key: string; label: string; available: boolean; hint: string | null }[]>([]);
+  const [lin, setLin] = useState<LineageQuery | null>(null);
   const [busy, setBusy] = useState(false);
   const runId = (output.content?.run_id as number | undefined) || null;
   const refresh = useCallback(async () => onSaved(await projectsApi.output(output.id)), [output.id, onSaved]);
@@ -620,6 +626,11 @@ function ProductionWorkspace({ output, onSaved }: { output: OutputView; onSaved:
                       下载
                     </a>
                   ) : null}
+                  {a.status === 'done' && a.settings?.run_id ? (
+                    <button type="button" className="cw-link-btn" onClick={() => setLin({ target: 'video', output_id: output.id, studio_artifact_id: a.id })}>
+                      溯源
+                    </button>
+                  ) : null}
                   {a.error ? <small className="cw-muted">{a.error.slice(0, 80)}</small> : null}
                 </li>
               );
@@ -629,6 +640,7 @@ function ProductionWorkspace({ output, onSaved }: { output: OutputView; onSaved:
           <p className="cw-empty">还没有成片</p>
         )}
       </Card>
+      <LineageDrawer query={lin} onClose={() => setLin(null)} title="溯源：成片" />
     </div>
   );
 }

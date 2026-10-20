@@ -6,6 +6,8 @@
  */
 
 import { Input, InputNumber, Modal, message } from 'antd';
+import { LineageDrawer } from './lineage';
+import type { LineageQuery } from '@/lib/api/_runs';
 import { ArrowDown, ArrowUp, Copy, Plus, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button } from './components';
@@ -439,6 +441,7 @@ export function VersionsPanel({
   const [items, setItems] = useState<VersionItem[]>([]);
   const [preview, setPreview] = useState<VersionView | null>(null);
   const [compare, setCompare] = useState<VersionView | null>(null);
+  const [lin, setLin] = useState<LineageQuery | null>(null);
   useEffect(() => {
     projectsApi
       .versions(projectId)
@@ -476,17 +479,31 @@ export function VersionsPanel({
             <b className="cw-num">v{preview.version}</b>
             <span className="cw-muted">{reasonLabel(preview.reason)}</span>
             <span className="cw-grow" />
+            <Button onClick={() => setLin({ target: 'version', project_id: projectId, version: preview.version })}>溯源</Button>
             <Button onClick={() => setCompare(preview)}>与当前对比</Button>
           </div>
           <div className="cw-vpreview-body">
             <h4>{preview.draft.title}</h4>
             {preview.paragraphs.slice(0, 12).map((p) => (
-              <p key={p.id}>{p.text}</p>
+              <p
+                key={p.id}
+                className="cw-vpara"
+                title="点这一段看它的来源"
+                role="button"
+                tabIndex={0}
+                onClick={() => setLin({ target: 'paragraph', project_id: projectId, version: preview.version, anchor: p.id })}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') setLin({ target: 'paragraph', project_id: projectId, version: preview.version, anchor: p.id });
+                }}
+              >
+                {p.text}
+              </p>
             ))}
             {preview.draft.shots.length ? <p className="cw-muted">分镜 {preview.draft.shots.length} 镜 · {fmtClock(shotTotal(preview.draft.shots))}</p> : null}
           </div>
         </div>
       ) : null}
+      <LineageDrawer query={lin} onClose={() => setLin(null)} title={lin?.target === 'paragraph' ? '溯源：这一段' : '溯源：文稿版本'} />
       {compare ? (
         <VersionCompare
           left={compare}

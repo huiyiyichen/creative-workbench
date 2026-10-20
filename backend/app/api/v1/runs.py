@@ -202,8 +202,8 @@ async def stream_run(run_id: int, request: Request, db: AsyncSession = Depends(g
 
 
 @router.get("/artifacts/{artifact_id}/lineage")
-async def artifact_lineage(artifact_id: int, db: AsyncSession = Depends(get_db)):
-    data = await trace_service.lineage(db, artifact_id)
+async def artifact_lineage(artifact_id: int, anchor: str | None = None, db: AsyncSession = Depends(get_db)):
+    data = await trace_service.lineage(db, artifact_id, anchor=anchor)
     if data is None:
         raise HTTPException(status_code=404, detail="产物不存在")
     return data
@@ -281,3 +281,30 @@ async def mcp_endpoint(
 @mcp_router.get("/mcp")
 async def mcp_get():
     return Response(status_code=405, headers={"Allow": "POST"})
+
+
+@router.get("/lineage")
+async def resolve_lineage(
+    target: str,
+    project_id: int | None = None,
+    version: int | None = None,
+    anchor: str | None = None,
+    output_id: int | None = None,
+    studio_artifact_id: int | None = None,
+    shot: int | None = None,
+    db: AsyncSession = Depends(get_db),
+):
+    """界面溯源入口（段落 / 版本 / 分镜 / 成片 / 平台稿）→ 溯源树。"""
+    from app.services import project_lineage
+
+    art, anc = await project_lineage.resolve(
+        db,
+        target=target,
+        project_id=project_id,
+        version=version,
+        anchor=anchor,
+        output_id=output_id,
+        studio_artifact_id=studio_artifact_id,
+        shot=shot,
+    )
+    return await trace_service.lineage(db, art.id, anchor=anc)

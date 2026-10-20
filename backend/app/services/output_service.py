@@ -173,20 +173,11 @@ async def generate_platform(db: AsyncSession, output_id: int) -> dict:
 async def _register_artifact(db: AsyncSession, output, content: dict, version: int | None) -> None:
     """平台稿登记为产物（溯源：平台稿 ← 文稿版本 ← 来源）。失败不影响主流程。"""
     try:
-        from app.services import trace_service
+        from app.services import project_lineage
 
-        register = getattr(trace_service, "register_artifact", None)
-        if register is None:
-            return
-        await register(
-            db,
-            kind=f"platform_{output.kind}",
-            title=content.get("title") or output.title,
-            content={"output_id": output.id, "title": content.get("title"), "chars": len(content.get("body") or "")},
-            project_id=output.project_id,
-            version=version,
-        )
+        await project_lineage.register_platform(db, output, content, version)
     except Exception:  # noqa: BLE001
+        await db.rollback()
         logger.debug("register platform artifact skipped", exc_info=True)
 
 
