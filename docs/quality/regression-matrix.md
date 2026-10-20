@@ -32,19 +32,18 @@
 
 ## 三、待处理缺陷
 
-| 缺陷 | 位置 | 现象 | 回归测试 |
-|---|---|---|---|
-| Windows 上进程指标不可用 | `backend/app/services/metrics_persistence.py` | 模块级 `import resource`（仅 Unix），进程指标接口与调度快照在 Windows 上失败 | `test_metrics_persistence::TestProcessMetrics` |
-| 侧栏计数不复用已预热的精选缓存 | `backend/app/api/v1/contents.py` `today_count` | 复用条件是 `current_user is None`，单用户模式下每次未命中都重建精选 | 待补 |
-| 工作台按 `content_id` 带入来源失败 | `frontend/src/app/studio/page.tsx` | 只在已加载的最近 7 天 40 条内容中查找，范围外的内容不会选中 | 待补 |
-| 模板 / 风格 / 收藏读取上限 200 | `studio_catalog.catalog_for_user`、`studio/page.tsx` | 超过 200 条的自定义模板、风格和收藏不显示 | 待补 |
-| 测试顺序污染 | `test_analysis_recovery::test_post_sync_pipeline_task_reference_clears_when_done` | 全量顺序下失败，单独运行通过 | 同左 |
-| `npm run lint` 扫描构建产物 | `frontend/eslint.config.mjs` | 未忽略 `.next-local/**`，报告数千条构建产物问题；`src` 另有 19 条 `react-hooks/refs` | `npx eslint src` |
+暂无。2026-10-20 核对后，原登记的 6 条均已修复，见 §四。
 
 ## 四、已修复缺陷
 
 | 缺陷 | 修复 | 回归测试 |
 |---|---|---|
+| Windows 上进程指标不可用（模块级 `import resource`） | 改用 psutil 跨平台取常驻内存与 CPU 时间 | `test_metrics_persistence::TestProcessMetrics` |
+| 侧栏计数不复用已预热的精选缓存 | 精选缓存键带本地用户 id，预热与侧栏计数共用 | `test_contents_api` |
+| 工作台按 `content_id` 带入来源失败 | 旧 `/studio` 只做跳转，来源改为 `/projects/new?source=content:<id>` 按 id 直接读取 | `src/lib/__tests__/studio-redirect.test.ts` |
+| 模板 / 风格 / 收藏读取上限 200 | `studio_catalog` 分页读全量 | `test_studio_presets` |
+| 测试顺序污染（post-sync 任务引用） | 更新同步后处理引用、隔离事件循环连接；全量顺序下通过 | `test_analysis_recovery::test_post_sync_pipeline_task_reference_clears_when_done` |
+| `npm run lint` 扫描构建产物、`src` 有 `react-hooks/refs` 问题 | 忽略 `.next-local/**`，逐条修掉 | `npx eslint src`（0 问题） |
 | 日报异步生成的占位记录与后台结果错位 | 后台按请求返回的记录 id 更新 | `test_daily_generation_task` |
 | Windows 下 Alembic 以 GBK 读取 UTF-8 ini 失败 | `alembic.ini` 改为 ASCII | 启动迁移冒烟 |
 | 提交源码的 `start.cmd` 在新目录无法启动 | 入口改为 ASCII/CRLF，首次启动准备依赖与独立数据库 | 新目录冷启动与重复启动 |
