@@ -751,6 +751,14 @@ async def _scan_library_inbox() -> str:
         return str(await scan_inbox(db))
 
 
+async def _obsidian_sync() -> str:
+    """Obsidian 双向同步（6.8）：读回你在 vault 里的修改，再写出工作台的笔记。未配置 vault 时跳过。"""
+    from app.services.obsidian_sync import sync_once
+
+    async with async_session() as db:
+        return str(await sync_once(db))
+
+
 async def _refresh_verdicts() -> str:
     """选题结论（4.3）：近 7 天条目按最新依据重算。"""
     from app.services.verdict_service import refresh_verdicts
@@ -1042,6 +1050,15 @@ def start_scheduler() -> None:
         trigger=IntervalTrigger(minutes=2),
         id="library_inbox",
         name="素材收件箱导入",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.add_job(
+        _obsidian_sync,
+        trigger=IntervalTrigger(minutes=1),
+        id="obsidian_sync",
+        name="Obsidian 双向同步",
         replace_existing=True,
         max_instances=1,
         coalesce=True,

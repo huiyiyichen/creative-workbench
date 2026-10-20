@@ -1019,3 +1019,4 @@ a.cw-cal-cell:hover { border-color: var(--cw-cy); }
 .cw-style-list nav button[aria-current='true'] { background: var(--cw-raise); }
 .cw-style-list nav button small { margin-left: auto; flex: none; color: var(--cw-faint); white-space: nowrap; }
 @media (max-width: 1100px) { .cw-style-list { grid-template-columns: 200px minmax(0, 1fr); } }
+.cw-graph { width: 100%; border: 1px solid var(--cw-grat); border-radius: 8px; background: var(--cw-deep); }

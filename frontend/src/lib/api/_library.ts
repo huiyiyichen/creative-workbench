@@ -134,7 +134,50 @@ export function libraryFileUrl(id: number, size: 'small' | 'large' | 'original' 
   return `${BASE_URL}/library/items/${id}/file?size=${size}`;
 }
 
+export interface ObsidianSettings {
+  vault: string | null;
+  vault_name: string | null;
+  app_url: string;
+  last_sync: string | null;
+  root: string;
+}
+
+/** obsidian://open 链接；relPath 相对 vault 里的「创意工作台/」 */
+export function obsidianOpenUrl(s: Pick<ObsidianSettings, 'vault_name' | 'root'>, relPath: string): string {
+  return `obsidian://open?vault=${encodeURIComponent(s.vault_name || '')}&file=${encodeURIComponent(`${s.root}/${relPath}`)}`;
+}
+
+export interface GraphNode {
+  key: string;
+  type: 'item' | 'note' | 'dossier' | 'style' | 'template' | 'project';
+  kind: string;
+  label: string;
+  degree: number;
+  depth?: number;
+  thumb?: boolean;
+  color?: string | null;
+  ref?: string;
+}
+
+export interface GraphData {
+  nodes: GraphNode[];
+  edges: { source: string; target: string; relation: string }[];
+  center: string | null;
+}
+
 export const libraryApi = {
+  graph(params: { types?: string[]; days?: number; center?: string; depth?: 1 | 2 } = {}): Promise<GraphData> {
+    return request(`/library/graph${qs({ types: params.types?.join(','), days: params.days, center: params.center, depth: params.depth })}`, { timeoutMs: 60_000 });
+  },
+  obsidian(): Promise<ObsidianSettings> {
+    return request('/obsidian');
+  },
+  setObsidian(vault: string | null, app_url?: string): Promise<ObsidianSettings> {
+    return request('/obsidian', { method: 'PUT', body: JSON.stringify({ vault, app_url }) });
+  },
+  obsidianSync(): Promise<Record<string, number | boolean>> {
+    return request('/obsidian/sync', { method: 'POST', timeoutMs: 120_000 });
+  },
   list(params: {
     kind?: string;
     asset_kind?: string;

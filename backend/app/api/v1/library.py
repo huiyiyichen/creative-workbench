@@ -611,3 +611,59 @@ async def styles_archive(key: str, db: AsyncSession = Depends(get_db)):
     except styles_svc.StyleError as exc:
         raise _bad(exc) from exc
     return {"ok": True}
+
+
+# ── Obsidian 双向同步（6.8） ──
+
+
+class ObsidianBody(BaseModel):
+    vault: str | None = Field(None, max_length=1024)
+    app_url: str | None = Field(None, max_length=255)
+
+
+@router.get("/obsidian")
+async def obsidian_get(db: AsyncSession = Depends(get_db)):
+    from app.services import obsidian_sync
+
+    return await obsidian_sync.get_settings(db)
+
+
+@router.put("/obsidian")
+async def obsidian_put(body: ObsidianBody, db: AsyncSession = Depends(get_db)):
+    from app.services import obsidian_sync
+
+    try:
+        return await obsidian_sync.set_settings(db, body.vault, body.app_url)
+    except obsidian_sync.ObsidianError as exc:
+        raise _bad(exc) from exc
+
+
+@router.post("/obsidian/sync")
+async def obsidian_sync_now(db: AsyncSession = Depends(get_db)):
+    from app.services import obsidian_sync
+
+    try:
+        return await obsidian_sync.sync_once(db)
+    except obsidian_sync.ObsidianError as exc:
+        raise _bad(exc) from exc
+
+
+# ── 图谱（6.7） ──
+
+
+@router.get("/library/graph")
+async def library_graph(
+    types: str | None = Query(None, description="逗号分隔：item,note,dossier,style,template,project"),
+    days: int | None = Query(None, ge=1, le=3650),
+    center: str | None = Query(None, max_length=40),
+    depth: int = Query(2, ge=1, le=2),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services import library_graph
+
+    try:
+        return await library_graph.build_graph(
+            db, types=[t for t in (types or "").split(",") if t] or None, days=days, center=center, depth=depth
+        )
+    except ValueError as exc:
+        raise _bad(exc) from exc

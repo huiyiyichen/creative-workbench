@@ -4,6 +4,7 @@
  * 灵感库的部件：条目卡片（瀑布流 / 列表）、详情抽屉、收进来（粘贴链接 / 拖入 / 剪贴板）。
  */
 
+import { LibraryGraph, nodeHref } from '@/design/graph';
 import { parseUTC } from '@/lib/datetime';
 import Link from 'next/link';
 import { Drawer, Input, Popover, Select, Spin, message } from 'antd';
@@ -21,6 +22,9 @@ import {
   type LibraryItem,
   type LibraryItemDetail,
   type License,
+  obsidianOpenUrl,
+  type GraphData,
+  type ObsidianSettings,
 } from '@/lib/api/_library';
 import { formatDuration, waveform } from '@/lib/collection';
 
@@ -284,6 +288,52 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+/** 详情里的局部图谱（一度、二度）；点收藏节点切换详情，其他节点跳到对应页面 */
+function LocalGraph({ id, onOpen }: { id: number; onOpen: (id: number) => void }) {
+  const [data, setData] = useState<GraphData | null>(null);
+  useEffect(() => {
+    let alive = true;
+    libraryApi
+      .graph({ center: `item:${id}`, depth: 2 })
+      .then((g) => alive && setData(g))
+      .catch(() => alive && setData(null));
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+  if (!data || data.nodes.length < 2) return null;
+  return (
+    <>
+      <h3 className="cw-detail-h">局部图谱</h3>
+      <LibraryGraph
+        data={data}
+        height={260}
+        onSelect={(n) => {
+          if (!n || n.key === `item:${id}`) return;
+          if (n.type === 'item') onOpen(Number(n.key.split(':')[1]));
+          else window.location.assign(nodeHref(n));
+        }}
+      />
+    </>
+  );
+}
+
+let obsidianCache: Promise<ObsidianSettings | null> | null = null;
+
+/** Obsidian 设置（用于「在 Obsidian 打开」）；整个会话只取一次 */
+export function useObsidian(): ObsidianSettings | null {
+  const [s, setS] = useState<ObsidianSettings | null>(null);
+  useEffect(() => {
+    obsidianCache ??= libraryApi.obsidian().catch(() => null);
+    let alive = true;
+    void obsidianCache.then((v) => alive && setS(v));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  return s;
+}
+
 export function LibraryDrawer({
   id,
   boards,
@@ -301,6 +351,7 @@ export function LibraryDrawer({
   const [tags, setTags] = useState<string[]>([]);
   const [notes, setNotes] = useState('');
   const [frameAt, setFrameAt] = useState('1');
+  const obsidian = useObsidian();
 
   const load = useCallback(async () => {
     if (id === null) return;
@@ -342,6 +393,11 @@ export function LibraryDrawer({
       ) : (
         <article className="cw-detail">
           <div className="cw-detail-actions">
+            {obsidian?.vault_name && data.obsidian_path ? (
+              <a className="cw-btn" data-variant="ghost" href={obsidianOpenUrl(obsidian, data.obsidian_path)}>
+                在 Obsidian 打开
+              </a>
+            ) : null}
             {data.url ? (
               <a className="cw-btn" data-variant="ghost" href={data.url} target="_blank" rel="noreferrer">
                 <ExternalLink size={15} />
@@ -482,6 +538,7 @@ export function LibraryDrawer({
           ) : null}
           <h3 className="cw-detail-h">我的笔记</h3>
           <Input.TextArea value={notes} onChange={(e) => setNotes(e.target.value)} onBlur={() => notes !== (data.my_notes || '') && save({ my_notes: notes })} autoSize={{ minRows: 2 }} placeholder="写点什么；也会同步到 Obsidian 的「我的笔记」" />
+          <LocalGraph id={data.id} onOpen={onOpen} />
           <h3 className="cw-detail-h">关联</h3>
           {data.related.length === 0 ? (
             <p className="cw-muted">还没有关联</p>
