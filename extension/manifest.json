@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "创意工作台 · 存到灵感库",
+  "version": "0.1.0",
+  "description": "在网页右键把图片、链接、选中文字或整页存进本机创意工作台的灵感库。",
+  "permissions": ["contextMenus", "storage", "notifications", "activeTab"],
+  "host_permissions": ["http://localhost/*", "http://127.0.0.1/*", "<all_urls>"],
+  "background": { "service_worker": "background.js", "type": "module" },
+  "options_page": "options.html",
+  "action": { "default_title": "存这一页到灵感库" },
+  "icons": { "128": "icon.png" }
+}
