@@ -6,15 +6,14 @@ import { use, useCallback, useEffect, useMemo, useState } from 'react';
 import { Input, Select, Switch, message } from 'antd';
 import { Button, Card } from '@/design/components';
 import { OUTPUT_STATUS, RunStages, apiError, useProject, useRunWatch } from '@/design/studio';
-import { runsApi } from '@/lib/api/_runs';
 import { ImageGenPanel } from '@/design/imagegen';
 import { LineageDrawer } from '@/design/lineage';
-import type { LineageQuery } from '@/lib/api/_runs';
+import { runsApi, type LineageQuery } from '@/lib/api/_runs';
 import { libraryFileUrl } from '@/lib/api/_library';
 import type { GenTarget } from '@/lib/api/_generations';
 import type { ProjectAsset } from '@/lib/api/_projects';
 import { libraryApi, type StyleEntry } from '@/lib/api/_library';
-import { inWorks, projectsApi, type OutputView } from '@/lib/api/_projects';
+import { inWorks, projectsApi, type Delivery, type OutputView } from '@/lib/api/_projects';
 import { PLATFORM_LIMITS, fmtClock, platformIssues, qaMark, stripTags, textLen } from '@/lib/projects';
 import { useOutputs } from '../_ctx';
 
@@ -371,12 +370,135 @@ function BundleWorkspace({ output, onSaved }: { output: OutputView; onSaved: (o:
           </a>
         </div>
         <p className="cw-muted" style={{ fontSize: 12 }}>
-          提示词包由模板确定性生成，不调用模型。外部 agent 可用设置 · 工作台里的 MCP 令牌连接工作台工具，项目 id：{output.project_id}。
+          提示词包由模板确定性生成，不调用模型。
         </p>
+        <AgentConnect output={output} />
+        <DeliveryPanel output={output} onSaved={onSaved} />
       </div>
       <div className="cw-platform-preview">
         {error ? <div className="cw-error">{error}</div> : <pre className="cw-bundle-md">{md}</pre>}
       </div>
+    </div>
+  );
+}
+
+// ── 外部 agent 接入与回传成片（设计 6.3）──
+
+function AgentConnect({ output }: { output: OutputView }) {
+  const [config, setConfig] = useState('');
+  const [busy, setBusy] = useState(false);
+  const target = (output.settings as { target?: string }).target || 'generic';
+  const create = async () => {
+    setBusy(true);
+    try {
+      const label = target === 'codex' ? 'Codex' : target === 'claude_code' ? 'Claude Code' : '外部 agent';
+      const [tools, tok] = await Promise.all([
+        runsApi.tools(),
+        runsApi.createToken({ label: `${label} · 项目 ${output.project_id}`, project_ids: [output.project_id], ttl_hours: 24 }),
+      ]);
+      const url = `${window.location.origin}${tools.mcp_path}`;
+      setConfig(
+        [
+          JSON.stringify({ mcpServers: { 'creative-workbench': { type: 'http', url, headers: { Authorization: `Bearer ${tok.token}` } } } }, null, 2),
+          '',
+          `提示：先调用 read_bundle（output_id=${output.id}）读取提示词包，做完后调用 upload_output（output_id=${output.id}，path 为成片绝对路径）回传。`,
+        ].join('\n'),
+      );
+    } catch (err) {
+      message.error(apiError(err, '令牌没有生成'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="cw-field">
+      <span>外部 agent 接入</span>
+      {config ? (
+        <>
+          <pre className="cw-bundle-md cw-agent-config">{config}</pre>
+          <div className="cw-row">
+            <Button onClick={() => copy(config, '连接配置')}>复制配置</Button>
+            <span className="cw-muted" style={{ fontSize: 12 }}>
+              令牌只显示这一次，24 小时内有效，只能访问本项目。
+            </span>
+          </div>
+        </>
+      ) : (
+        <div className="cw-row">
+          <Button onClick={create} disabled={busy}>
+            {busy ? '生成中…' : '生成连接配置'}
+          </Button>
+          <span className="cw-muted" style={{ fontSize: 12 }}>
+            产出物 id {output.id} · 项目 id {output.project_id}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function fmtSize(n: number): string {
+  if (n >= 1 << 30) return `${(n / (1 << 30)).toFixed(1)} GB`;
+  if (n >= 1 << 20) return `${(n / (1 << 20)).toFixed(1)} MB`;
+  return `${Math.max(1, Math.round(n / 1024))} KB`;
+}
+
+function DeliveryPanel({ output, onSaved }: { output: OutputView; onSaved: (o: OutputView) => void }) {
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState('');
+  const deliveries = ((output.content as { deliveries?: Delivery[] }).deliveries || []).slice().reverse();
+  const arts = output.artifacts || [];
+  const pick = async (file: File | undefined) => {
+    if (!file) return;
+    setBusy(true);
+    try {
+      const r = await projectsApi.uploadDelivery(output.id, file, note.trim() || undefined);
+      setNote('');
+      onSaved(r.output);
+      message.success('成片已回传');
+    } catch (err) {
+      message.error(apiError(err, '回传失败'));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <div className="cw-field">
+      <span>回传成片</span>
+      <Input placeholder="说明（可选），例如用了哪个模型、哪里改了分镜" value={note} maxLength={500} onChange={(e) => setNote(e.target.value)} />
+      <label className="cw-btn" data-variant="primary" aria-disabled={busy || undefined} style={{ alignSelf: 'flex-start', cursor: busy ? 'progress' : 'pointer' }}>
+        {busy ? '上传中…' : '选择视频文件'}
+        <input type="file" accept="video/mp4,video/quicktime,video/webm,.mkv,.m4v" hidden disabled={busy} onChange={(e) => void pick(e.target.files?.[0])} />
+      </label>
+      {deliveries.length ? (
+        <ul className="cw-deliveries">
+          {deliveries.map((d) => {
+            const art = arts.find((a) => a.id === d.artifact_id);
+            return (
+              <li key={d.artifact_id}>
+                {art?.preview_path ? <video src={art.preview_path} controls preload="metadata" /> : null}
+                <div className="cw-row" style={{ gap: 10, fontSize: 12 }}>
+                  <b>{d.file_name}</b>
+                  <span className="cw-muted">{d.source_label}</span>
+                  <span className="cw-num cw-muted">{fmtSize(d.size)}</span>
+                  {d.duration ? <span className="cw-num cw-muted">{d.duration.toFixed(1)} 秒</span> : null}
+                  <span className="cw-num cw-muted">{new Date(d.at).toLocaleString('zh-CN', { hour12: false })}</span>
+                  {art?.download_path ? (
+                    <a className="cw-link-btn" href={art.download_path}>
+                      下载
+                    </a>
+                  ) : null}
+                </div>
+                {d.note ? <p className="cw-muted" style={{ margin: 0, fontSize: 12 }}>{d.note}</p> : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : (
+        <p className="cw-muted" style={{ fontSize: 12, margin: 0 }}>
+          还没有回传。外部 agent 也可以用 upload_output 工具直接交回。
+        </p>
+      )}
     </div>
   );
 }

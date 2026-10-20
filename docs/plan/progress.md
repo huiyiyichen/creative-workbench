@@ -239,3 +239,10 @@
 - 接口：`GET /works`、`POST|DELETE /outputs/{id}/works`。
 - 前端：导航「作品」上线（`/works`）：类型分段、搜索，按项目分组的卡片（视频直接播放、文字显示摘要），复制 / 下载 / 已发布链接 / 移出；产出物工作区头部加「加入作品库 / 移出作品库」。
 - 验证：tests/test_stage5_works.py（收录规则、移出、旧成片只列完成的、复制文本、筛选与搜索）；vitest 208 项；两种主题截图验收 `/works`。
+
+### 阶段 5 · 第 ⑥ 步：提示词包与外部 agent 回传（2026-10-20）
+- `delivery_service.py`：回传的成片存成该产出物的制作物（`data/studio/deliveries/{项目}/{id}.mp4`，`settings.delivered`），产出物标为完成，`content.deliveries` 记来源（上传 / 外部 agent）、文件名、大小、时长（有 ffprobe 时）、说明；只收视频扩展名，上限 4 GB，空文件拒绝。本机路径是复制，下载地址会流式下载。
+- 工作台工具新增 `read_bundle`（读取提示词包 Markdown 与回传说明）和 `upload_output`（`path` 本机绝对路径或 `url`）；令牌可限定项目（`project_ids`），越权调用返回拒绝；MCP 说明更新。
+- 接口：`POST /outputs/{id}/deliveries`（multipart 上传，先写暂存再挂上，失败不留临时文件）；`POST /workbench/tokens` 支持 `project_ids`。
+- 前端：提示词包工作区加「外部 agent 接入」（一键生成限本项目、24 小时的令牌和 MCP 配置片段，附 read_bundle / upload_output 用法）与「回传成片」（说明 + 选择视频上传，历史回传带预览、大小、时长、来源、下载）；回传后的成片自动进作品库。
+- 验证：tests/test_stage5_delivery.py 2 项（MCP 工具清单、读取提示词包、跨项目拒绝、相对路径 / 非视频拒绝、回传后产出物状态与记录、预览下载、作品库可见；上传接口与非视频 422、暂存目录清空）；截图验收提示词包工作区。

@@ -59,6 +59,7 @@ class ForkBody(BaseModel):
 class TokenBody(BaseModel):
     label: str = Field(default="外部 agent", max_length=100)
     tools: list[str] | None = None
+    project_ids: list[int] | None = Field(default=None, max_length=50)
     ttl_hours: float | None = Field(default=24, ge=0)
 
 
@@ -339,7 +340,9 @@ async def workbench_tokens(db: AsyncSession = Depends(get_db)):
 @router.post("/workbench/tokens")
 async def create_token(body: TokenBody, db: AsyncSession = Depends(get_db)):
     try:
-        raw, tok = await wt.issue_token(db, body.label, tools=body.tools, ttl_hours=body.ttl_hours or None)
+        raw, tok = await wt.issue_token(
+            db, body.label, tools=body.tools, project_ids=body.project_ids, ttl_hours=body.ttl_hours or None
+        )
     except wt.ToolError as exc:
         raise _bad(exc) from exc
     return {**wt.token_view(tok), "token": raw}

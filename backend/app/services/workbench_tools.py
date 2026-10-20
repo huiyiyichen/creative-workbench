@@ -42,6 +42,7 @@ class ToolContext:
     via: str = "flow"  # flow / mcp
     token_id: int | None = None
     allowed: frozenset[str] | None = None  # None = 全部
+    project_ids: frozenset[int] | None = None  # None = 不限项目
 
 
 @dataclass
@@ -226,6 +227,56 @@ async def _write_note(db: AsyncSession, args: dict[str, Any], ctx: ToolContext) 
     return {"note_id": note.id, "created_at": note.created_at.isoformat()}
 
 
+async def _scoped_output(db: AsyncSession, output_id: Any, ctx: ToolContext):
+    from app.core.exceptions import AppException
+    from app.services import project_service as ps
+
+    try:
+        output = await ps.get_output(db, int(output_id))
+    except (TypeError, ValueError, AppException) as exc:
+        raise ToolError("没有这个产出物") from exc
+    if ctx.project_ids is not None and output.project_id not in ctx.project_ids:
+        raise ToolDenied("令牌不允许访问这个项目")
+    return output
+
+
+async def _read_bundle(db: AsyncSession, args: dict[str, Any], ctx: ToolContext) -> Any:
+    from app.services import delivery_service, output_service, project_service as ps
+
+    output = await _scoped_output(db, args.get("output_id"), ctx)
+    if output.kind not in delivery_service.DELIVERABLE_KINDS:
+        raise ToolError("这个产出物没有提示词包")
+    data, _ctype, _name = await output_service.bundle(db, output.id, "md")
+    return delivery_service.bundle_brief(await ps.output_view(db, output.id), data.decode("utf-8"))
+
+
+async def _upload_output(db: AsyncSession, args: dict[str, Any], ctx: ToolContext) -> Any:
+    from pathlib import Path
+
+    from app.core.exceptions import AppException
+    from app.services import delivery_service
+
+    output = await _scoped_output(db, args.get("output_id"), ctx)
+    note = str(args.get("note") or "") or None
+    try:
+        if args.get("path"):
+            path = Path(str(args["path"])).expanduser()
+            if not path.is_absolute():
+                raise ToolError("path 需要是本机文件的绝对路径")
+            res = await delivery_service.attach(db, output.id, path, filename=path.name, source="agent", note=note)
+        elif args.get("url"):
+            url = str(args["url"])
+            if not url.startswith(("http://", "https://")):
+                raise ToolError("url 需以 http(s):// 开头")
+            res = await delivery_service.attach_from_url(db, output.id, url, note=note)
+        else:
+            raise ToolError("需要 path 或 url")
+    except AppException as exc:
+        raise ToolError(getattr(exc, "message", None) or str(exc)) from exc
+    d = res["delivery"]
+    return {"output_id": output.id, "artifact_id": d["artifact_id"], "duration": d["duration"], "size": d["size"]}
+
+
 TOOLS: dict[str, Tool] = {
     t.name: t
     for t in (
@@ -317,6 +368,30 @@ TOOLS: dict[str, Tool] = {
             "写一条随笔（支持 #标签 和 [[双链]]）。",
             {"type": "object", "properties": {"body": {"type": "string"}}, "required": ["body"]},
             _write_note,
+            writes=True,
+        ),
+        Tool(
+            "read_bundle",
+            "读取提示词包",
+            "读取一个产出物（提示词包 / 讲解视频 / MV）的视频提示词包 Markdown：定稿脚本、分镜、风格、素材、交付要求。",
+            {"type": "object", "properties": {"output_id": {"type": "integer"}}, "required": ["output_id"]},
+            _read_bundle,
+        ),
+        Tool(
+            "upload_output",
+            "回传成片",
+            "做完视频后把成片交回工作台：path 为本机视频文件的绝对路径，或 url 为可下载地址；可附 note 说明做法。",
+            {
+                "type": "object",
+                "properties": {
+                    "output_id": {"type": "integer"},
+                    "path": {"type": "string", "description": "本机视频文件绝对路径（mp4 / mov / webm / mkv）"},
+                    "url": {"type": "string", "description": "可下载的视频地址"},
+                    "note": {"type": "string"},
+                },
+                "required": ["output_id"],
+            },
+            _upload_output,
             writes=True,
         ),
     )
@@ -417,6 +492,7 @@ def token_context(tok: WorkbenchToken) -> ToolContext:
         via="mcp",
         token_id=tok.id,
         allowed=frozenset(tok.tools) if tok.tools else None,
+        project_ids=frozenset(int(p) for p in tok.project_ids) if tok.project_ids else None,
     )
 
 
@@ -477,7 +553,7 @@ async def handle_mcp(db: AsyncSession, raw_token: str | None, message: dict[str,
                 "protocolVersion": MCP_PROTOCOL,
                 "capabilities": {"tools": {"listChanged": False}},
                 "serverInfo": {"name": "creative-workbench", "title": "创意工作台", "version": "0.3"},
-                "instructions": "创意工作台的工作台工具：搜索灵感库与采集内容、读原文 / 字幕 / 评论、收藏、记随笔。",
+                "instructions": "创意工作台的工作台工具：搜索灵感库与采集内容、读原文 / 字幕 / 评论、收藏、记随笔；read_bundle 读取视频提示词包，做完后用 upload_output 回传成片。",
             }
         )
     if method == "ping":

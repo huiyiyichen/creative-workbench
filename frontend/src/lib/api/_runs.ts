@@ -293,7 +293,7 @@ export const runsApi = {
   tokens(): Promise<{ items: WorkbenchToken[] }> {
     return request('/workbench/tokens');
   },
-  createToken(body: { label: string; tools?: string[] | null; ttl_hours?: number | null }): Promise<WorkbenchToken> {
+  createToken(body: { label: string; tools?: string[] | null; project_ids?: number[] | null; ttl_hours?: number | null }): Promise<WorkbenchToken> {
     return request('/workbench/tokens', { method: 'POST', body: JSON.stringify(body) });
   },
   revokeToken(id: number): Promise<{ revoked: boolean }> {

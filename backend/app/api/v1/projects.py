@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query, Response
+from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.auth import get_current_user
 from app.core.database import get_db
+from app.core.exceptions import ValidationError
 from app.models.user import User
 from app.schemas.projects import (
     AssetAdd,
@@ -123,6 +124,32 @@ async def generate_draft(project_id: int, request: DraftGenerate, db: AsyncSessi
 async def rewrite_platforms(project_id: int, request: PlatformRewrite, db: AsyncSession = Depends(get_db)):
     """生成平台版本：启动平台改写流程（平台编辑按平台并行 → 规则校验），返回运行 id。"""
     return await platform_flow.start_platform_rewrite(db, project_id, list(request.kinds), request.output_ids)
+
+
+@router.post("/outputs/{output_id}/deliveries")
+async def upload_delivery(
+    output_id: int,
+    file: UploadFile = File(...),
+    note: str | None = Form(default=None),
+    db: AsyncSession = Depends(get_db),
+):
+    """回传成片：上传外部 agent 做好的视频，挂到这个产出物上。"""
+    from app.services import delivery_service
+
+    tmp = await delivery_service.staging_path(output_id, file.filename or "")
+    size = 0
+    try:
+        with tmp.open("wb") as fh:
+            while chunk := await file.read(1 << 20):
+                size += len(chunk)
+                if size > delivery_service.MAX_BYTES:
+                    raise ValidationError("文件超过 4 GB")
+                fh.write(chunk)
+        return await delivery_service.attach(
+            db, output_id, tmp, filename=file.filename or tmp.name, source="upload", note=note, move=True
+        )
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 @router.get("/works")

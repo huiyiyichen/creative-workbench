@@ -1414,3 +1414,9 @@ button.cw-dircard { cursor: pointer; }
 .cw-work-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; font-size: 12px; color: var(--cw-dim); }
 .cw-work-acts { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; }
 .cw-work-acts .cw-link-btn { display: inline-flex; align-items: center; gap: 4px; }
+
+/* 回传成片 */
+.cw-agent-config { max-height: 220px; font-size: 11px; }
+.cw-deliveries { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.cw-deliveries li { display: grid; gap: 4px; padding: 8px; border: 1px solid var(--cw-line); border-radius: 6px; }
+.cw-deliveries video { width: 100%; max-height: 200px; background: var(--cw-deep); border-radius: 4px; }

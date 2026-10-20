@@ -235,6 +235,17 @@ export interface PipelineView {
   partial?: boolean;
 }
 
+export interface Delivery {
+  artifact_id: number;
+  source: 'upload' | 'agent' | string;
+  source_label: string;
+  file_name: string;
+  size: number;
+  duration: number | null;
+  note: string | null;
+  at: string;
+}
+
 export interface WorkItem {
   key: string;
   type: 'output' | 'legacy';
@@ -379,6 +390,13 @@ export const projectsApi = {
     if (params.project) sp.set('project', String(params.project));
     const q = sp.toString();
     return request(`/works${q ? `?${q}` : ''}`);
+  },
+  /** 回传成片：上传外部 agent 做好的视频 */
+  uploadDelivery(oid: number, file: File, note?: string): Promise<{ delivery: Delivery; output: OutputView }> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    if (note) form.append('note', note);
+    return request(`/outputs/${oid}/deliveries`, { method: 'POST', body: form, timeoutMs: 1_800_000 });
   },
   setInWorks(oid: number, value: boolean): Promise<OutputView> {
     return request(`/outputs/${oid}/works`, { method: value ? 'POST' : 'DELETE' });
