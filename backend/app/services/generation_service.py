@@ -72,6 +72,7 @@ def mask_key(enc: str | None) -> str | None:
     try:
         raw = decrypt_secret(enc) or ""
     except Exception:  # noqa: BLE001
+        logger.debug("忽略的异常（generation_service.py）", exc_info=True)
         return "（无法解密）"
     return f"…{raw[-4:]}" if raw else None
 
@@ -254,6 +255,7 @@ def _ref_files(items: list[LibraryItem]) -> list[Path]:
             try:
                 p = library_files.abs_path(it.file_path)
             except Exception:  # noqa: BLE001
+                logger.debug("忽略的异常（generation_service.py）", exc_info=True)
                 continue
             if p.is_file():
                 out.append(p)
@@ -306,6 +308,7 @@ async def style_rules_text(db: AsyncSession, style_id: str) -> str:
     try:
         st = await styles.get_style(db, style_id)
     except Exception:  # noqa: BLE001
+        logger.debug("忽略的异常（generation_service.py）", exc_info=True)
         return ""
     cur = (
         next((v for v in st["versions"] if v["version"] == st["current_version"]), None)
@@ -478,6 +481,31 @@ async def _run_job_bg(job_id: int) -> None:
             await run_job(db, job_id)
     finally:
         _tasks.pop(job_id, None)
+
+
+async def recover_interrupted() -> dict[str, int]:
+    """启动时收拾上一次进程留下的任务：排队中的重新开跑；运行中的标为失败（可能已向厂商扣费，不自动重来，任务中心可重试）。"""
+    from sqlalchemy import select
+
+    requeued = failed = 0
+    async with _session() as db:
+        jobs = (
+            (await db.execute(select(GenerationJob).where(GenerationJob.status.in_(("queued", "running")))))
+            .scalars()
+            .all()
+        )
+        for job in jobs:
+            if job.status == "running":
+                job.status = "failed"
+                job.error = "后端重启时中断，可以重试"
+                job.finished_at = datetime.now(UTC)
+                failed += 1
+        await db.commit()
+        queued = [j.id for j in jobs if j.status == "queued"]
+    for jid in queued:
+        _tasks[jid] = asyncio.create_task(_run_job_bg(jid), name=f"generation-{jid}")
+        requeued += 1
+    return {"requeued": requeued, "failed": failed}
 
 
 async def wait_job(job_id: int, timeout: float = 60) -> None:

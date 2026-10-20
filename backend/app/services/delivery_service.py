@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 from datetime import UTC, datetime
 from pathlib import Path
@@ -19,6 +20,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import ValidationError
 from app.models.project import ProjectArtifact
 from app.services import project_service as ps
+
+logger = logging.getLogger(__name__)
 
 VIDEO_EXTS = {".mp4", ".mov", ".webm", ".mkv", ".m4v"}
 MAX_BYTES = 4 * 1024 * 1024 * 1024
@@ -50,6 +53,7 @@ async def _probe_duration(path: Path) -> float | None:
         )
         return round(float(meta["format"]["duration"]), 2)
     except Exception:  # noqa: BLE001
+        logger.debug("忽略的异常（delivery_service.py）", exc_info=True)
         return None
 
 

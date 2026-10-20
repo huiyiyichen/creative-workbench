@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import logging
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -18,6 +19,8 @@ from app.models.source_sync_run import SourceSyncRun, SyncRunStatus
 from app.repositories.app_setting_repo import AppSettingRepository
 from app.repositories.collection_repo import CollectionStatsRepository
 from app.repositories.source_sync_run_repo import AutoActionRepository
+
+logger = logging.getLogger(__name__)
 
 COLLECTION_PAUSED_KEY = "collection_paused"
 HEALTH_DAYS = 7
@@ -62,6 +65,7 @@ def _scheduled_next_runs() -> dict[int, datetime]:
     try:
         from app.scheduler import scheduler
     except Exception:  # pragma: no cover - 导入失败只影响「下次计划」一列
+        logger.debug("忽略的异常（collection_service.py）", exc_info=True)
         return {}
     if not scheduler.running:
         return {}

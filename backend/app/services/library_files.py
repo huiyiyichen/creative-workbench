@@ -11,6 +11,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import logging
 import mimetypes
 import re
 import shutil
@@ -20,6 +21,8 @@ from pathlib import Path
 from typing import Any
 
 from PIL import Image, ImageDraw, ImageFont
+
+logger = logging.getLogger(__name__)
 
 LIBRARY_ROOT = (Path(__file__).resolve().parents[2] / "data" / "library").resolve()
 MAX_BYTES = 500 * 1024 * 1024
@@ -244,12 +247,14 @@ def font_info(path: Path) -> dict[str, Any]:
     try:
         font = TTFont(str(path), fontNumber=0, lazy=True)
     except Exception:  # noqa: BLE001 — 坏字体不阻止入库
+        logger.debug("忽略的异常（library_files.py）", exc_info=True)
         return {}
     names = {}
     for rec in font["name"].names:
         try:
             names.setdefault(rec.nameID, rec.toUnicode())
         except Exception:  # noqa: BLE001
+            logger.debug("忽略的异常（library_files.py）", exc_info=True)
             continue
     weight = None
     if "OS/2" in font:

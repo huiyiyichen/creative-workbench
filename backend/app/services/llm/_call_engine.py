@@ -248,8 +248,8 @@ async def _call_llm_single(
                 status="FAILED",
                 duration_seconds=duration_ms / 1000,
             )
-        except Exception:
-            pass
+        except Exception:  # noqa: BLE001 — 指标记录失败不能盖住原始异常
+            logger.debug("record failed llm call metric failed", exc_info=True)
         raise
 
 

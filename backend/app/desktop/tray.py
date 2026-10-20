@@ -230,11 +230,20 @@ def _single_instance() -> bool:  # pragma: no cover - Windows only
 def main(argv: list[str] | None = None) -> int:  # pragma: no cover - 入口
     runtime = read_runtime()
     parser = argparse.ArgumentParser(description="创意工作台托盘")
-    parser.add_argument("--api", default=runtime.get("api") or os.environ.get("BACKEND_API_URL", "http://127.0.0.1:8102"))
+    parser.add_argument(
+        "--api", default=runtime.get("api") or os.environ.get("BACKEND_API_URL", "http://127.0.0.1:8102")
+    )
     parser.add_argument("--ui", default=runtime.get("ui") or "http://127.0.0.1:3000")
     args = parser.parse_args(argv)
+    from logging.handlers import RotatingFileHandler
+
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
     logging.basicConfig(
-        filename=str(DATA_DIR / "tray.log"), level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s"
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+        handlers=[
+            RotatingFileHandler(DATA_DIR / "tray.log", maxBytes=2 * 1024 * 1024, backupCount=2, encoding="utf-8")
+        ],
     )
     if not _single_instance():
         return 0

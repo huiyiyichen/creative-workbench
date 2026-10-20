@@ -478,6 +478,7 @@ async def ffmpeg_probe(video: Path, *, detect_silence: bool) -> Probe:
     try:
         ffprobe, ffmpeg = tool("ffprobe"), tool("ffmpeg")
     except Exception:  # noqa: BLE001
+        logger.debug("忽略的异常（production_service.py）", exc_info=True)
         return Probe(duration=None, available=False)
     meta = json.loads(
         await run_process([ffprobe, "-v", "error", "-show_entries", "format=duration", "-of", "json", str(video)])

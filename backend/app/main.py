@@ -303,6 +303,16 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning("Video generation resume skipped (non-fatal): %s", exc)
 
+    try:  # 生图任务、飞书写入：上次进程留下的未完成任务
+        from app.services import feishu_service, generation_service
+
+        gen = await generation_service.recover_interrupted()
+        fs = await feishu_service.recover_interrupted()
+        if gen["requeued"] or gen["failed"] or fs:
+            logger.warning("Recovered interrupted jobs: generation %s, feishu %d", gen, fs)
+    except Exception as exc:  # noqa: BLE001 — 恢复失败不阻断启动
+        logger.warning("Generation / feishu recovery skipped (non-fatal): %s", exc)
+
     # Slow query listener (SQL > 1s log warning, > 5s alert webhook)
     try:
         from app.core.slow_query import attach_to_all_engines

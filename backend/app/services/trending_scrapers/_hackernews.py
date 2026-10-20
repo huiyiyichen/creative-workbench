@@ -31,6 +31,7 @@ class HackerNewsTrending(BaseTrendingScraper):
                 item_resp.raise_for_status()
                 item = item_resp.json()
             except Exception:
+                logger.debug("忽略的异常（_hackernews.py）", exc_info=True)
                 continue
 
             title = item.get("title", "").strip()

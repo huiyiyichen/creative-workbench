@@ -163,6 +163,7 @@ async def _quick_routing_group(cfg: FunnelSettings) -> str:
             if await _model_cache.get_route_models(group):
                 return group
         except Exception:
+            logger.debug("忽略的异常（analysis_funnel.py）", exc_info=True)
             continue
     return "default"
 

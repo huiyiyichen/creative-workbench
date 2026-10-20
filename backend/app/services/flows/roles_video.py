@@ -10,11 +10,14 @@
 from __future__ import annotations
 
 import json
+import logging
 from copy import deepcopy
 from typing import Any
 
 from app.schemas.studio import StudioShot
 from app.services.flows.roles import ArtifactOut, RoleContext, RoleError, _llm
+
+logger = logging.getLogger(__name__)
 
 
 async def _ids(ctx: RoleContext) -> tuple[int, int]:
@@ -78,6 +81,7 @@ def _clean_shots(raw: Any, target: float | None) -> list[dict[str, Any]]:
                 }
             )
         except Exception:  # noqa: BLE001
+            logger.debug("忽略的异常（roles_video.py）", exc_info=True)
             continue
         shots.append({**shot.model_dump(mode="json"), "_paragraphs": item.get("paragraphs") or []})
         if len(shots) >= 80:

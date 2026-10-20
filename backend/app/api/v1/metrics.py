@@ -47,6 +47,7 @@ scope 形如 route:{routing_group}|channel:{channel_or_model}|scene:{scene}，
 
 from __future__ import annotations
 
+import logging
 import time
 from datetime import UTC, datetime, timedelta
 
@@ -61,6 +62,8 @@ from app.repositories.metrics_query_repo import MetricsQueryRepository
 # 监控端点暴露运行日志（含用户邮箱/IP）、LLM 成本与业务规模数据，
 # 全部要求管理员鉴权（cookie 或 Bearer API token；Prometheus 抓取
 # 配置对应的 Authorization header 即可）。
+logger = logging.getLogger(__name__)
+
 router = APIRouter(
     prefix="/metrics",
     tags=["metrics"],
@@ -292,8 +295,8 @@ async def metrics_snapshot():
         size = pool.size()
         checked_out = pool.checkedout()
         collector.update_db_pool_snapshot(checked_out, size)
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 — 看板的可选分区，失败只少一块数据
+        logger.debug("metrics dashboard section failed", exc_info=True)
 
     # 轮询驱动采样：每次被请求时检查是否该追加一个时间序列点
     collector.maybe_sample_timeseries()
@@ -307,8 +310,8 @@ async def metrics_snapshot():
         from app.services.llm.circuit_breaker import get_llm_circuit_breaker
 
         breaker_status = get_llm_circuit_breaker().status()
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 — 看板的可选分区，失败只少一块数据
+        logger.debug("metrics dashboard section failed", exc_info=True)
 
     # 慢查询计数
     slow_queries = 0
@@ -316,8 +319,8 @@ async def metrics_snapshot():
         from app.core.slow_query import get_slow_count
 
         slow_queries = get_slow_count()
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 — 看板的可选分区，失败只少一块数据
+        logger.debug("metrics dashboard section failed", exc_info=True)
 
     # LLM 响应缓存命中率
     cache_status: dict = {}
@@ -325,8 +328,8 @@ async def metrics_snapshot():
         from app.services.llm.response_cache import get_llm_cache
 
         cache_status = get_llm_cache().status()
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 — 看板的可选分区，失败只少一块数据
+        logger.debug("metrics dashboard section failed", exc_info=True)
 
     # 进程级指标（内存 / CPU）
     process: dict = {}
@@ -334,8 +337,8 @@ async def metrics_snapshot():
         from app.services.metrics_persistence import _get_process_metrics
 
         process = _get_process_metrics()
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 — 看板的可选分区，失败只少一块数据
+        logger.debug("metrics dashboard section failed", exc_info=True)
 
     # LLM 模型池运行指标（inflight / admitted / queue wait，MP-P0-T3）
     llm_pool: dict = {}
@@ -343,16 +346,16 @@ async def metrics_snapshot():
         from app.services.llm._rate_limit import get_llm_pool_metrics
 
         llm_pool = get_llm_pool_metrics()
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 — 看板的可选分区，失败只少一块数据
+        logger.debug("metrics dashboard section failed", exc_info=True)
 
     # 分析积压深度（仍可被队列领取的内容数）
     analysis_pending = 0
     try:
         async with async_session() as db:
             analysis_pending = await ContentRepo(db).count_pending_for_analysis()
-    except Exception:
-        pass
+    except Exception:  # noqa: BLE001 — 看板的可选分区，失败只少一块数据
+        logger.debug("metrics dashboard section failed", exc_info=True)
 
     return {
         "snapshot": snapshot,

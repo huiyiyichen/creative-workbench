@@ -587,6 +587,22 @@ def _spawn(coro) -> None:
     t.add_done_callback(_bg.discard)
 
 
+async def recover_interrupted() -> int:
+    """启动时把上次没写完（pending）的记录标为失败，任务中心里可以重试。"""
+    from sqlalchemy import update
+
+    from app.models.feishu import FeishuRecord
+
+    async with _session() as db:
+        res = await db.execute(
+            update(FeishuRecord)
+            .where(FeishuRecord.status == "pending")
+            .values(status="failed", error="后端重启时中断，可以重试")
+        )
+        await db.commit()
+    return res.rowcount or 0
+
+
 async def drain() -> None:
     """测试用：等后台写入结束。"""
     while _bg:

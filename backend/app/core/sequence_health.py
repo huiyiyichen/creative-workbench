@@ -91,6 +91,7 @@ async def get_seq_last_value(db, table_name: str, column_name: str):
         result = await db.execute(text(f"SELECT last_value FROM {seq_name}"))
         return result.scalar()
     except Exception:
+        logger.debug("忽略的异常（sequence_health.py）", exc_info=True)
         return None
 
 

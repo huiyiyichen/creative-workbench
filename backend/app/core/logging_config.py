@@ -74,6 +74,29 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, ensure_ascii=False)
 
 
+LOG_MAX_BYTES = 10 * 1024 * 1024
+LOG_BACKUPS = 5
+
+
+def rotating_file_handler(formatter: logging.Formatter | None, name: str = "backend.log") -> logging.Handler | None:
+    import os
+    from logging.handlers import RotatingFileHandler
+    from pathlib import Path
+
+    target = os.environ.get("LOG_DIR", "").strip()
+    if target.lower() in ("off", "none", "0") or (not target and os.environ.get("APP_ENV") == "test"):
+        return None
+    log_dir = Path(target) if target else Path(__file__).resolve().parents[2] / "data" / "logs"
+    try:
+        log_dir.mkdir(parents=True, exist_ok=True)
+        h = RotatingFileHandler(log_dir / name, maxBytes=LOG_MAX_BYTES, backupCount=LOG_BACKUPS, encoding="utf-8")
+    except OSError:
+        return None  # 目录不可写时只打到控制台
+    if formatter is not None:
+        h.setFormatter(formatter)
+    return h
+
+
 def configure_logging(log_format: str = "text", level: int = logging.INFO) -> None:
     """Configure root logger with the specified format.
 
@@ -94,6 +117,11 @@ def configure_logging(log_format: str = "text", level: int = logging.INFO) -> No
         handler.setFormatter(logging.Formatter(fmt))
 
     root.addHandler(handler)
+
+    # ── 落盘日志，按大小轮转（默认 data/logs/backend.log，10 MB × 5 份；LOG_DIR=off 关闭；测试环境不写）──
+    file_handler = rotating_file_handler(handler.formatter)
+    if file_handler is not None:
+        root.addHandler(file_handler)
 
     # ── In-memory ring buffer for dashboard log viewing ──
     from app.core.log_ringbuffer import get_ring_buffer_handler

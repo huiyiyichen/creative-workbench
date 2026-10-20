@@ -85,7 +85,7 @@ def _auto_score_response(content: str) -> float:
         scores = [v for v in data.values() if isinstance(v, int | float)]
         if scores:
             return float(min(100.0, max(0.0, sum(scores) / len(scores))))
-    except Exception:
+    except (ValueError, TypeError):  # 不是 JSON 评分：按长度粗估
         pass
     return min(100.0, float(len(candidate)))
 

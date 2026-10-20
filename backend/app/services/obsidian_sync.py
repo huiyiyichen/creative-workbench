@@ -401,6 +401,7 @@ def _copy_thumb(v: _Vault, item: LibraryItem) -> str | None:
     try:
         src = library_files.abs_path(rel_src)
     except Exception:  # noqa: BLE001
+        logger.debug("忽略的异常（obsidian_sync.py）", exc_info=True)
         return None
     if not src.is_file():
         return None
