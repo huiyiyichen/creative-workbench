@@ -420,6 +420,9 @@ export function ItemDetailView({ id, compact, onClose, onChanged }: { id: number
             <Workflow size={15} />
             选题研究
           </Link>
+          <Link className="cw-btn" data-variant="ghost" href={`/projects/new?source=content:${id}`} title="以这条内容为主来源新建项目">
+            做成项目
+          </Link>
           {onClose ? (
             <Button variant="ghost" onClick={onClose}>
               关闭
@@ -562,7 +565,7 @@ export function ItemDetailView({ id, compact, onClose, onChanged }: { id: number
               <li key={i}>
                 <b>{a.title}</b>
                 {a.detail ? <p className="cw-muted">{a.detail}</p> : null}
-                <Link href={`/studio?from_content=${data.event?.representative_id || id}&angle=${encodeURIComponent(a.title)}`} className="cw-link-btn">用于新项目</Link>
+                <Link href={`/projects/new?source=content:${data.event?.representative_id || id}&theme=${encodeURIComponent(a.title)}`} className="cw-link-btn">用于新项目</Link>
               </li>
             ))}
           </ol>

@@ -155,15 +155,25 @@ async function performRequest<T>(
         error = { message: errorText };
       }
     }
-    const detail = formatApiErrorDetail(error.detail);
+    // 阶段 4 接口的错误 detail 是 {code, ...}：消息取 error 字段，code 与附加数据挂在错误对象上
+    const coded = error.detail && typeof error.detail === 'object' && !Array.isArray(error.detail) && 'code' in (error.detail as object)
+      ? (error.detail as Record<string, unknown>)
+      : null;
+    const detail = coded ? undefined : formatApiErrorDetail(error.detail);
     // 后端可能用 message 或 error 字段返回错误描述
     const message = typeof error.message === 'string' ? error.message : undefined;
     const errorField = typeof error.error === 'string' ? error.error : undefined;
     const apiErr = new Error(detail || message || errorField || `API Error: ${response.status}`) as Error & {
       status?: number;
       isAuthError?: boolean;
+      code?: string;
+      data?: Record<string, unknown>;
     };
     apiErr.status = response.status;
+    if (coded) {
+      apiErr.code = String(coded.code);
+      apiErr.data = coded;
+    }
     // 401/403 = token 无效或过期，调用方应清登录态；其他状态码（500/502/503）不应登出
     apiErr.isAuthError = response.status === 401 || response.status === 403;
     throw apiErr;

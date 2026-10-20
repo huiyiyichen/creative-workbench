@@ -512,9 +512,16 @@ async def span_payload(db: AsyncSession, span_id: str) -> dict[str, Any] | None:
 
 
 async def list_runs(
-    db: AsyncSession, *, status: str | None = None, flow_key: str | None = None, limit: int = 50
+    db: AsyncSession,
+    *,
+    status: str | None = None,
+    flow_key: str | None = None,
+    project_id: int | None = None,
+    limit: int = 50,
 ) -> list[dict[str, Any]]:
     stmt = select(AgentRun).order_by(AgentRun.id.desc()).limit(limit)
+    if project_id:
+        stmt = stmt.where(AgentRun.project_id == project_id)
     if status:
         stmt = stmt.where(AgentRun.status == status)
     if flow_key:

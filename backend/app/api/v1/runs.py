@@ -34,6 +34,7 @@ class StartBody(BaseModel):
     title: str | None = None
     gates: dict[str, bool] | None = None
     budget: dict[str, float] | None = None
+    project_id: int | None = Field(default=None, gt=0)
 
 
 class GateBody(BaseModel):
@@ -69,17 +70,26 @@ async def list_flows():
 async def list_runs(
     status: str | None = None,
     flow_key: str | None = None,
+    project_id: int | None = None,
     limit: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
 ):
-    return {"items": await trace_service.list_runs(db, status=status, flow_key=flow_key, limit=limit)}
+    return {
+        "items": await trace_service.list_runs(db, status=status, flow_key=flow_key, project_id=project_id, limit=limit)
+    }
 
 
 @router.post("/runs")
 async def start_run(body: StartBody, db: AsyncSession = Depends(get_db)):
     try:
         run = await engine.start_run(
-            db, body.flow_key, body.inputs, title=body.title, gates=body.gates, budget=body.budget
+            db,
+            body.flow_key,
+            body.inputs,
+            title=body.title,
+            gates=body.gates,
+            budget=body.budget,
+            project_id=body.project_id,
         )
     except engine.FlowError as exc:
         raise _bad(exc) from exc

@@ -85,6 +85,11 @@ async def remove_source(project_id: int, source_id: int, db: AsyncSession = Depe
     return Response(status_code=204)
 
 
+@router.post("/projects/{project_id}/directions")
+async def start_directions(project_id: int, db: AsyncSession = Depends(get_db)):
+    return await svc.start_directions(db, project_id)
+
+
 # ── 设定与文稿 ──
 @router.put("/projects/{project_id}/brief")
 async def save_brief(project_id: int, request: BriefSave, db: AsyncSession = Depends(get_db)):

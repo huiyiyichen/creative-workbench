@@ -876,3 +876,41 @@ async def generate_draft(db: AsyncSession, project_id: int, mode: str) -> dict:
     await db.flush()
     await write_draft_version(db, project_id, draft, "compiled")
     return await draft_view(db, project_id)
+
+
+# ── 创意方向 ─────────────────────────────────────────────────────────
+
+
+async def start_directions(db: AsyncSession, project_id: int) -> dict:
+    """启动选题研究流程（研究员 → 汇总 → 策划），不停在关卡；方向卡由前端从运行产物读取。"""
+    from app.services.flows import engine
+
+    project = await get_project(db, project_id)
+    spec = deepcopy(project.spec or {})
+    brief = copy_brief(spec.get("brief"))
+    sources = await list_sources(db, project_id)
+    topic = brief.get("theme") or next((s["snapshot"].get("title") for s in sources if s["role"] == "main"), "")
+    if not topic:
+        raise ValidationError("先挑一个来源或写一个主题")
+    try:
+        run = await engine.start_run(
+            db,
+            "topic_research",
+            {
+                "topic": topic,
+                "content_ids": [s["content_id"] for s in sources if s["content_id"]],
+                "notes": brief.get("intent") or None,
+            },
+            title=f"方向 · {topic}"[:300],
+            gates={"choose": False},
+            project_id=project_id,
+            trigger="project",
+        )
+    except engine.FlowError as exc:
+        raise AppException(str(exc), 503, {"code": "model_unavailable"}) from exc
+    project = await get_project(db, project_id)
+    spec = deepcopy(project.spec or {})
+    spec["idea"] = {**(spec.get("idea") or {}), "run_id": run.id}
+    project.spec = spec
+    await db.commit()
+    return {"run_id": run.id}

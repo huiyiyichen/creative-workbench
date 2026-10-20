@@ -573,7 +573,7 @@ export function LibraryDrawer({
             </ul>
           )}
           <div className="cw-detail-tools" style={{ marginTop: 18 }}>
-            <Link className="cw-btn" href={`/studio?library=${data.id}`}>
+            <Link className="cw-btn" href={`/projects/new?source=library:${data.id}`}>
               <Wand2 size={15} />
               用于新项目
             </Link>

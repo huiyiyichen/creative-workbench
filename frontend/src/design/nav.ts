@@ -50,7 +50,7 @@ export const CW_NAV: CwNavGroup[] = [
   },
   {
     id: 'create',
-    items: [{ id: 'projects', label: '项目', href: '/studio', icon: FolderKanban }],
+    items: [{ id: 'projects', label: '项目', href: '/projects', icon: FolderKanban, match: ['/studio'] }],
   },
   {
     id: 'output',

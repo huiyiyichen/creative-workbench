@@ -48,7 +48,7 @@ export function nodeHref(n: GraphNode): string {
   if (type === 'dossier') return `/dossiers/${id}`;
   if (type === 'style') return `/library/styles?style=${encodeURIComponent(n.ref || '')}`;
   if (type === 'template') return `/library/styles?template=${encodeURIComponent(n.ref || '')}`;
-  return `/studio/${id}`;
+  return `/projects/${id}/idea`;
 }
 
 /** 初始坐标：局部图谱按深度分圈，全局图谱按类型分扇区（之后交给 ForceAtlas2） */

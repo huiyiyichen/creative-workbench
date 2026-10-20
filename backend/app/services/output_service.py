@@ -361,7 +361,11 @@ async def _bundle_context(db: AsyncSession, output) -> dict:
 
 
 def render_bundle_markdown(ctx: dict) -> str:
-    return BUNDLE_TEMPLATE.render(**ctx).strip() + "\n"
+    import re
+
+    md = BUNDLE_TEMPLATE.render(**ctx).strip()
+    md = re.sub(r"\n(#{2,3} )", r"\n\n\1", md)  # 小节标题前留空行
+    return re.sub(r"\n{3,}", "\n\n", md) + "\n"
 
 
 async def bundle(db: AsyncSession, output_id: int, fmt: str = "md") -> tuple[bytes, str, str]:
