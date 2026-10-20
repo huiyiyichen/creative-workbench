@@ -1551,3 +1551,4 @@ button.cw-dircard { cursor: pointer; }
 .cw-keys > div { display: grid; grid-template-columns: 130px 1fr; align-items: center; }
 .cw-keys dd { margin: 0; color: var(--cw-dim); }
 .cw-keys kbd { display: inline-block; min-width: 22px; padding: 1px 6px; margin-right: 4px; border: 1px solid var(--cw-line); border-bottom-width: 2px; border-radius: 4px; font: 12px/1.6 var(--cw-mono, monospace); text-align: center; color: var(--cw-text); }
+.cw-lyric-lines li[data-now] button { color: var(--cw-on-wh); background: var(--cw-yl); border-color: var(--cw-yl); }

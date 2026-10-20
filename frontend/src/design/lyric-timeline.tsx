@@ -6,14 +6,14 @@
  */
 
 import { Input, Modal, message } from 'antd';
-import { Pause, Play, Upload } from 'lucide-react';
+import { Pause, Play, Upload, ZoomIn, ZoomOut } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import WaveSurfer from 'wavesurfer.js';
 import RegionsPlugin from 'wavesurfer.js/dist/plugins/regions.esm.js';
 import { Button } from './components';
 import { apiError } from './studio';
 import { projectsApi, type ProjectAudio, type Shot } from '@/lib/api/_projects';
-import { boundaries, moveBoundary, shotAt } from '@/lib/mv';
+import { boundaries, cueAt, moveBoundary, shotAt } from '@/lib/mv';
 
 function cssVar(name: string, fallback: string): string {
   if (typeof window === 'undefined') return fallback;
@@ -55,6 +55,9 @@ export function LyricTimeline({
   const [playing, setPlaying] = useState(false);
   const [now, setNow] = useState(0);
   const [ready, setReady] = useState(false);
+  const [zoom, setZoom] = useState(0); // 每秒像素，0 = 铺满宽度
+  const selfSelect = useRef(false);
+  const linesRef = useRef<HTMLOListElement | null>(null);
   const box = useRef<HTMLDivElement | null>(null);
   const ws = useRef<WaveSurfer | null>(null);
   const regions = useRef<ReturnType<typeof RegionsPlugin.create> | null>(null);
@@ -165,6 +168,39 @@ export function LyricTimeline({
     w.setTime(t);
   };
   const current = shots.length ? shotAt(shots, now) : -1;
+  const nowCue = playing ? cueAt(cues, now) : -1;
+
+  // 分镜表 / 大纲里选中某一镜（且没在播放）：波形跳到这一镜开头
+  const selKey = (selected || []).join(',');
+  useEffect(() => {
+    if (selfSelect.current) {
+      selfSelect.current = false;
+      return;
+    }
+    const i = (selected || [])[0];
+    const w = ws.current;
+    if (i === undefined || !w || !ready || w.isPlaying() || !w.getDuration()) return;
+    const b = boundaries(latest.current.shots);
+    if (b[i] !== undefined) w.setTime(Math.min(b[i], w.getDuration()));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 只在选中项变化时跳
+  }, [selKey, ready]);
+
+  // 播放时当前歌词滚到可见
+  useEffect(() => {
+    if (nowCue < 0) return;
+    const el = linesRef.current?.children[nowCue] as HTMLElement | undefined;
+    el?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+  }, [nowCue]);
+
+  useEffect(() => {
+    const w = ws.current;
+    if (!w || !ready) return;
+    try {
+      w.zoom(zoom);
+    } catch {
+      /* 音频未解码完时 zoom 会抛错，忽略 */
+    }
+  }, [zoom, ready]);
 
   return (
     <section className="cw-lyric" aria-label="歌词时间轴">
@@ -182,6 +218,12 @@ export function LyricTimeline({
             <span className="cw-muted" title={audio.name}>
               {audio.name}
             </span>
+            <button type="button" className="cw-link-btn" onClick={() => setZoom((z) => Math.max(0, z ? (z <= 20 ? 0 : z / 2) : 0))} disabled={!ready || !zoom} aria-label="缩小波形" title="缩小">
+              <ZoomOut size={14} />
+            </button>
+            <button type="button" className="cw-link-btn" onClick={() => setZoom((z) => Math.min(640, z ? z * 2 : 40))} disabled={!ready || zoom >= 640} aria-label="放大波形" title="放大">
+              <ZoomIn size={14} />
+            </button>
           </>
         ) : (
           <span className="cw-muted">{audio === undefined ? '加载中…' : '还没有音频：上传后波形和歌词会出现在这里'}</span>
@@ -212,15 +254,16 @@ export function LyricTimeline({
       </div>
       {audio ? <div ref={box} className="cw-wave" /> : null}
       {cues.length ? (
-        <ol className="cw-lyric-lines">
+        <ol className="cw-lyric-lines" ref={linesRef}>
           {cues.map((c, i) => {
             const shot = shotAt(shots, c.time);
             return (
-              <li key={`${c.time}-${i}`} data-active={(selected || []).includes(shot) || undefined}>
+              <li key={`${c.time}-${i}`} data-active={(selected || []).includes(shot) || undefined} data-now={i === nowCue || undefined}>
                 <button
                   type="button"
                   onClick={() => {
                     seek(c.time);
+                    if ((selected || []).join(',') !== String(shot)) selfSelect.current = true;
                     onSelect?.([shot]);
                   }}
                 >

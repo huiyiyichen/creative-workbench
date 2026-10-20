@@ -56,3 +56,13 @@ export function shotAt(shots: TimedShot[], time: number): number {
   for (let i = 0; i < shots.length; i++) if (time < b[i + 1]) return i;
   return Math.max(0, shots.length - 1);
 }
+
+/** 时间 t 所在的歌词句序号（最后一个 time <= t 的句子）；在第一句之前返回 -1。cues 需按时间升序。 */
+export function cueAt(cues: Cue[], t: number): number {
+  let hit = -1;
+  for (let i = 0; i < cues.length; i++) {
+    if (cues[i].time <= t + 1e-6) hit = i;
+    else break;
+  }
+  return hit;
+}
