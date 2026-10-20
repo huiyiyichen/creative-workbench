@@ -140,7 +140,7 @@ function CalendarChip({ item }: { item: CalendarItem }) {
   return (
     <Link
       href={`/projects/${item.project_id}/outputs/${item.id}`}
-      className="cw-cal-chip"
+      className="cw-pw-chip"
       data-published={published ? 'true' : undefined}
       style={{ '--c': kindColor(item.kind) } as CSSProperties}
       title={`${item.project_title} · ${item.title}`}
@@ -191,16 +191,16 @@ export function PublishWeek() {
             <ChevronRight size={15} />
           </Button>
         </div>
-        <div className="cw-cal-week">
+        <div className="cw-pw-week">
           {days.map((d, i) => {
             const p = cnParts(d);
             return (
-              <div key={d} className="cw-cal-day" data-today={i === today ? 'true' : undefined} data-past={offset < 0 || (offset === 0 && i < today) ? 'true' : undefined}>
+              <div key={d} className="cw-pw-day" data-today={i === today ? 'true' : undefined} data-past={offset < 0 || (offset === 0 && i < today) ? 'true' : undefined}>
                 <header>
                   <span>周{WD[i]}</span>
                   <b className="cw-num">{p.d}</b>
                 </header>
-                <div className="cw-cal-items">
+                <div className="cw-pw-items">
                   {buckets[i].map((it) => (
                     <CalendarChip key={it.id} item={it} />
                   ))}
@@ -212,7 +212,7 @@ export function PublishWeek() {
       </section>
       {data && data.backlog.length ? (
         <Card title="做好了还没排期" extra={<small className="cw-muted">{data.backlog.length} 件</small>}>
-          <ul className="cw-cal-backlog">
+          <ul className="cw-pw-backlog">
             {data.backlog.map((b) => (
               <li key={b.id} style={{ '--c': kindColor(b.kind) } as CSSProperties}>
                 <i />

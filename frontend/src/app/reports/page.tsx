@@ -9,14 +9,15 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { DatePicker, Input, message } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { ChevronLeft, ChevronRight, FileText } from 'lucide-react';
-import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { Suspense, useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { cnParts } from '@/lib/time-cn';
 import { Button, Card, CwPage, Segmented, TopBar } from '@/design/components';
 import { discoverApi, type PeriodSummary, type ReportCalendar, type ReportHit } from '@/lib/api/_discover';
 import { monthGrid } from '@/lib/discover';
 
 type Tab = 'archive' | 'periods' | 'search';
 const WEEK = ['一', '二', '三', '四', '五', '六', '日'];
-const STATE_TEXT = { report: '', collected: '有采集，未生成日报', uncollected: '未采集', future: '' } as const;
+const STATE_TEXT = { report: '', collected: '', uncollected: '未采集', future: '' } as const;
 
 function errText(err: unknown): string {
   return err instanceof Error ? err.message : '请求失败';
@@ -61,6 +62,12 @@ function Archive() {
     return { y: d.getFullYear(), m: d.getMonth() + 1 };
   });
   const pickedDay = picked ? byDate.get(picked) : null;
+  const monthDays = cal?.days || [];
+  const maxItems = Math.max(1, ...monthDays.map((d) => d.items || 0));
+  const [todayKey] = useState(() => {
+    const p = cnParts(Date.now());
+    return `${p.y}-${String(p.mo).padStart(2, '0')}-${String(p.d).padStart(2, '0')}`;
+  });
 
   return (
     <div className="cw-today">
@@ -76,7 +83,24 @@ function Archive() {
             <ChevronRight size={16} />
           </Button>
           <span className="cw-grow" />
-          <span className="cw-muted" style={{ fontSize: 12 }}>斜纹 = 未采集 · 黄线 = 空档</span>
+          <span className="cw-legend" style={{ fontSize: 12 }}>
+            <span><i className="cw-cal-lamp" /> 有日报</span>
+            <span><i className="cw-cal-key" data-k="heat" /> 颜色越亮采得越多</span>
+            <span><i className="cw-cal-key" data-k="none" /> 未采集</span>
+            <span><i className="cw-cal-key" data-k="gap" /> 空档</span>
+          </span>
+        </div>
+        <div className="cw-month-bars" role="img" aria-label="这个月每天采到的条数">
+          {monthDays.map((d) => (
+            <i
+              key={d.date}
+              data-state={d.state}
+              data-today={d.date === todayKey ? 'true' : undefined}
+              title={`${d.date} · ${d.items} 条`}
+              style={{ height: `${d.items ? Math.max(8, (d.items / maxItems) * 100) : 4}%` }}
+              onClick={() => setPicked(d.date)}
+            />
+          ))}
         </div>
         <div className="cw-cal">
           {WEEK.map((w) => (
@@ -96,10 +120,14 @@ function Archive() {
                 data-state={state}
                 data-gap={gapDays.has(date) ? 'true' : undefined}
                 aria-pressed={picked === date}
+                data-today={date === todayKey ? 'true' : undefined}
                 onClick={() => setPicked(date)}
-                style={picked === date ? { borderColor: 'var(--cw-cy)' } : undefined}
+                style={{ '--h': d && d.items ? Math.min(1, d.items / maxItems) : 0 } as CSSProperties}
               >
-                <span className="cw-cal-day cw-num">{Number(date.slice(8))}</span>
+                <span className="cw-cal-day cw-num">
+                  {Number(date.slice(8))}
+                  {state === 'report' ? <i className="cw-cal-lamp" title="有日报" /> : null}
+                </span>
                 <span className="cw-cal-headline">{d?.headline || STATE_TEXT[state]}</span>
                 <span className="cw-cal-foot cw-num">{d && d.items ? `${d.items} 条` : ''}</span>
               </button>
@@ -300,29 +328,27 @@ function ReportsPage() {
   const tab = (gap ? 'periods' : (params.get('tab') as Tab)) || 'archive';
   return (
     <CwPage>
-      <TopBar title="报告" sub="一段时间不看，回头仍能看到发生了什么">
-        <Link className="cw-btn" href="/daily">
-          今日日报
-        </Link>
-        <Link className="cw-btn" href="/weekly">
-          周刊
-        </Link>
-        <Link className="cw-btn" href="/monthly">
-          月刊
-        </Link>
-      </TopBar>
-      <div className="cw-filters">
+      <TopBar title="报告" sub="日报、周刊、月刊与空档回看">
         <Segmented
           label="报告分页"
           value={tab}
           onChange={(v) => router.replace(`/reports?tab=${v}`)}
           options={[
             { value: 'archive', label: '归档' },
-            { value: 'periods', label: '空档回看与时间段' },
+            { value: 'periods', label: '空档与时间段' },
             { value: 'search', label: '搜索' },
           ]}
         />
-      </div>
+        <Link className="cw-btn" href="/weekly">
+          周刊
+        </Link>
+        <Link className="cw-btn" href="/monthly">
+          月刊
+        </Link>
+        <Link className="cw-btn" data-variant="primary" href="/daily">
+          今日日报
+        </Link>
+      </TopBar>
       {tab === 'archive' ? <Archive /> : null}
       {tab === 'periods' ? <Periods focusGap={gap} /> : null}
       {tab === 'search' ? <Search /> : null}
