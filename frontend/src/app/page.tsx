@@ -13,6 +13,7 @@ import { DotMatrix, FeedItem, ItemDrawer, PlatformBars, ResonanceTable, SignalTi
 import { mediaColor } from '@/design/tokens';
 import { discoverApi, type TodayFeed, type TodaySide, type TodaySignals } from '@/lib/api/_discover';
 import { MEDIA_FILTERS } from '@/lib/discover';
+import { Onboarding } from '@/design/onboarding';
 
 const LEGEND: { key: keyof typeof mediaColor; label: string }[] = [
   { key: 'article', label: '文章' },
@@ -112,6 +113,8 @@ function TodayPage() {
           </span>
         ) : null}
       </TopBar>
+
+      <Onboarding />
 
       {away ? (
         <div className="cw-away" role="status">

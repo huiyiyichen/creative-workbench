@@ -280,3 +280,17 @@
 - 正文 TipTap 富文本：存储仍是纯文本正文（`lib/md-lite.ts` 互转，每个顶层块一段，段落 id 不变），工具栏与 Markdown 快捷输入，选区换算 AI 修改范围。
 - 音乐 MV（阶段 5 清理旧接口时音频 / LRC 上传随 studio.py 删掉，这里在项目接口重做）：`mv_service`，`GET/POST /projects/{id}/audio`、`/audio/file`、`PUT /projects/{id}/lrc`；歌词时间轴 LyricTimeline（wavesurfer.js 波形、歌词点、分镜边界拖动吸附歌词、点歌词跳转）。
 - 浏览器实测：分镜拖动、富文本输入与自动保存、MV 上传音频 → 粘贴 LRC → 拖动边界，均通过；测试 tests/test_stage6_mv.py、lib/__tests__/md-lite.test.ts、mv.test.ts。
+
+## 2026-10-20 · review 改进（stage-6）
+
+- 文稿状态：自动保存后显示「未存版本」（空心点），只有还在写入时才显示「未保存」；底栏同步改为「已保存 · 还没存成版本」。
+- 分镜行菜单「…」：改写这一镜（选中该镜、切到 AI 助手并预填指令）、拆成两镜（时长对半、旁白 / 字幕在最靠近中间的句末断开）、合并到下一镜（时长相加、文字相接、转场取后一镜）、复制、删除。纯函数在 `lib/projects.ts`（splitShot / mergeShotWithNext / splitTextNearMiddle）。
+- 分镜表操作列固定在右侧、文字列最小宽度 96px，窄屏不再把操作按钮挤没。
+- 大纲拖动整节：`OutlineTree`（dnd-kit），同级标题之间换位置，连同子标题和正文一起移动；Alt+↑/↓ 键盘等价。`lib/projects.ts` moveSection / sectionRange。
+- 全局跳转 Ctrl+K（`design/command.tsx`、`lib/command.ts`）：页面、项目、常用操作，支持拼音首字母和英文别名；「?」打开快捷键面板；导航底部加「跳转」入口。
+- MV 时间轴：选中分镜时波形跳到该镜开头；播放时高亮并滚动到当前歌词（`lib/mv.ts` cueAt）；波形放大 / 缩小。
+- 首页「开始使用」三步引导（配模型 → 加信源 → 建项目），全部完成或点「不再显示」后隐藏（`design/onboarding.tsx`）。
+- 后端：旧 `Studio*` ORM 类改名为 `Project` / `ProjectRevision` / `ProjectUpload` / `ProjectArtifact` / `ProjectOutput`（表名不变，无迁移）；`models/studio.py` → `models/project.py`，`studio_repo` → `project_repo`。告警规则、慢查询计数、迁移锁释放、B 站 cookie 预热处的 `except: pass` 改为记日志。
+- 前端卫生：ESLint 警告 105 → 22（补 hooks 依赖、删未用导入）。
+- 未做（判断后放弃或留待以后）：旁白全文不改富文本（它直接喂给配音，保持纯文本更稳）；`/stats/jobs` 保留，作为任务中心里调度任务的明细页；十几处轮询合并为全局事件流、旧管理页布局重做、类型改为 OpenAPI 生成，改动面大，留作下一阶段。
+- E2E 脚本：work/scripts/e2e_p1.py、e2e_cmd.py、e2e_mv.py（扩展）。
