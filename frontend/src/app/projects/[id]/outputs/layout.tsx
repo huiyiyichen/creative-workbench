@@ -66,7 +66,7 @@ export default function OutputsLayout({ children }: { children: ReactNode }) {
           {!finalized ? <p className="cw-muted" style={{ fontSize: 12 }}>未定稿时只能先建平台版本草稿；视频、MV、提示词包定稿后可制作。</p> : null}
           <ul>
             {items.map((o) => {
-              const [label, c] = OUTPUT_STATUS[o.status] || [o.status, '#8d96a3'];
+              const [label, c] = OUTPUT_STATUS[o.status] || [o.status, 'var(--cw-dim)'];
               return (
                 <li key={o.id}>
                   <Link href={`/projects/${project.id}/outputs/${o.id}`} className="cw-outcard" aria-current={current === o.id ? 'page' : undefined}>

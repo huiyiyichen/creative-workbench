@@ -607,7 +607,7 @@ function ProductionWorkspace({ output, onSaved }: { output: OutputView; onSaved:
         {output.artifacts?.length ? (
           <ul className="cw-hist">
             {output.artifacts.map((a) => {
-              const [label, c] = OUTPUT_STATUS[a.status === 'error' ? 'failed' : a.status] || [a.status, '#8d96a3'];
+              const [label, c] = OUTPUT_STATUS[a.status === 'error' ? 'failed' : a.status] || [a.status, 'var(--cw-dim)'];
               const qa = (a.progress as { qa?: QaReport })?.qa;
               return (
                 <li key={a.id}>
@@ -615,7 +615,7 @@ function ProductionWorkspace({ output, onSaved }: { output: OutputView; onSaved:
                   <span style={{ color: c }}>{label}</span>
                   {a.settings?.style_id ? <span className="cw-muted">{String(a.settings.style_id)}</span> : null}
                   {a.settings?.executor ? <span className="cw-muted">{String(a.settings.executor)}</span> : null}
-                  {qa ? <span style={{ color: qa.passed ? '#6ccf68' : '#ff6159' }}>质检{qa.passed ? '通过' : '未通过'}</span> : null}
+                  {qa ? <span style={{ color: qa.passed ? 'var(--cw-gr)' : 'var(--cw-rd)' }}>质检{qa.passed ? '通过' : '未通过'}</span> : null}
                   {a.preview_path ? (
                     <a className="cw-link-btn" href={a.preview_path} target="_blank" rel="noreferrer">
                       预览

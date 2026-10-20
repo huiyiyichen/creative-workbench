@@ -6,7 +6,9 @@ import type { ReactNode } from 'react';
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { CW_NAV, CW_NAV_BOTTOM, activeNavId, type CwNavItem } from './nav';
-import { cwAntdTheme } from './antd-theme';
+import { Moon, Sun } from 'lucide-react';
+import { cwAntdThemeFor } from './antd-theme';
+import { useCwTheme } from './theme';
 import { QuickNote } from './notes';
 
 /** 已按调色台重做的路由；其余仍是旧页面，包在浅色容器里直到阶段 2 替换 */
@@ -19,7 +21,7 @@ export function isCwRoute(pathname: string): boolean {
 function Mark() {
   return (
     <svg className="cw-nav-mark" viewBox="0 0 36 36" aria-hidden="true">
-      <circle cx="18" cy="18" r="16" fill="none" stroke="#333b48" />
+      <circle cx="18" cy="18" r="16" fill="none" stroke="var(--cw-line)" />
       <circle cx="18" cy="5" r="2.4" fill="var(--cw-rd)" />
       <circle cx="29.3" cy="11.5" r="2.4" fill="var(--cw-mg)" />
       <circle cx="29.3" cy="24.5" r="2.4" fill="var(--cw-bl)" />
@@ -27,6 +29,19 @@ function Mark() {
       <circle cx="6.7" cy="24.5" r="2.4" fill="var(--cw-gr)" />
       <circle cx="6.7" cy="11.5" r="2.4" fill="var(--cw-yl)" />
     </svg>
+  );
+}
+
+function ThemeToggle() {
+  const [mode, setMode] = useCwTheme();
+  const next = mode === 'light' ? 'dark' : 'light';
+  const label = next === 'light' ? '切到亮色' : '切到暗色';
+  const Icon = next === 'light' ? Sun : Moon;
+  return (
+    <button type="button" className="cw-nav-item cw-theme-toggle" onClick={() => setMode(next)} title={label} aria-label={label}>
+      <Icon aria-hidden="true" />
+      <span className="cw-nav-label">{next === 'light' ? '亮色' : '暗色'}</span>
+    </button>
   );
 }
 
@@ -62,6 +77,7 @@ export default function AppShell({
   const pathname = usePathname() || '/';
   const active = activeNavId(pathname);
   const cw = isCwRoute(pathname);
+  const [mode] = useCwTheme();
 
   return (
     <div className="cw-app cw-shell">
@@ -79,6 +95,7 @@ export default function AppShell({
           {CW_NAV_BOTTOM.map((item) => (
             <NavLink key={item.id} item={item} active={active === item.id} alert={item.id === 'sources' && sourcesAlert} />
           ))}
+          <ThemeToggle />
         </div>
       </nav>
       <main id="main-content" className="cw-main">
@@ -91,7 +108,7 @@ export default function AppShell({
           </div>
         )}
       </main>
-      <ConfigProvider theme={cwAntdTheme} locale={zhCN}>
+      <ConfigProvider theme={cwAntdThemeFor(mode)} locale={zhCN}>
         <QuickNote />
       </ConfigProvider>
     </div>

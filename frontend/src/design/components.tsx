@@ -9,11 +9,13 @@ import zhCN from 'antd/locale/zh_CN';
 import { useState, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from 'react';
 import { sparkPath, waveform } from '@/lib/collection';
 import { mediaColor } from './tokens';
-import { cwAntdTheme } from './antd-theme';
+import { cwAntdThemeFor } from './antd-theme';
+import { useCwTheme } from './theme';
 
 export function CwPage({ children, className = '' }: { children: ReactNode; className?: string }) {
+  const [mode] = useCwTheme();
   return (
-    <ConfigProvider theme={cwAntdTheme} locale={zhCN} button={{ autoInsertSpace: false }}>
+    <ConfigProvider theme={cwAntdThemeFor(mode)} locale={zhCN} button={{ autoInsertSpace: false }}>
       <AntdApp component={false}>
         <div className={`cw-page ${className}`}>{children}</div>
       </AntdApp>

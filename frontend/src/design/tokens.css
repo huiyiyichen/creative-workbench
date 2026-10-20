@@ -3,6 +3,7 @@
  * 新界面只用 --cw-*；旧页面的浅色变量在 globals.css 保留到阶段 2 替换完毕。
  */
 :root {
+  color-scheme: dark;
   --cw-base: #15181d;
   --cw-panel: #1a1e25;
   --cw-raise: #222731;
@@ -22,12 +23,54 @@
   --cw-wh: #f4f5f7;
   --cw-paper: #f6f3ec;
   --cw-ink: #1d1f23;
+  --cw-on-wh: #14171c;
+  --cw-paper-bg: #1e2229;
+  --cw-paper-ink: #d3d7dc;
+  --cw-paper-sub: #8d96a3;
+  --cw-paper-line: #30363f;
+  --cw-paper-ph: #5e6774;
+  --cw-hover: rgba(255, 255, 255, 0.03);
+  --cw-overlay: rgba(15, 18, 22, 0.85);
+  --cw-hero: radial-gradient(120% 140% at 85% -20%, rgba(111, 139, 255, 0.1), transparent 55%), linear-gradient(180deg, #181c22, #14171c);
 
   --cw-sans: var(--font-noto-sans-sc), "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
   --cw-num: "Bahnschrift", var(--font-barlow-sc), "Segoe UI", sans-serif;
   --cw-serif: var(--font-display), "Noto Serif SC", "Songti SC", serif;
 
   --cw-nav-w: 84px;
+}
+
+/* 亮色主题：<html data-theme="light">（设计/主题切换，localStorage cw-theme） */
+:root[data-theme='light'] {
+  color-scheme: light;
+  --cw-base: #f2f3f0;
+  --cw-panel: #fbfbf9;
+  --cw-raise: #e9ebe6;
+  --cw-grat: #e2e4df;
+  --cw-line: #cfd3cb;
+  --cw-text: #1f232a;
+  --cw-dim: #5d6570;
+  --cw-faint: #8f969f;
+  --cw-nav-bg: #e9ebe6;
+  --cw-deep: #dfe2dc;
+  --cw-yl: #a8870a;
+  --cw-mg: #b03a9f;
+  --cw-bl: #3d5ad6;
+  --cw-cy: #0e8fa3;
+  --cw-gr: #2e8c37;
+  --cw-rd: #d03a31;
+  --cw-wh: #1f232a;
+  --cw-paper: #f6f3ec;
+  --cw-ink: #1d1f23;
+  --cw-on-wh: #f6f7f4;
+  --cw-paper-bg: #fdfcf8;
+  --cw-paper-ink: #24272c;
+  --cw-paper-sub: #5d6570;
+  --cw-paper-line: #dedfd8;
+  --cw-paper-ph: #a0a59f;
+  --cw-hover: rgba(0, 0, 0, 0.035);
+  --cw-overlay: rgba(251, 251, 249, 0.9);
+  --cw-hero: radial-gradient(120% 140% at 85% -20%, rgba(61, 90, 214, 0.08), transparent 55%), linear-gradient(180deg, #fbfbf9, #f0f1ed);
 }
 
 @media (max-width: 1279px) {

@@ -5,7 +5,10 @@
  * 和 antd `ConfigProvider` 都从这里取值；`tokens.test.ts` 校验两边一致。
  */
 
-export const color = {
+export type CwTheme = 'dark' | 'light';
+
+/** 暗色主题（默认）。文稿纸面在暗色里是一张深灰纸，免得和外壳对比过大 */
+export const darkColor = {
   base: '#15181d',
   panel: '#1a1e25',
   raise: '#222731',
@@ -25,7 +28,55 @@ export const color = {
   wh: '#f4f5f7',
   paper: '#f6f3ec',
   ink: '#1d1f23',
+  onWh: '#14171c',
+  paperBg: '#1e2229',
+  paperInk: '#d3d7dc',
+  paperSub: '#8d96a3',
+  paperLine: '#30363f',
+  paperPh: '#5e6774',
 } as const;
+
+/** 亮色主题：强调色压暗一档，保证浅底上可读 */
+export const lightColor = {
+  base: '#f2f3f0',
+  panel: '#fbfbf9',
+  raise: '#e9ebe6',
+  grat: '#e2e4df',
+  line: '#cfd3cb',
+  text: '#1f232a',
+  dim: '#5d6570',
+  faint: '#8f969f',
+  navBg: '#e9ebe6',
+  deep: '#dfe2dc',
+  yl: '#a8870a',
+  mg: '#b03a9f',
+  bl: '#3d5ad6',
+  cy: '#0e8fa3',
+  gr: '#2e8c37',
+  rd: '#d03a31',
+  wh: '#1f232a',
+  paper: '#f6f3ec',
+  ink: '#1d1f23',
+  onWh: '#f6f7f4',
+  paperBg: '#fdfcf8',
+  paperInk: '#24272c',
+  paperSub: '#5d6570',
+  paperLine: '#dedfd8',
+  paperPh: '#a0a59f',
+} satisfies Record<keyof typeof darkColor, string>;
+
+export const palettes: Record<CwTheme, Record<keyof typeof darkColor, string>> = { dark: darkColor, light: lightColor };
+
+type ColorName = keyof typeof darkColor;
+const kebab = (name: string) => name.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
+
+/**
+ * 页面里内联用的颜色：CSS 变量引用，随主题切换自动变。
+ * 需要真实色值的地方（antd token）用 palettes[theme]。
+ */
+export const color = Object.fromEntries(
+  (Object.keys(darkColor) as ColorName[]).map((k) => [k, `var(--cw-${kebab(k)})`]),
+) as { readonly [K in ColorName]: string };
 
 /** 内容形态色标：全站同一种形态用同一种颜色（12.1） */
 export const mediaColor = {

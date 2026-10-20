@@ -3,6 +3,7 @@ import { Barlow_Semi_Condensed, DM_Sans, DM_Mono, Noto_Sans_SC, Noto_Serif_SC } 
 import './globals.css';
 import '@/design/tokens.css';
 import '@/design/cw.css';
+import { THEME_BOOT_SCRIPT } from '@/design/theme-boot';
 import ClientLayout from '@/components/ClientLayout';
 import SkipToContent from '@/components/SkipToContent';
 import { prefetchInitialData } from '@/lib/server-prefetch';
@@ -64,6 +65,9 @@ export default async function RootLayout({
 
   return (
     <html lang="zh-CN" className={`${dmSans.variable} ${dmMono.variable} ${notoSerif.variable} ${notoSans.variable} ${barlow.variable}`} suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
+      </head>
       <body>
         <SkipToContent />
         <ClientLayout initialData={initialData}>{children}</ClientLayout>
