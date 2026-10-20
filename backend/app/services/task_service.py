@@ -175,7 +175,9 @@ async def _generations(db: AsyncSession, since: datetime, limit: int) -> list[di
                 project_id=j.project_id,
                 status=_GEN_STATUS.get(j.status, j.status),
                 raw_status=j.status,
-                stage=f"{n} 个结果" if n else None,
+                stage=(f"{n} 个结果" if n else None)
+                if j.kind != "video" or j.status not in ("queued", "running")
+                else f"厂商生成中 {int((j.params or {}).get('progress') or 0)}%",
                 created_at=j.created_at,
                 started_at=j.created_at,
                 finished_at=j.finished_at,

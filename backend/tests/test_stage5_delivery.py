@@ -9,9 +9,7 @@ from fastapi import FastAPI
 from app.core.exceptions import AppException
 from app.models.studio import StudioOutput
 from app.schemas.projects import ProjectCreate
-from app.services import delivery_service, studio_service, works_service
-from app.services import project_service as ps
-from app.services import workbench_tools as wt
+from app.services import delivery_service, project_service as ps, studio_service, workbench_tools as wt, works_service
 
 
 @pytest.fixture
@@ -31,7 +29,9 @@ async def _bundle_output(db, theme="提示词包"):
     project.spec = {**(project.spec or {}), "draft": {"title": theme, "body": "第一段。\n\n第二段。"}}
     await db.commit()
     await ps.finalize(db, p["id"])
-    o = StudioOutput(project_id=p["id"], kind="prompt_bundle", title="视频提示词包", status="exported", based_on_version=2)
+    o = StudioOutput(
+        project_id=p["id"], kind="prompt_bundle", title="视频提示词包", status="exported", based_on_version=2
+    )
     db.add(o)
     await db.commit()
     return p["id"], o.id
@@ -108,7 +108,11 @@ async def test_upload_endpoint(test_session_factory, media):
         return JSONResponse({"detail": exc.message}, status_code=exc.status_code)
 
     async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
-        r = await client.post(f"/outputs/{oid}/deliveries", files={"file": ("cut.mov", b"x" * 1000, "video/quicktime")}, data={"note": "手动上传"})
+        r = await client.post(
+            f"/outputs/{oid}/deliveries",
+            files={"file": ("cut.mov", b"x" * 1000, "video/quicktime")},
+            data={"note": "手动上传"},
+        )
         assert r.status_code == 200, r.text
         assert r.json()["delivery"]["source"] == "upload"
         r = await client.post(f"/outputs/{oid}/deliveries", files={"file": ("x.exe", b"x", "application/octet-stream")})

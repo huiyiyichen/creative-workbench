@@ -9,6 +9,7 @@ import { OUTPUT_STATUS, RunStages, apiError, useProject, useRunWatch } from '@/d
 import { ImageGenPanel } from '@/design/imagegen';
 import { LineageDrawer } from '@/design/lineage';
 import { runsApi, type LineageQuery } from '@/lib/api/_runs';
+import { VideoClipsCard } from '@/design/videogen';
 import { libraryFileUrl } from '@/lib/api/_library';
 import type { GenTarget } from '@/lib/api/_generations';
 import type { ProjectAsset } from '@/lib/api/_projects';
@@ -552,7 +553,7 @@ function QaView({ qa }: { qa: QaReport }) {
 /** 分镜关键帧：美术节点优先用这里指定的图；也可以先在这里生图。 */
 function KeyframesCard({ output, locked }: { output: OutputView; locked: boolean }) {
   const version = output.based_on_version ?? output.latest_finalized;
-  const [shots, setShots] = useState<{ beat: string; visual: string; seconds: number }[]>([]);
+  const [shots, setShots] = useState<{ beat: string; visual: string; seconds: number; prompt?: string }[]>([]);
   const { assets, load } = useOutputAssets(output.project_id, output.id);
   const [shot, setShot] = useState<number | null>(null);
   const styleId = (output.settings as { style_id?: string | null }).style_id;
@@ -596,6 +597,15 @@ function KeyframesCard({ output, locked }: { output: OutputView; locked: boolean
           onKept={() => void load()}
         />
       ) : null}
+      <VideoClipsCard
+        projectId={output.project_id}
+        outputId={output.id}
+        shots={shots}
+        keyframes={assets}
+        aspect={((output.settings as { aspect_ratio?: string }).aspect_ratio as '16:9' | '9:16' | '1:1') || '16:9'}
+        locked={locked}
+        onKept={() => void load()}
+      />
     </Card>
   );
 }

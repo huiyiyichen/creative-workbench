@@ -294,6 +294,15 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning("Studio artifact recovery skipped (non-fatal): %s", exc)
 
+    try:  # 视频生成：已提交到厂商的任务接着轮询
+        from app.services.video_generation import resume_pending
+
+        resumed = await resume_pending()
+        if resumed:
+            logger.warning("Resumed %d video generation job(s)", resumed)
+    except Exception as exc:
+        logger.warning("Video generation resume skipped (non-fatal): %s", exc)
+
     # Slow query listener (SQL > 1s log warning, > 5s alert webhook)
     try:
         from app.core.slow_query import attach_to_all_engines

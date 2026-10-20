@@ -246,3 +246,10 @@
 - 接口：`POST /outputs/{id}/deliveries`（multipart 上传，先写暂存再挂上，失败不留临时文件）；`POST /workbench/tokens` 支持 `project_ids`。
 - 前端：提示词包工作区加「外部 agent 接入」（一键生成限本项目、24 小时的令牌和 MCP 配置片段，附 read_bundle / upload_output 用法）与「回传成片」（说明 + 选择视频上传，历史回传带预览、大小、时长、来源、下载）；回传后的成片自动进作品库。
 - 验证：tests/test_stage5_delivery.py 2 项（MCP 工具清单、读取提示词包、跨项目拒绝、相对路径 / 非视频拒绝、回传后产出物状态与记录、预览下载、作品库可见；上传接口与非视频 422、暂存目录清空）；截图验收提示词包工作区。
+
+### 阶段 5 · 第 ⑦ 步：视频生成接口（2026-10-20）
+- `video_generation.py`：`generate_video(prompt, first_frame, duration, aspect) → 任务`。适配器按 `api_format` 扩展，每个实现 `submit` / `poll`；先接 OpenAI 兼容视频接口（`POST /videos`，首帧走 `input_reference`；`GET /videos/{id}` 查状态和进度；`/videos/{id}/content` 下载）。任务记在 `generation_jobs`（kind=video），厂商任务 id、提交时间、进度写进 `params`；轮询到完成 / 失败 / 30 分钟超时，结果存 `data/generations/<job>/0.mp4`。单价按元 / 秒，每日上限与生图同一套；时长只能选服务声明的（`capabilities.durations`），可关首帧。
+- 服务重启：已提交到厂商的视频任务接着轮询（不重复提交），没提交的标失败提示重新生成。测试连接对视频服务只查一次任务列表，不产生费用。存入并使用支持视频（灵感库里是 mp4，挂到分镜）；图片接口拒绝用视频服务生图。
+- 接口：`POST /generations/videos`；服务的 `api_format` 增加 `openai_videos`；文件接口按扩展名返回 `video/mp4`；任务中心显示「生成视频」与厂商进度。
+- 前端：设置 · 生成服务可加视频服务（类型、可选时长、首帧开关、元 / 秒），开关排版修正；讲解视频产出的「分镜关键帧」下加「视频片段」：按镜头生成（提示词取分镜提示词 / 画面，可用该镜关键帧作首帧，时长取最接近分镜时长的可选值，显示预计花费），任务进度、预览、存入并使用。
+- 验证：tests/test_stage5_video_generation.py 3 项（提交 → 轮询进度 → 下载、花费、任务中心、存入并使用；超每日上限、厂商失败、重启续跑与未提交标失败；OpenAI 视频适配器的请求 / 轮询 / 下载）；阶段 4 生图回归；截图验收设置页。

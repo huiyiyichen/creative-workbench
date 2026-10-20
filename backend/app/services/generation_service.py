@@ -122,7 +122,9 @@ def _validate_service(values: dict[str, Any]) -> None:
     url = str(values.get("base_url") or "")
     if url and not url.startswith(("http://", "https://")):
         raise ValidationError("地址需以 http(s):// 开头")
-    if values.get("api_format") and values["api_format"] not in ADAPTERS:
+    from app.services.video_generation import ADAPTERS as VIDEO_ADAPTERS
+
+    if values.get("api_format") and values["api_format"] not in ADAPTERS and values["api_format"] not in VIDEO_ADAPTERS:
         raise ValidationError(f"暂不支持接口格式 {values['api_format']}")
     caps = values.get("capabilities")
     if caps is not None and not isinstance(caps, dict):
@@ -380,6 +382,7 @@ def job_dict(job: GenerationJob) -> dict[str, Any]:
         "project_id": job.project_id,
         "output_id": job.output_id,
         "status": job.status,
+        "progress": (job.params or {}).get("progress"),
         "results": [
             {**r, "url": f"/api/v1/generations/{job.id}/files/{r['index']}"} for r in job.results or [] if r.get("file")
         ],
@@ -413,6 +416,8 @@ async def create_job(
     service = await _pick_service(db, service_id)
     if service is None:
         raise AppException("还没有配置生成服务", 503, {"code": "generation_not_configured"})
+    if service.kind != "image":
+        raise ValidationError(f"「{service.name}」不是图片服务")
     caps = service.capabilities or {}
     n = max(1, min(int(n or 1), int(caps.get("max_n") or 4), MAX_N))
     ttype = (target or {}).get("type") or "moodboard"
@@ -571,11 +576,12 @@ async def _keep_one(
     from app.services import library
 
     path = job_file(job, result["index"])
+    is_video = path.suffix.lower() == ".mp4"
     item = await library.add_file(
         db,
         path.read_bytes(),
-        f"generated-{job.id}-{result['index']}.png",
-        mime="image/png",
+        f"generated-{job.id}-{result['index']}{path.suffix.lower() or '.png'}",
+        mime="video/mp4" if is_video else "image/png",
         method=ImportMethod.GENERATED.value,
         title=job.prompt[:60],
         license=License.AI.value,
@@ -588,7 +594,7 @@ async def _keep_one(
         "prompt": job.prompt,
         "model": job.model,
         "service_id": job.service_id,
-        "params": {k: v for k, v in (job.params or {}).items() if k in ("aspect", "size", "n")},
+        "params": {k: v for k, v in (job.params or {}).items() if k in ("aspect", "size", "n", "seconds")},
         "ref_item_ids": job.ref_item_ids or [],
         "generation_job_id": job.id,
         "target": target or job.target,
@@ -695,7 +701,14 @@ def cleanup_candidates(now: datetime | None = None) -> int:
 
 
 async def test_service(db: AsyncSession, service_id: int) -> dict[str, Any]:
-    """测试连接：生一张最小尺寸的图（计入花费）。"""
+    """测试连接：图像服务生一张最小尺寸的图（计入花费）；视频服务只查一次任务列表（不产生费用）。"""
+    service = await db.get(GenerationService, service_id)
+    if service is None:
+        raise NotFoundError("生成服务", service_id)
+    if service.kind == "video":
+        from app.services import video_generation
+
+        return await video_generation.test_connection(service)
     job = await create_job(db, prompt="a red circle on white background", n=1, service_id=service_id, launch=False)
     job = await run_job(db, job.id)
     return {"ok": job.status == "done", "error": job.error, "job_id": job.id}

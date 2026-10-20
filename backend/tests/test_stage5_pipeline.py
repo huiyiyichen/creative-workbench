@@ -68,7 +68,14 @@ class FakeLLM:
                 ]
             }
         if scene == "flow_writer":
-            return {"title": "每天 601 美元", "logline": "算账", "body": BODY, "shots": [], "cues": [], "summary": "初稿"}
+            return {
+                "title": "每天 601 美元",
+                "logline": "算账",
+                "body": BODY,
+                "shots": [],
+                "cues": [],
+                "summary": "初稿",
+            }
         if scene == "flow_reviewer":
             return {"summary": "可用", "issues": []}
         if scene == "studio_platform":

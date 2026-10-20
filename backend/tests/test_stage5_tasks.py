@@ -21,7 +21,12 @@ async def test_tasks_merge_filter_and_hint(test_session_factory):
         p = await ps.create_project(db, 1, ProjectCreate(theme="任务中心"))
         now = datetime.now(UTC)
         running = AgentRun(
-            flow_key="draft_writing", title="成稿 · 任务中心", status="running", thread_id="a", project_id=p["id"], started_at=now
+            flow_key="draft_writing",
+            title="成稿 · 任务中心",
+            status="running",
+            thread_id="a",
+            project_id=p["id"],
+            started_at=now,
         )
         failed = AgentRun(
             flow_key="video_production",
@@ -37,7 +42,11 @@ async def test_tasks_merge_filter_and_hint(test_session_factory):
         db.add_all([running, failed, old])
         await db.flush()
         old.created_at = now - timedelta(days=30)
-        db.add(AgentStep(run_id=running.id, node="write", role="writer", label="写手", executor="internal", status="running"))
+        db.add(
+            AgentStep(
+                run_id=running.id, node="write", role="writer", label="写手", executor="internal", status="running"
+            )
+        )
         db.add(GenerationJob(prompt="一只猫", status="done", results=[{"url": "/a.png"}], cost=0.1, project_id=p["id"]))
         src = Source(name="少数派", url="https://sspai.com/feed", source_type="RSS", status="active")
         db.add(src)

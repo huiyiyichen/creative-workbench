@@ -14,10 +14,10 @@ export interface GenService {
   id: number;
   name: string;
   kind: 'image' | 'video' | 'music';
-  api_format: 'openai_images';
+  api_format: 'openai_images' | 'openai_videos';
   base_url: string;
   model: string;
-  capabilities: { refs?: boolean; max_n?: number; sizes?: Record<string, string> };
+  capabilities: { refs?: boolean; max_n?: number; sizes?: Record<string, string>; durations?: number[]; first_frame?: boolean };
   unit_price: number;
   daily_limit: number | null;
   enabled: boolean;
@@ -29,11 +29,13 @@ export interface GenService {
 
 export interface GenJob {
   id: number;
+  kind?: 'image' | 'video' | 'music';
+  progress?: number | null;
   service_id: number | null;
   model: string | null;
   prompt: string;
   ref_item_ids: number[];
-  params: { aspect?: Aspect; size?: string; n?: number; estimate?: number };
+  params: { aspect?: Aspect; size?: string; n?: number; estimate?: number; seconds?: number; first_frame_item_id?: number | null };
   target: GenTarget | null;
   project_id: number | null;
   output_id: number | null;
@@ -59,7 +61,7 @@ export const genApi = {
   deleteService(id: number): Promise<void> {
     return request(`/generation/services/${id}`, { method: 'DELETE' });
   },
-  testService(id: number): Promise<{ ok: boolean; error: string | null; job_id: number }> {
+  testService(id: number): Promise<{ ok: boolean; error: string | null; job_id: number | null }> {
     return request(`/generation/services/${id}/test`, { method: 'POST', timeoutMs: 200_000 });
   },
   generate(body: {
@@ -75,6 +77,22 @@ export const genApi = {
     parent_index?: number;
   }): Promise<GenJob> {
     return request('/generations/images', { method: 'POST', body: j(body) });
+  },
+  /** 视频生成：异步厂商任务，进任务中心 */
+  generateVideo(body: {
+    prompt: string;
+    first_frame_item_id?: number | null;
+    duration: number;
+    aspect?: '16:9' | '9:16' | '1:1';
+    service_id?: number;
+    project_id?: number;
+    output_id?: number;
+    target?: GenTarget;
+  }): Promise<GenJob> {
+    return request('/generations/videos', { method: 'POST', body: j(body) });
+  },
+  jobs(projectId?: number): Promise<{ items: GenJob[] }> {
+    return request(`/generations${projectId ? `?project_id=${projectId}` : ''}`);
   },
   job(id: number): Promise<GenJob> {
     return request(`/generations/${id}`);

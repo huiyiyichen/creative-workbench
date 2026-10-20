@@ -19,7 +19,7 @@ router = APIRouter(tags=["generations"], dependencies=[Depends(get_current_user)
 class ServiceBody(BaseModel):
     name: str | None = Field(default=None, max_length=100)
     kind: Literal["image", "video", "music"] | None = None
-    api_format: Literal["openai_images"] | None = None
+    api_format: Literal["openai_images", "openai_videos"] | None = None
     base_url: str | None = Field(default=None, max_length=500)
     api_key: str | None = Field(default=None, max_length=500)
     model: str | None = Field(default=None, max_length=100)
@@ -41,6 +41,17 @@ class ImageBody(BaseModel):
     target: dict | None = None
     parent_job_id: int | None = None
     parent_index: int | None = None
+
+
+class VideoBody(BaseModel):
+    prompt: str = Field(min_length=1, max_length=8000)
+    first_frame_item_id: int | None = None
+    duration: int = Field(default=5, ge=1, le=60)
+    aspect: Literal["16:9", "9:16", "1:1"] | None = None
+    service_id: int | None = None
+    project_id: int | None = None
+    output_id: int | None = None
+    target: dict | None = None
 
 
 class KeepBody(BaseModel):
@@ -86,6 +97,15 @@ async def create_images(body: ImageBody, db: AsyncSession = Depends(get_db)):
     return gen.job_dict(job)
 
 
+@router.post("/generations/videos")
+async def create_video(body: VideoBody, db: AsyncSession = Depends(get_db)):
+    """视频生成：异步任务，进任务中心；完成后可存入并使用。"""
+    from app.services import video_generation
+
+    job = await video_generation.create_video_job(db, **body.model_dump())
+    return gen.job_dict(job)
+
+
 @router.get("/generations")
 async def list_jobs(project_id: int | None = None, db: AsyncSession = Depends(get_db)):
     return {"items": await gen.list_jobs(db, project_id)}
@@ -98,7 +118,8 @@ async def get_job(job_id: int, db: AsyncSession = Depends(get_db)):
 
 @router.get("/generations/{job_id}/files/{index}")
 async def job_file(job_id: int, index: int, db: AsyncSession = Depends(get_db)):
-    return FileResponse(await gen.file_for(db, job_id, index), media_type="image/png")
+    path = await gen.file_for(db, job_id, index)
+    return FileResponse(path, media_type="video/mp4" if path.suffix.lower() == ".mp4" else "image/png")
 
 
 @router.post("/generations/{job_id}/keep")

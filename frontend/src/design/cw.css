@@ -1189,6 +1189,8 @@ button.cw-dircard { cursor: pointer; }
 .cw-picktile-cap em { font-style: normal; color: var(--cw-cy); margin-right: 4px; }
 .cw-brief { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 14px; }
 .cw-brief > label { display: grid; gap: 4px; color: var(--cw-dim); font-size: 12px; }
+.cw-brief > label.cw-inline { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.cw-brief > label.cw-inline .ant-switch { flex: none; }
 .cw-brief-wide { grid-column: 1 / -1; }
 .cw-notice[data-tone='warn'] { border-color: var(--cw-yl); color: var(--cw-yl); }
 
@@ -1420,3 +1422,9 @@ button.cw-dircard { cursor: pointer; }
 .cw-deliveries { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
 .cw-deliveries li { display: grid; gap: 4px; padding: 8px; border: 1px solid var(--cw-line); border-radius: 6px; }
 .cw-deliveries video { width: 100%; max-height: 200px; background: var(--cw-deep); border-radius: 4px; }
+
+/* 视频片段 */
+.cw-clips { list-style: none; margin: 12px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.cw-clips li { display: grid; gap: 4px; padding: 8px; border: 1px solid var(--cw-line); border-radius: 6px; }
+.cw-clips video, .cw-clip-ph { width: 100%; aspect-ratio: 16 / 9; background: var(--cw-deep); border-radius: 4px; }
+.cw-clip-ph { display: grid; place-items: center; font-size: 12px; color: var(--cw-dim); }
