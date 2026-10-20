@@ -1233,7 +1233,7 @@ button.cw-dircard { cursor: pointer; }
 .cw-durbar-track i { display: block; height: 100%; background: var(--cw-cy); }
 .cw-durbar[data-over] .cw-durbar-track i { background: var(--cw-yl); }
 .cw-durbar[data-over] { color: var(--cw-yl); }
-.cw-draftbar { position: sticky; bottom: 0; display: flex; align-items: center; gap: 16px; padding: 8px 14px; border: 1px solid var(--cw-grat); border-radius: 10px; background: var(--cw-panel); font-size: 13px; color: var(--cw-dim); }
+.cw-draftbar { position: sticky; bottom: 0; display: flex; align-items: center; gap: 16px; padding: 8px 64px 8px 14px; /* 右侧给「记一笔」浮钮留位 */ border: 1px solid var(--cw-grat); border-radius: 10px; background: var(--cw-panel); font-size: 13px; color: var(--cw-dim); }
 .cw-savestate { display: inline-flex; align-items: center; gap: 6px; }
 .cw-savestate i { width: 7px; height: 7px; border-radius: 50%; background: var(--cw-yl); }
 .cw-savestate[data-state='error'], .cw-savestate[data-state='conflict'] { color: var(--cw-rd); }
@@ -1285,6 +1285,7 @@ button.cw-dircard { cursor: pointer; }
 .cw-outstale { color: var(--cw-yl); font-size: 12px; }
 .cw-outempty { padding: 60px 20px; text-align: center; border: 1px dashed var(--cw-line); border-radius: 12px; }
 .cw-outempty h3 { margin: 0 0 6px; }
+.cw-outempty p { margin: 0 0 16px; }
 .cw-outhead { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
 .cw-outhead h2 { margin: 0; font-size: 18px; }
 .cw-platform { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 16px; align-items: start; }

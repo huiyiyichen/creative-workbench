@@ -21,7 +21,8 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from app.core.request_utils import client_ip
 
 # 路径前缀 → (max_requests, window_seconds)
-_RATE_RULES: list[tuple[str, int, int]] = [("/api/v1", 200, 60)]
+# 单用户本机应用：一个页面首屏就有二三十个请求，200/分钟快速切几页就会 429（阶段 4 截图验收发现）
+_RATE_RULES: list[tuple[str, int, int]] = [("/api/v1", 1200, 60)]
 
 # 豁免路径（不限流）
 _EXEMPT_PREFIXES = ("/health", "/metrics", "/docs", "/openapi.json", "/redoc")
