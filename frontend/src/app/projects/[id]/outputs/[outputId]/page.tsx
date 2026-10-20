@@ -19,6 +19,8 @@ import { PLATFORM_LIMITS, fmtClock, platformIssues, qaMark, stripTags, textLen }
 import { useOutputs } from '../_ctx';
 import { confirmAction } from '@/design/feedback';
 import { PublishPanel } from '@/design/publishing';
+import { wechatApi } from '@/lib/api/_wechat';
+import { toast } from '@/design/feedback';
 
 async function copy(text: string, what: string) {
   try {
@@ -237,6 +239,26 @@ function PlatformWorkspace({ output, onSaved }: { output: OutputView; onSaved: (
           <a className="cw-btn" href={projectsApi.exportUrl(output.id, 'html')} target="_blank" rel="noreferrer">
             导出 HTML
           </a>
+          {output.kind === 'wechat' ? (
+            <Button
+              disabled={busy !== null}
+              title="推到公众号后台的草稿箱（先在设置 · 公众号里填 AppID / AppSecret）"
+              onClick={async () => {
+                setBusy('wechat');
+                try {
+                  const r = await wechatApi.pushDraft(output.id);
+                  toast.success(r.skipped.length ? `已推到草稿箱（${r.skipped.length} 张图没传上，去后台补一下）` : '已推到草稿箱，去公众号后台检查后群发');
+                  onSaved(await projectsApi.output(output.id));
+                } catch (err) {
+                  toast.error(err, '推送失败');
+                } finally {
+                  setBusy(null);
+                }
+              }}
+            >
+              {busy === 'wechat' ? '推送中…' : (output.settings as { wechat_draft?: unknown }).wechat_draft ? '再推一次到草稿箱' : '推到草稿箱'}
+            </Button>
+          ) : null}
           <a className="cw-btn" data-variant="ghost" href={PUBLISH_URL[output.kind]} target="_blank" rel="noreferrer">
             打开发布页 ↗
           </a>

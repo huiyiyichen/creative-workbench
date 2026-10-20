@@ -43,6 +43,7 @@ from app.api.v1.stats_jobs import router as stats_jobs_router
 from app.api.v1.topics import router as topics_router
 from app.api.v1.trending import router as trending_router
 from app.api.v1.trends import router as trends_router
+from app.api.v1.wechat import router as wechat_router
 from app.api.v1.weekly_digests import router as weekly_digests_router
 
 router = APIRouter(prefix="/api/v1")
@@ -55,6 +56,7 @@ router.include_router(search_router)
 router.include_router(costs_router)
 router.include_router(events_router)
 router.include_router(publishing_router)
+router.include_router(wechat_router)
 router.include_router(discover_router)
 router.include_router(library_router)
 router.include_router(runs_router)
