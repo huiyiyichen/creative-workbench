@@ -81,6 +81,8 @@ class ContentItem(Base):
     # 评论：none / collected / unavailable / failed
     comment_state: Mapped[str] = mapped_column(String(20), nullable=False, default="none", server_default="none")
     comment_crawled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # 评论摘要（3.5）：{points: [{text, comment_ids}], based_on, generated_at}
+    comment_digest: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)
     # ── 分析漏斗（4.1） ──
     triage_score: Mapped[float | None] = mapped_column(Float, nullable=True)
     triage_signals: Mapped[dict | None] = mapped_column(JSON(none_as_null=True), nullable=True)

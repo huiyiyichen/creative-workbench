@@ -46,6 +46,7 @@ class Comment:
     likes: int | None = None
     published_at: datetime | None = None
     replies: int | None = None
+    id: str | None = None  # 平台内评论 id，重复采集时据此更新
 
 
 @dataclass

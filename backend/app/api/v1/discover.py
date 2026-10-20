@@ -133,6 +133,39 @@ async def post_analyze_now(content_id: int, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="条目不存在") from exc
 
 
+@router.get("/items/{content_id}/comments")
+async def item_comments(content_id: int, db: AsyncSession = Depends(get_db)):
+    """评论折叠区（3.5）：按点赞排序，附摘要。"""
+    from app.services import comments
+
+    try:
+        return await comments.list_comments(db, content_id)
+    except comments.CommentError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/items/{content_id}/comments/load")
+async def item_comments_load(content_id: int, refresh: bool = False, db: AsyncSession = Depends(get_db)):
+    """「加载评论」：取热门前 20 条（不取回复）。"""
+    from app.services import comments
+
+    try:
+        return await comments.collect(db, content_id, force=refresh)
+    except comments.CommentError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@router.post("/items/{content_id}/comments/digest")
+async def item_comments_digest(content_id: int, db: AsyncSession = Depends(get_db)):
+    """「总结评论」：几条要点，每条附原评论 id。"""
+    from app.services import comments
+
+    try:
+        return await comments.digest(db, content_id)
+    except comments.CommentError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
 @router.get("/verdicts/agreement")
 async def get_verdict_agreement(days: int = Query(30, ge=1, le=365), db: AsyncSession = Depends(get_db)):
     return await agreement_rate(db, days=days)

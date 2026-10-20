@@ -64,6 +64,7 @@ class HackerNewsAdapter(PlatformAdapter):
                 author=c.get("author"),
                 replies=len(c.get("children") or []),
                 published_at=from_timestamp(c.get("created_at_i")),
+                id=str(c["id"]) if c.get("id") else None,
             )
             for c in children[:limit]
         ]

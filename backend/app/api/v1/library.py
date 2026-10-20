@@ -8,7 +8,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Any, Literal
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -115,11 +115,14 @@ async def library_facets(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/library/items/from-content")
-async def library_from_content(body: FromContentBody, db: AsyncSession = Depends(get_db)):
+async def library_from_content(body: FromContentBody, background: BackgroundTasks, db: AsyncSession = Depends(get_db)):
     try:
         item = await lib.add_from_content(db, body.content_id)
     except lib.LibraryNotFoundError as exc:
         raise _bad(exc, 404) from exc
+    from app.services.item_detail import on_favorited
+
+    background.add_task(on_favorited, body.content_id)  # 记入经历、按需补分析、采评论
     return lib.item_view(item)
 
 

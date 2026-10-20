@@ -751,6 +751,14 @@ async def _scan_library_inbox() -> str:
         return str(await scan_inbox(db))
 
 
+async def _maintain_comments() -> str:
+    """条目评论（3.5）：收藏 / 项目来源的评论 24 小时后刷新一次；未收藏内容的评论 30 天后删除。"""
+    from app.services.comments import maintain
+
+    async with async_session() as db:
+        return str(await maintain(db))
+
+
 async def _obsidian_sync() -> str:
     """Obsidian 双向同步（6.8）：读回你在 vault 里的修改，再写出工作台的笔记。未配置 vault 时跳过。"""
     from app.services.obsidian_sync import sync_once
@@ -1050,6 +1058,15 @@ def start_scheduler() -> None:
         trigger=IntervalTrigger(minutes=2),
         id="library_inbox",
         name="素材收件箱导入",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.add_job(
+        _maintain_comments,
+        trigger=CronTrigger(minute=35),
+        id="maintain_comments",
+        name="评论刷新与清理",
         replace_existing=True,
         max_instances=1,
         coalesce=True,

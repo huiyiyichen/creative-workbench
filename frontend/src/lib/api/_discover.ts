@@ -310,6 +310,24 @@ function qs(params: Record<string, string | number | boolean | null | undefined>
   return entries.length ? `?${new URLSearchParams(entries.map(([k, v]) => [k, String(v)])).toString()}` : '';
 }
 
+/** 评论（3.5）：none 未采集 / collected 已采集 / unavailable 无评论来源 / failed 采集失败 */
+export type CommentState = 'none' | 'collected' | 'unavailable' | 'failed';
+
+export interface CommentDigest {
+  points: { text: string; comment_ids: number[] }[];
+  based_on: number;
+  generated_at: string;
+}
+
+export interface CommentList {
+  state: CommentState;
+  crawled_at: string | null;
+  source: string | null;
+  items: { id: number; author: string | null; text: string; likes: number | null; replies: number | null; published_at: string | null }[];
+  digest: CommentDigest | null;
+  error?: string;
+}
+
 export const discoverApi = {
   feed(params: { view?: 'all' | 'picks'; media?: string; platform?: string; limit?: number; offset?: number } = {}): Promise<TodayFeed> {
     return request(`/today/feed${qs(params)}`);
@@ -334,6 +352,15 @@ export const discoverApi = {
   },
   leaveEvent(id: number): Promise<{ removed: boolean; event_id?: number }> {
     return request(`/items/${id}/leave-event`, { method: 'POST' });
+  },
+  comments(id: number): Promise<CommentList> {
+    return request(`/items/${id}/comments`);
+  },
+  loadComments(id: number, refresh = false): Promise<CommentList> {
+    return request(`/items/${id}/comments/load${refresh ? '?refresh=true' : ''}`, { method: 'POST', timeoutMs: 60_000 });
+  },
+  digestComments(id: number): Promise<CommentDigest> {
+    return request(`/items/${id}/comments/digest`, { method: 'POST', timeoutMs: 120_000 });
   },
   analyze(id: number): Promise<{ analyzed: boolean; reason?: string }> {
     return request(`/items/${id}/analyze`, { method: 'POST', timeoutMs: 180_000 });

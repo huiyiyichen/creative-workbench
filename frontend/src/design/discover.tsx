@@ -15,6 +15,7 @@ import { favoritesApi } from '@/lib/api/_admin-api';
 import { mediaUrl } from '@/lib/api/_collection';
 import {
   discoverApi,
+  type CommentList,
   type ItemCard,
   type ItemDetail,
   type MetricView,
@@ -612,8 +613,7 @@ export function ItemDetailView({ id, compact, onClose, onChanged }: { id: number
           {compact && (data.raw_content || '').split(/\n{2,}/).length > 8 ? <Link href={`/items/${id}`} className="cw-link-btn">在独立页阅读全文</Link> : null}
         </div>
 
-        <h3 className="cw-detail-h">评论</h3>
-        <p className="cw-muted">{data.comment_state === 'done' ? '评论已采集' : '评论未采集（阶段 3 接入 B站、YouTube、HN 评论）'}</p>
+        <CommentsSection id={id} state={data.comment_state} />
 
         <h3 className="cw-detail-h">经历</h3>
         <ol className="cw-journey">
@@ -632,3 +632,113 @@ export function ItemDetailView({ id, compact, onClose, onChanged }: { id: number
 }
 
 export { MEDIA_LABEL, STATUS_LABEL, platformName as platformLabel };
+
+
+const COMMENT_STATE_TEXT: Record<string, string> = {
+  none: '未采集',
+  collected: '已采集',
+  unavailable: '无评论来源',
+  failed: '采集失败',
+};
+
+/** 评论折叠区（3.5）：默认收起；展开后按点赞排序，可「加载评论」「总结评论」。 */
+export function CommentsSection({ id, state }: { id: number; state: string }) {
+  const [open, setOpen] = useState(false);
+  const [data, setData] = useState<CommentList | null>(null);
+  const [busy, setBusy] = useState<'load' | 'digest' | null>(null);
+  const [focus, setFocus] = useState<number[]>([]);
+
+  useEffect(() => {
+    setData(null);
+    setFocus([]);
+    if (!open) return;
+    discoverApi
+      .comments(id)
+      .then(setData)
+      .catch(() => setData(null));
+  }, [id, open]);
+
+  const load = async (refresh: boolean) => {
+    setBusy('load');
+    try {
+      const r = await discoverApi.loadComments(id, refresh);
+      setData(r);
+      if (r.error) message.warning(`评论采集失败：${r.error}`);
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '请求失败');
+    } finally {
+      setBusy(null);
+    }
+  };
+  const digest = async () => {
+    setBusy('digest');
+    try {
+      const d = await discoverApi.digestComments(id);
+      setData((prev) => (prev ? { ...prev, digest: d } : prev));
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '请求失败');
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const st = data?.state || state;
+  return (
+    <section className="cw-comments">
+      <h3 className="cw-detail-h">
+        <button type="button" className="cw-link-btn" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+          {open ? '▾' : '▸'} 评论
+        </button>
+        <span className="cw-muted" style={{ fontWeight: 400, fontSize: 12 }}>
+          {COMMENT_STATE_TEXT[st] || st}
+          {data?.items.length ? ` · ${data.items.length} 条` : ''}
+        </span>
+      </h3>
+      {open ? (
+        <>
+          <div className="cw-row" style={{ marginBottom: 8 }}>
+            {st !== 'unavailable' ? (
+              <Button onClick={() => load(st === 'collected' || st === 'failed')} disabled={busy !== null}>
+                {busy === 'load' ? '加载中…' : st === 'collected' ? '刷新评论' : '加载评论'}
+              </Button>
+            ) : (
+              <span className="cw-muted">这个来源没有评论接口</span>
+            )}
+            {data?.items.length ? (
+              <Button icon={<Sparkles size={14} />} onClick={digest} disabled={busy !== null}>
+                {busy === 'digest' ? '总结中…' : data.digest ? '重新总结' : '总结评论'}
+              </Button>
+            ) : null}
+          </div>
+          {data?.digest ? (
+            <div className="cw-comment-digest">
+              <div className="cw-muted" style={{ fontSize: 12 }}>基于 {data.digest.based_on} 条评论</div>
+              <ul>
+                {data.digest.points.map((p, i) => (
+                  <li key={i}>
+                    <button type="button" className="cw-link-btn" onClick={() => setFocus(p.comment_ids)} title="高亮依据的评论">
+                      {p.text}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          {data && data.items.length === 0 && st === 'collected' ? <p className="cw-muted">没有评论</p> : null}
+          <ol className="cw-comment-list">
+            {data?.items.map((c) => (
+              <li key={c.id} data-focus={focus.includes(c.id) ? 'true' : undefined}>
+                <div className="cw-comment-meta">
+                  <span>{c.author || '匿名'}</span>
+                  <span className="cw-num cw-muted">{c.likes != null ? `${compactNumber(c.likes)} 赞` : ''}</span>
+                  {c.replies ? <span className="cw-num cw-muted">{c.replies} 回复</span> : null}
+                </div>
+                <p>{c.text}</p>
+              </li>
+            ))}
+          </ol>
+        </>
+      ) : null}
+    </section>
+  );
+}

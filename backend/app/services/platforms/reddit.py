@@ -77,6 +77,7 @@ class RedditAdapter(PlatformAdapter):
                 author=r.get("author"),
                 likes=r.get("score"),
                 published_at=from_timestamp(r.get("created_utc")),
+                id=r.get("id"),
             )
             for r in rows[:limit]
         ]

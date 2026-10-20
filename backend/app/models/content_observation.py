@@ -156,3 +156,27 @@ __all__ = [
     "MediaAssetStatus",
     "MetricName",
 ]
+
+
+class ContentComment(Base):
+    """条目评论（3.5）：热门前 20 条，不取回复；只存昵称与文本。随内容删除。"""
+
+    __tablename__ = "content_comments"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    content_id: Mapped[int] = mapped_column(Integer, ForeignKey("content_items.id", ondelete="CASCADE"), nullable=False)
+    platform: Mapped[str] = mapped_column(String(32), nullable=False)
+    platform_comment_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    author_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    text: Mapped[str] = mapped_column(Text, nullable=False)
+    like_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reply_count: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    crawled_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now(UTC)
+    )
+
+    __table_args__ = (
+        UniqueConstraint("platform", "platform_comment_id", name="uq_content_comment"),
+        Index("ix_content_comments_content", "content_id"),
+    )

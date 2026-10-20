@@ -104,3 +104,13 @@
 ### 待做（阶段 3 剩余）
 
 - 条目评论（B站、YouTube、HN）；流程引擎（LangGraph）与运行记录、节点图、时间线、调用树；研究员与选题研究流程；工作台工具第一批。
+
+
+### 阶段 3 · 条目评论（2026-10-20）
+- `content_comments` 表 + `content_items.comment_digest`（迁移 e5a7c2d4f601）；`services/comments.py`：B站、YouTube、HN、Reddit 热门前 20 条（不取回复），按平台评论 id 去重，重复采集只更新点赞 / 回复数；状态 未采集 / 已采集 / 无评论来源 / 采集失败（带原因）。
+- 触发：收藏（`on_favorited`）、收进灵感库（`/library/items/from-content` 后台调用）、详情「加载评论」；每小时 :35 维护任务：收藏内容首次采集 24 小时后刷新一次，未收藏内容的评论 30 天后删除。「被项目用作来源」的触发在阶段 4 项目接入时补。
+- 「总结评论」：模型给 3–5 条要点，每条只保留真实存在的评论 id，标注基于多少条。
+- API：`GET /items/{id}/comments`、`POST /items/{id}/comments/load?refresh=`、`POST /items/{id}/comments/digest`。
+- 前端：条目详情底部「评论」折叠区（默认收起、按点赞排序、点要点高亮依据评论）。
+- 验证：tests/test_stage3_comments.py 5 项通过；alembic 升降级往返；ruff、分层检查、tsc、eslint 通过。
+- 未验证：真实平台评论接口（沙箱 B站易风控、无 YouTube Key）。

@@ -382,6 +382,9 @@ async def on_favorited(content_id: int) -> None:
 
                 await add_from_content(db, content_id)
                 await db.commit()
+                from app.services.comments import on_kept
+
+                await on_kept(db, content_id)  # 收藏即采评论（3.5）
             except Exception:
                 await db.rollback()
                 log.warning("library mirror after favorite failed for %s", content_id, exc_info=True)

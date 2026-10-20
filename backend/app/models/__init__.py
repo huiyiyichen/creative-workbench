@@ -22,6 +22,7 @@ from app.models.content_event_run import (
 from app.models.content_evidence import ContentEvidenceLink, ContentEvidenceMark, CrossSourceLevel, EvidenceType
 from app.models.content_label import ContentLabel, ContentLabelSource, ContentLabelValue
 from app.models.content_observation import (
+    ContentComment,
     ContentEmbedding,
     ContentJourney,
     ContentMetricObservation,
@@ -74,6 +75,7 @@ __all__ = [
     "ContentEmbedding",
     "ContentItem",
     "ContentJourney",
+    "ContentComment",
     "ContentMetricObservation",
     "JourneyStage",
     "MediaAsset",

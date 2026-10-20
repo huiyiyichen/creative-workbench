@@ -138,6 +138,7 @@ class YoutubeAdapter(PlatformAdapter):
                     likes=top.get("likeCount"),
                     replies=(t.get("snippet") or {}).get("totalReplyCount"),
                     published_at=from_iso(top.get("publishedAt")),
+                    id=t.get("id"),
                 )
             )
         return out

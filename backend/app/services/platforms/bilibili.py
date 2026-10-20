@@ -238,6 +238,7 @@ class BilibiliAdapter(PlatformAdapter):
                     likes=r.get("like"),
                     replies=r.get("rcount"),
                     published_at=from_timestamp(r.get("ctime")),
+                    id=str(r["rpid"]) if r.get("rpid") else None,
                 )
             )
         return out
