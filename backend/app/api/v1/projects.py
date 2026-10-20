@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, File, Form, Query, Response, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.auth import get_current_user
@@ -15,6 +16,7 @@ from app.schemas.projects import (
     DraftGenerate,
     DraftSave,
     FinalizeRequest,
+    LrcBody,
     OutputCreate,
     OutputPatch,
     PipelineStart,
@@ -28,6 +30,7 @@ from app.schemas.projects import (
     VersionCreate,
 )
 from app.services import (
+    mv_service,
     output_service as out_svc,
     pipeline_service,
     platform_flow,
@@ -247,6 +250,30 @@ async def delete_output(output_id: int, db: AsyncSession = Depends(get_db)):
 
 
 # ── 素材 ──
+# ── 音乐 MV：音频与歌词 ──
+@router.get("/projects/{project_id}/audio")
+async def get_audio(project_id: int, db: AsyncSession = Depends(get_db)):
+    return await mv_service.audio_info(db, project_id)
+
+
+@router.post("/projects/{project_id}/audio")
+async def post_audio(project_id: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
+    from app.services.studio_media import MAX_AUDIO_BYTES
+
+    return await mv_service.add_audio(db, project_id, file.filename or "", await file.read(MAX_AUDIO_BYTES + 1))
+
+
+@router.get("/projects/{project_id}/audio/file")
+async def audio_file(project_id: int, db: AsyncSession = Depends(get_db)):
+    path, name = await mv_service.audio_path(db, project_id)
+    return FileResponse(path, filename=name)
+
+
+@router.put("/projects/{project_id}/lrc")
+async def put_lrc(project_id: int, request: LrcBody, db: AsyncSession = Depends(get_db)):
+    return await mv_service.set_lrc(db, project_id, request.text)
+
+
 @router.get("/projects/{project_id}/assets")
 async def list_assets(project_id: int, role: str | None = None, db: AsyncSession = Depends(get_db)):
     return await svc.list_assets(db, project_id, role)

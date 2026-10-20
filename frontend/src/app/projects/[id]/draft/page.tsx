@@ -7,6 +7,7 @@ import { Input, Modal, message } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Button } from '@/design/components';
 import { BodyEditor, type BodyEditorHandle } from '@/design/body-editor';
+import { LyricTimeline } from '@/design/lyric-timeline';
 import { MODE_LABEL, RunStages, apiError, useProject, useRunWatch } from '@/design/studio';
 import { AssistantPanel, ScriptTable, SourcesPanel, SuggestionReview, VersionsPanel } from '@/design/studio-draft';
 import {
@@ -326,6 +327,19 @@ export default function DraftPage() {
                   />
                 ) : null}
               </div>
+              {isVideo && view.brief.mode === 'music_video' && pid ? (
+                <LyricTimeline
+                  projectId={pid}
+                  shots={draft.shots}
+                  cues={draft.cues}
+                  readOnly={locked}
+                  selected={shotSel}
+                  onSelect={setShotSel}
+                  onShots={(shots) => change({ ...draft, shots })}
+                  onBefore={flushed}
+                  onReload={load}
+                />
+              ) : null}
               {isVideo ? (
                 <div className="cw-scriptwrap">
                   <div className="cw-tabs" role="tablist">

@@ -94,6 +94,13 @@ export interface Draft {
   provenance: 'manual' | 'compiled' | 'ai';
 }
 
+export interface ProjectAudio {
+  id: number;
+  name: string;
+  duration: number | null;
+  url: string;
+}
+
 export interface Paragraph {
   id: string;
   text: string;
@@ -390,6 +397,22 @@ export const projectsApi = {
     if (params.project) sp.set('project', String(params.project));
     const q = sp.toString();
     return request(`/works${q ? `?${q}` : ''}`);
+  },
+  /** 音乐 MV：项目音频（最新一条） */
+  audio(pid: number): Promise<{ audio: ProjectAudio | null }> {
+    return request(`/projects/${pid}/audio`);
+  },
+  uploadAudio(pid: number, file: File): Promise<{ audio: ProjectAudio; draft: DraftView }> {
+    const form = new FormData();
+    form.append('file', file, file.name);
+    return request(`/projects/${pid}/audio`, { method: 'POST', body: form, timeoutMs: 300_000 });
+  },
+  audioUrl(audio: ProjectAudio): string {
+    return `${BASE_URL}${audio.url}`;
+  },
+  /** LRC 歌词：歌词时间的唯一来源 */
+  setLrc(pid: number, text: string): Promise<DraftView> {
+    return request(`/projects/${pid}/lrc`, { method: 'PUT', body: JSON.stringify({ text }) });
   },
   /** 回传成片：上传外部 agent 做好的视频 */
   uploadDelivery(oid: number, file: File, note?: string): Promise<{ delivery: Delivery; output: OutputView }> {

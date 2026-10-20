@@ -271,3 +271,12 @@
 - 待验收：需要真实飞书应用 App ID / Secret 与多维表格。
 - 补充：支持 Lark 国际版（larksuite.com 链接走 open.larksuite.com）；`CW_FEISHU_API_BASE` 可指向本地模拟服务 `scripts/dev/fake_feishu.py` 联调。
 - 本地联调（模拟飞书服务 + 浏览器）：设置页保存与测试连接 → 条目「记入飞书」→ 项目「记入飞书」→ 定稿后状态列变「创作中」→ 公众号版填发布链接后变「已产出」，任务中心显示对应记录。注意：本机有 HTTP 代理时，联调要设 NO_PROXY=127.0.0.1,localhost。
+
+## 收尾：能在沙箱里做完的部分（2026-10-20）
+
+- 回归矩阵核对：原「待处理缺陷」6 条均已修复，移入已修复并写明回归测试。
+- 旧页面跟随主题：管理页（信源列表、内容、AI 模型、Prompt、系统）和日报 / 周刊 / 月刊包在 `.cw-legacy`，Tailwind 调色板换成 --cw-* 变量，antd 跟随主题；补删阶段 5 漏提交的旧工作台前端（制作任务条、studioApi、旧类型），配音设置改用 /voice/tts。
+- 分镜表拖动排序（@dnd-kit）：拖动柄，键盘空格拿起 / 方向键移动；替换上移 / 下移按钮。
+- 正文 TipTap 富文本：存储仍是纯文本正文（`lib/md-lite.ts` 互转，每个顶层块一段，段落 id 不变），工具栏与 Markdown 快捷输入，选区换算 AI 修改范围。
+- 音乐 MV（阶段 5 清理旧接口时音频 / LRC 上传随 studio.py 删掉，这里在项目接口重做）：`mv_service`，`GET/POST /projects/{id}/audio`、`/audio/file`、`PUT /projects/{id}/lrc`；歌词时间轴 LyricTimeline（wavesurfer.js 波形、歌词点、分镜边界拖动吸附歌词、点歌词跳转）。
+- 浏览器实测：分镜拖动、富文本输入与自动保存、MV 上传音频 → 粘贴 LRC → 拖动边界，均通过；测试 tests/test_stage6_mv.py、lib/__tests__/md-lite.test.ts、mv.test.ts。

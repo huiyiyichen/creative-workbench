@@ -87,6 +87,10 @@ class VersionCreate(BoundedModel):
     reason: str = Field(default="manual", max_length=50)
 
 
+class LrcBody(BoundedModel):
+    text: str = Field(min_length=1, max_length=250000)
+
+
 class FinalizeRequest(BoundedModel):
     version: int | None = Field(default=None, ge=1)
 
