@@ -21,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.exceptions import AppException, ValidationError
 from app.models.library import LibraryItem
 from app.schemas.studio import StudioDraft
-from app.services import output_rules as rules, project_service as ps
+from app.services import output_rules as rules, project_service as ps, prompt_kit
 
 logger = logging.getLogger(__name__)
 
@@ -114,13 +114,12 @@ def platform_messages(kind: str, spec: dict, sources: list[dict]) -> list[dict]:
     if not draft.body.strip():
         raise ValidationError("文稿是空的，先写稿")
     r = rules.PLATFORM_RULES[kind]
-    system = (
-        f"你是{r['label']}编辑。把文稿改写成{r['label']}版本。规则：{r['guide']}" "事实只来自文稿和来源，不编造。"
-    ) + (
-        '只返回 JSON：{"title":"","hook":"","body":"","tags":[],"cover_text":"","summary":""}'
+    shape = (
+        '{"title":"","hook":"","body":"","tags":[],"cover_text":"","summary":""}'
         if kind in rules.SCRIPT_KINDS
-        else '只返回 JSON：{"title":"","body":"","tags":[],"cover_text":"","summary":"","image_suggestions":[]}'
+        else '{"title":"","body":"","tags":[],"cover_text":"","summary":"","image_suggestions":[]}'
     )
+    system = prompt_kit.platform_system(kind, r["label"], shape)
     user = json.dumps(
         {
             "brief": ps.copy_brief(spec.get("brief")),

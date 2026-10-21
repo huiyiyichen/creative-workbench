@@ -12,6 +12,7 @@ import json
 from typing import Any
 
 from app.schemas.studio import StudioDraft
+from app.services import prompt_kit
 from app.services.flows.roles import ArtifactOut, RoleContext, RoleError, _llm
 
 MAX_ISSUES = 20
@@ -107,8 +108,15 @@ def coerce_draft(raw: Any, brief: dict[str, Any], previous: dict[str, Any] | Non
 
 
 MODE_DIRECTION = {
-    "article": "这是文章。body 是完整、可直接发布的正文：开头、分段论述、例子、结尾，段落之间空一行。shots 与 cues 为 []。",
-    "video_prompt": "这是视频。body 写可直接朗读的旁白（段落之间空一行），shots 写画面、镜头、声音和剪辑。",
+    "article": (
+        "这是文章。body 是完整、可直接发布的正文，段落之间空一行；shots 与 cues 为 []。"
+        "结构：开头从一个具体事件、数据或场景切入，前三段内让读者知道这篇能给他什么；中间每段一个观点配一个例子或数据，"
+        "多个案例从弱到强排；结尾落在一个明确判断或下一步行动上。"
+    ),
+    "video_prompt": (
+        "这是视频。body 写可直接朗读的口播旁白（段落之间空一行），第一句就是钩子，不自我介绍；单句不超过 30 字，"
+        "按每秒约 4–5 个字控制总字数。shots 写画面、镜头、声音和剪辑，约每 2–3 秒一个画面变化。"
+    ),
     "animation_video": (
         "这是动画讲解视频。body 写可直接朗读的完整中文旁白（段落之间空一行）。"
         "shots 用图形、图表、标注、数字和关系变化解释概念，每个 audio 写对应旁白。"
@@ -144,13 +152,14 @@ async def writer(ctx: RoleContext) -> list[ArtifactOut]:
     mode = str(ctx.node.params.get("mode") or "draft")
     sources = pc["sources"]
     common = (
-        "你是内容作者。只输出一个 JSON 对象："
+        "你是资深内容作者，按作者给的主题、受众、语气和所选方向写一稿可以直接发布的内容。只输出一个 JSON 对象："
         '{"title": "…", "logline": "一段梗概", "body": "正文", "shots": [{"seconds": 8, "beat": "…", "visual": "…", '
         '"camera": "…", "audio": "…", "transition": "直切", "caption": "…", "prompt": "…"}], "cues": [], '
         '"citations": [{"paragraph": 1, "sources": [1]}], "summary": "一句话说明这一稿"}。'
         + MODE_DIRECTION.get(brief.get("mode") or "article", "")
-        + "事实、数据和时间只能来自来源；用到来源的段落在 citations 里写明段落序号（从 1 开始，按空行分段）和来源序号。"
-        + "不要编造来源里没有的数据。"
+        + "用到来源的段落在 citations 里写明段落序号（从 1 开始，按空行分段）和来源序号。"
+        + "\n"
+        + prompt_kit.WRITER_RULES
     )
     if brief.get("mode") not in (None, "article"):
         common += f"分镜总时长约 {brief.get('duration_seconds') or 180:g} 秒。"
@@ -182,7 +191,8 @@ async def writer(ctx: RoleContext) -> list[ArtifactOut]:
             return [ArtifactOut("draft", f"文稿 · 第 {ctx.round} 稿（未改）", content, links + _carry_cites(draft_art))]
         system = (
             common
-            + "现在是修改稿：以原稿为底，逐条处理审校意见，没有被指出的地方保持原样。"
+            + "\n现在是修改稿：以原稿为底，逐条处理审校意见。"
+            + prompt_kit.REVISE_RULES
             + '另外输出 resolved：[{"issue": "意见编号", "how": "怎么改的"}]。'
             + ctx.system_extra()
         )
@@ -242,9 +252,9 @@ async def reviewer(ctx: RoleContext) -> list[ArtifactOut]:
     draft = (draft_art.get("content") or {}).get("draft") or {}
     paras = paragraphs_with_ids(draft.get("body") or "")
     system = (
-        "你是审校。只提意见，不改稿。检查：事实与来源是否一致、有无编造数据、逻辑跳跃、结构、开头是否抓人、"
-        "受众是否合适、语气是否统一、错别字与病句；视频还要检查旁白与分镜是否对应、时长是否合理。"
-        f"最多 {MAX_ISSUES} 条，按严重程度排序。只输出 JSON："
+        "你是资深内容编辑，替作者审一稿准备发布的内容。"
+        + prompt_kit.REVIEW_RULES
+        + f"最多 {MAX_ISSUES} 条，按严重程度排序。只输出 JSON："
         '{"summary": "总体评价一两句", "issues": [{"paragraph": 段落序号或 null, "shot": 分镜序号或 null, '
         '"severity": "high|medium|low", "problem": "问题", "suggestion": "改法"}]}。没有问题时 issues 为 []。'
         + ctx.system_extra()

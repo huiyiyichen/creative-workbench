@@ -333,3 +333,7 @@
 - **今日梗雷达**（fb39370）：meme_service.py，GET /trending/memes，24h 热榜标题 + 72h 热门评论，按北京时间每天一次存 app_settings.meme_radar。今日页侧栏卡片（拿它开稿 → /projects/new?theme&intent），写稿底栏「今日梗」插入示范用法。
 - **创作人格**（5eee81e）：persona_service.py，GET /monthly-digests/persona?month=，规则判定 9 种人格（不调模型）。月刊顶部 PersonaPanel，lib/persona-card.ts 生成 1080×1920 SVG → canvas 导出 PNG，可印投票口令（localStorage cw.persona.vote），复制配图文案。看「最新」时按当月，点了历史期按那一期。
 - 演示数据：backend/seed_vote.py（dev 库直写）。截图 work/shots/r/vote2-*。
+
+### 提示词重写（2026-10-21）
+- 新增 `backend/app/services/prompt_kit.py`：信息守恒、中文写作硬约束（去 AI 味）、不编亲历、材料不可信、五平台写法、审校只诊断规则、资讯写法。来源与取舍见 `docs/plan/prompt-sources.md`（Humanizer-zh、lieflat-less-ai-tone、khazix-skills、baoyu-skills、dbskill、AIHOT、social-account-doctor、agency-agents 等，附星数）。
+- 接入：平台改写（output_service.platform_messages）、写手 / 修改 / 审校（roles_draft）、研究员 / 策划（roles，方向卡新增 audience、hkr、needs）、爆款拆解、日报（去掉翻案句式模板）、周 / 月刊总述、内容分析打分。

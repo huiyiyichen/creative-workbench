@@ -17,7 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.content import ContentItem
 from app.models.library import LibraryItem
-from app.services import workbench_tools as wt
+from app.services import prompt_kit, workbench_tools as wt
 from app.services.flows.spec import NodeSpec
 
 PLATFORM_LABEL = {
@@ -164,7 +164,7 @@ async def researcher(ctx: RoleContext) -> list[ArtifactOut]:
     )
     seed = await _seed_text(ctx)
     system = (
-        "你是创意工作台的研究员，为一个内容选题做调研。只能通过工具获取信息，不能编造。\n"
+        "你是创意工作台的研究员，为一个内容选题做调研。只能通过工具获取信息，不能编造。\n" + prompt_kit.UNTRUSTED + "\n"
         f"{scope}\n可用工具：\n{_tool_doc(tools)}\n\n"
         "每一轮只输出一个 JSON：\n"
         '调用工具：{"action": "tool", "tool": "工具名", "args": {...}, "why": "为什么调用"}\n'
@@ -172,7 +172,8 @@ async def researcher(ctx: RoleContext) -> list[ArtifactOut]:
         '"sources": [{"type": "content", "id": 123} 或 {"type": "library", "id": 45} 或 '
         '{"type": "url", "url": "https://…", "title": "…"}]}]}\n'
         f"最多调用 {max_calls} 次工具。每条结论必须带出处（工具结果里出现过的 content_id / library_id / url），"
-        "没有出处的结论不要写。结论 3 到 6 条，写清楚事实、数据和时间。" + ctx.system_extra()
+        "没有出处的结论不要写。结论 3 到 6 条，写清楚事实、数据和时间；保留来源原本的确定程度和相对时间，不要强化。"
+        + ctx.system_extra()
     )
     user = f"运行 #{ctx.run_id}\n选题：{topic}"
     if ctx.inputs.get("notes"):
@@ -326,10 +327,14 @@ async def planner(ctx: RoleContext) -> list[ArtifactOut]:
     fids = {f["id"] for f in c.get("findings") or []}
     lines = [f"- [{f['id']}] {f['claim']}" for f in c.get("findings") or []]
     system = (
-        f"你是内容策划。根据研究简报给出 {n} 个不同的选题方向（角度要明显不同，例如解读、实测、观点、盘点）。"
-        "每个方向说明：标题、角度、为什么现在做、适合的形式（文章 / 视频 / 图文），并引用支撑它的简报条目编号。\n"
-        '只输出 JSON：{"cards": [{"title": "…", "angle": "…", "why_now": "…", "format": "video", "refs": ["f1"]}]}'
-        + ctx.system_extra()
+        f"你是资深内容策划。根据研究简报给出 {n} 个不同的选题方向，切入角度要明显不同（例如解读、实测、观点、盘点、教程）。\n"
+        "<how_to_judge>每个方向先过三项检查：有趣（有悬念或反常识）、有信息量（读者能学到东西）、有共鸣（和读者自己的处境有关），"
+        "至少占两项才给出。写清这件事和谁有关、他看完能得到什么。只判断内容本身的条件，不预测播放量或阅读量。"
+        "借鉴爆款只借结构（钩子类型、骨架、互动方式），不复用原句。</how_to_judge>\n"
+        "每个方向说明：标题示例、角度、目标读者与「和他有什么关系」、为什么现在做、适合的形式（article 文章 / video 视频 / image 图文）、"
+        "hkr（有趣 / 信息量 / 共鸣 三项各 0–2 分）、needs（作者还需要补的亲历或数据，最多 2 项，没有就空数组），并引用支撑它的简报条目编号。\n"
+        '只输出 JSON：{"cards": [{"title": "…", "angle": "…", "audience": "…", "why_now": "…", "format": "video", '
+        '"hkr": {"h": 2, "k": 1, "r": 2}, "needs": ["…"], "refs": ["f1"]}]}' + prompt_kit.UNTRUSTED + ctx.system_extra()
     )
     reply = await _llm(
         ctx,
@@ -360,6 +365,9 @@ async def planner(ctx: RoleContext) -> list[ArtifactOut]:
                 "angle": str(card.get("angle") or "").strip(),
                 "why_now": str(card.get("why_now") or "").strip(),
                 "format": str(card.get("format") or "").strip() or None,
+                "audience": str(card.get("audience") or "").strip()[:200] or None,
+                "hkr": _hkr(card.get("hkr")),
+                "needs": [str(x).strip()[:120] for x in (card.get("needs") or []) if str(x).strip()][:2],
                 "refs": used,
             }
         )
@@ -378,6 +386,19 @@ async def planner(ctx: RoleContext) -> list[ArtifactOut]:
     if not cards:
         raise RoleError("策划没有给出可用的方向")
     return [ArtifactOut("direction_cards", f"方向卡 · {topic}"[:300], {"topic": topic, "cards": cards}, links)]
+
+
+def _hkr(raw: Any) -> dict[str, int] | None:
+    """策划给的 HKR 三项分（各 0–2），缺项或不是数字时返回 None。"""
+    if not isinstance(raw, dict):
+        return None
+    out: dict[str, int] = {}
+    for k in ("h", "k", "r"):
+        v = raw.get(k)
+        if not isinstance(v, int | float) or isinstance(v, bool):
+            return None
+        out[k] = max(0, min(2, int(v)))
+    return out
 
 
 ROLE_IMPLS: dict[str, Any] = {"researcher": researcher, "aggregator": aggregator, "planner": planner}
