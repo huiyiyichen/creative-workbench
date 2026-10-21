@@ -11,9 +11,9 @@ import { OUTPUT_LABEL, OUTPUT_STATUS, RunStages, apiError, useProject, useRunWat
 import { projectsApi, type OutputKind, type OutputView } from '@/lib/api/_projects';
 import { OutputsContext as Ctx } from './_ctx';
 
-const KINDS: OutputKind[] = ['xhs', 'zhihu', 'wechat', 'video', 'prompt_bundle', 'mv'];
+const KINDS: OutputKind[] = ['xhs', 'douyin', 'bilibili', 'zhihu', 'wechat', 'video', 'prompt_bundle', 'mv'];
 const RENDER: OutputKind[] = ['video', 'mv', 'prompt_bundle'];
-const PLATFORMS: OutputKind[] = ['xhs', 'zhihu', 'wechat'];
+const PLATFORMS: OutputKind[] = ['xhs', 'douyin', 'bilibili', 'zhihu', 'wechat'];
 
 
 /** 生成平台版本：选平台 → 平台改写流程；运行中显示阶段条，结束后刷新产出物列表 */

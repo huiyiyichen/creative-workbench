@@ -243,8 +243,10 @@ export function diffCount(rows: AlignedRow[]): number {
 
 // ── 平台计数（与后端 output_rules 一致）──
 
-export const PLATFORM_LIMITS: Record<string, { title?: number; body?: number; cover_text?: number; summary?: number; tags?: [number, number] }> = {
+export const PLATFORM_LIMITS: Record<string, { title?: number; body?: number; cover_text?: number; summary?: number; hook?: number; tags?: [number, number] }> = {
   xhs: { title: 20, body: 1000, cover_text: 12, tags: [3, 8] },
+  bilibili: { title: 80, body: 3000, summary: 250, cover_text: 15, tags: [3, 10] },
+  douyin: { title: 55, body: 600, hook: 20, cover_text: 10, tags: [3, 5] },
   zhihu: { title: 100, body: 20000 },
   wechat: { title: 64, body: 20000, summary: 120 },
 };
@@ -257,7 +259,10 @@ export function stripTags(html: string): string {
   return (html || '').replace(/<[^>]+>/g, '');
 }
 
-export function platformIssues(kind: string, c: { title?: string; body?: string; cover_text?: string; summary?: string; tags?: string[] }): string[] {
+/** 短视频平台（口播稿形态）。 */
+export const SCRIPT_KINDS = ['bilibili', 'douyin'];
+
+export function platformIssues(kind: string, c: { title?: string; body?: string; cover_text?: string; summary?: string; hook?: string; tags?: string[] }): string[] {
   const lim = PLATFORM_LIMITS[kind];
   if (!lim) return [];
   const out: string[] = [];
@@ -268,7 +273,8 @@ export function platformIssues(kind: string, c: { title?: string; body?: string;
   check('标题', c.title, lim.title);
   check('正文', kind === 'wechat' ? stripTags(c.body || '') : c.body, lim.body);
   check('封面文案', c.cover_text, lim.cover_text);
-  check('摘要', c.summary, lim.summary);
+  check(kind === 'bilibili' ? '简介' : '摘要', c.summary, lim.summary);
+  check('开头钩子', c.hook, lim.hook);
   if (lim.tags) {
     const n = (c.tags || []).length;
     if (n < lim.tags[0] || n > lim.tags[1]) out.push(`话题需要 ${lim.tags[0]}–${lim.tags[1]} 个（现在 ${n}）`);

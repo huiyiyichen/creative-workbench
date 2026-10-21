@@ -24,6 +24,8 @@ export const ARTIFACT_KIND_LABEL: Record<string, string> = {
   platform_xhs: '小红书版',
   platform_zhihu: '知乎版',
   platform_wechat: '公众号版',
+  platform_bilibili: 'B站版',
+  platform_douyin: '抖音版',
 };
 
 const RELATION_LABEL: Record<string, string> = {

@@ -5088,6 +5088,8 @@
        "xhs",
        "zhihu",
        "wechat",
+       "bilibili",
+       "douyin",
        "video",
        "mv",
        "prompt_bundle"
@@ -5211,11 +5213,13 @@
         "video",
         "xhs",
         "zhihu",
-        "wechat"
+        "wechat",
+        "bilibili",
+        "douyin"
        ],
        "type": "string"
       },
-      "maxItems": 4,
+      "maxItems": 6,
       "title": "Outputs",
       "type": "array"
      }
@@ -5249,11 +5253,13 @@
        "enum": [
         "xhs",
         "zhihu",
-        "wechat"
+        "wechat",
+        "bilibili",
+        "douyin"
        ],
        "type": "string"
       },
-      "maxItems": 3,
+      "maxItems": 5,
       "title": "Kinds",
       "type": "array"
      },

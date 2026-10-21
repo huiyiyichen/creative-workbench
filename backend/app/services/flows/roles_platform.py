@@ -6,7 +6,7 @@ from typing import Any
 
 from app.services.flows.roles import ArtifactOut, RoleContext, RoleError, _llm
 
-PLATFORM_LABELS = {"xhs": "小红书", "zhihu": "知乎", "wechat": "公众号"}
+PLATFORM_LABELS = {"xhs": "小红书", "zhihu": "知乎", "wechat": "公众号", "bilibili": "B站", "douyin": "抖音"}
 
 
 async def _project_spec(ctx: RoleContext) -> tuple[Any, dict, int | None, list[dict]]:

@@ -7,7 +7,7 @@ from pydantic import Field, model_validator
 from app.schemas.studio import BoundedModel, StudioDraft
 
 Mode = Literal["article", "video_prompt", "animation_video", "music_video"]
-OutputKind = Literal["xhs", "zhihu", "wechat", "video", "mv", "prompt_bundle"]
+OutputKind = Literal["xhs", "zhihu", "wechat", "bilibili", "douyin", "video", "mv", "prompt_bundle"]
 AssetRole = Literal["moodboard", "illustration", "cover", "keyframe", "bgm"]
 
 # 文案层（定稿锁定）与制作层（产出物 settings，随时可改）
@@ -74,15 +74,15 @@ class DraftGenerate(BoundedModel):
 
 
 class PlatformRewrite(BoundedModel):
-    kinds: list[Literal["xhs", "zhihu", "wechat"]] = Field(
-        default_factory=lambda: ["xhs", "zhihu", "wechat"], max_length=3
+    kinds: list[Literal["xhs", "zhihu", "wechat", "bilibili", "douyin"]] = Field(
+        default_factory=lambda: ["xhs", "zhihu", "wechat"], max_length=5
     )
     output_ids: dict[str, int] = Field(default_factory=dict)
 
 
 class PipelineStart(BoundedModel):
-    outputs: list[Literal["video", "xhs", "zhihu", "wechat"]] = Field(
-        default_factory=lambda: ["video", "xhs", "zhihu", "wechat"], max_length=4
+    outputs: list[Literal["video", "xhs", "zhihu", "wechat", "bilibili", "douyin"]] = Field(
+        default_factory=lambda: ["video", "xhs", "zhihu", "wechat"], max_length=6
     )
     choose_gate: bool = True
     accept_gate: bool = True

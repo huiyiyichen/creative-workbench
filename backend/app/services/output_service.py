@@ -58,6 +58,8 @@ def normalize_platform(kind: str, raw: dict) -> dict:
         "summary": str(raw.get("summary") or "").strip(),
         "image_suggestions": [str(x).strip() for x in (raw.get("image_suggestions") or []) if str(x).strip()],
     }
+    if kind in rules.SCRIPT_KINDS:
+        content["hook"] = str(raw.get("hook") or "").strip()
     if kind == "wechat":
         content["body"] = sanitize_wechat_html(content["body"])
     warnings = [i["message"] for i in rules.check(kind, content)]
@@ -69,6 +71,8 @@ def normalize_platform(kind: str, raw: dict) -> dict:
             content["cover_text"] = _truncate(content["cover_text"], r["cover_text_max"])
         if "summary_max" in r:
             content["summary"] = _truncate(content["summary"], r["summary_max"])
+        if "hook_max" in r:
+            content["hook"] = _truncate(content.get("hook", ""), r["hook_max"])
         if "tags_max" in r:
             content["tags"] = content["tags"][: r["tags_max"]]
         if "images_max" in r:
@@ -111,9 +115,11 @@ def platform_messages(kind: str, spec: dict, sources: list[dict]) -> list[dict]:
         raise ValidationError("文稿是空的，先写稿")
     r = rules.PLATFORM_RULES[kind]
     system = (
-        f"你是{r['label']}编辑。把文稿改写成{r['label']}版本。规则：{r['guide']}"
-        "事实只来自文稿和来源，不编造。"
-        '只返回 JSON：{"title":"","body":"","tags":[],"cover_text":"","summary":"","image_suggestions":[]}'
+        f"你是{r['label']}编辑。把文稿改写成{r['label']}版本。规则：{r['guide']}" "事实只来自文稿和来源，不编造。"
+    ) + (
+        '只返回 JSON：{"title":"","hook":"","body":"","tags":[],"cover_text":"","summary":""}'
+        if kind in rules.SCRIPT_KINDS
+        else '只返回 JSON：{"title":"","body":"","tags":[],"cover_text":"","summary":"","image_suggestions":[]}'
     )
     user = json.dumps(
         {
@@ -208,7 +214,12 @@ def platform_export(kind: str, content: dict, fmt: str) -> tuple[str, str]:
         html = body if kind == "wechat" else _md_to_html(body)
         return f"<h1>{_esc(title)}</h1>\n{html}", "text/html"
     tags = " ".join(f"#{t}" for t in content.get("tags") or [])
-    md = f"# {title}\n\n{body}" + (f"\n\n{tags}" if tags else "")
+    head = f"# {title}\n\n"
+    if kind in rules.SCRIPT_KINDS:
+        for label, key in (("封面", "cover_text"), ("开头钩子", "hook"), ("简介", "summary")):
+            if content.get(key):
+                head += f"> {label}：{content[key]}\n\n"
+    md = head + body + (f"\n\n{tags}" if tags else "")
     return md, "text/markdown"
 
 

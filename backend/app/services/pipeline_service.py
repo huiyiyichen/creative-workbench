@@ -19,7 +19,7 @@ from app.services import project_service as ps
 
 logger = logging.getLogger(__name__)
 
-PLATFORM_KINDS = ("xhs", "zhihu", "wechat")
+PLATFORM_KINDS = ("xhs", "zhihu", "wechat", "bilibili", "douyin")
 RENDER_KINDS = ("video",)
 STAGE_LABELS = {
     "research": "选题研究",

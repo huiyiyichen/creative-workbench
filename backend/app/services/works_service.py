@@ -17,7 +17,7 @@ from app.models.project import Project, ProjectArtifact, ProjectOutput
 from app.services import project_service as ps
 
 AUTO_STATUSES = ("done", "exported", "published")
-PLATFORM_KINDS = ("xhs", "zhihu", "wechat")
+PLATFORM_KINDS = ("xhs", "zhihu", "wechat", "bilibili", "douyin")
 RENDER_KINDS = ("video", "mv")
 
 

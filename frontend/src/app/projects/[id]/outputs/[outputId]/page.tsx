@@ -16,7 +16,8 @@ import type { GenTarget } from '@/lib/api/_generations';
 import type { ProjectAsset } from '@/lib/api/_projects';
 import { libraryApi, type StyleEntry } from '@/lib/api/_library';
 import { inWorks, projectsApi, type Delivery, type OutputView } from '@/lib/api/_projects';
-import { PLATFORM_LIMITS, fmtClock, platformIssues, qaMark, stripTags, textLen } from '@/lib/projects';
+import { PlatformPreview } from '@/design/platform-preview';
+import { PLATFORM_LIMITS, SCRIPT_KINDS, fmtClock, platformIssues, qaMark, stripTags, textLen } from '@/lib/projects';
 import { useOutputs } from '../_ctx';
 import { confirmAction } from '@/design/feedback';
 import { PublishPanel } from '@/design/publishing';
@@ -45,6 +46,8 @@ const PUBLISH_URL: Record<string, string> = {
   xhs: 'https://creator.xiaohongshu.com/publish/publish',
   zhihu: 'https://zhuanlan.zhihu.com/write',
   wechat: 'https://mp.weixin.qq.com/',
+  bilibili: 'https://member.bilibili.com/platform/upload/video/frame',
+  douyin: 'https://creator.douyin.com/creator-micro/content/upload',
 };
 
 // ── 配图 / 封面（生图，设计 6.5）──
@@ -129,6 +132,7 @@ function PlatformWorkspace({ output, onSaved }: { output: OutputView; onSaved: (
     tags: (output.content.tags || []).join(' '),
     cover_text: output.content.cover_text || '',
     summary: output.content.summary || '',
+    hook: String(output.content.hook || ''),
   }));
   const [busy, setBusy] = useState<string | null>(null);
   const [lin, setLin] = useState<LineageQuery | null>(null);
@@ -140,6 +144,7 @@ function PlatformWorkspace({ output, onSaved }: { output: OutputView; onSaved: (
       tags: (output.content.tags || []).join(' '),
       cover_text: output.content.cover_text || '',
       summary: output.content.summary || '',
+      hook: String(output.content.hook || ''),
     });
     setUrl(output.published_url || '');
   }, [output]);
@@ -160,6 +165,8 @@ function PlatformWorkspace({ output, onSaved }: { output: OutputView; onSaved: (
   const save = () =>
     run('save', () => projectsApi.patchOutput(output.id, { content: { ...output.content, ...c, tags, warnings: [] } }), '已保存');
   const isWechat = output.kind === 'wechat';
+  const isScript = SCRIPT_KINDS.includes(output.kind);
+  const social = output.kind === 'xhs' || isScript;
   const previewDoc = useMemo(
     () =>
       `<!doctype html><meta charset="utf-8"><style>body{font:16px/1.8 -apple-system,"PingFang SC","Microsoft YaHei",sans-serif;color:#222;margin:0;padding:20px 18px;}h1{font-size:22px}img{max-width:100%}blockquote{border-left:3px solid #ddd;margin:0;padding-left:12px;color:#666}</style><h1>${escapeHtml(c.title)}</h1>${c.body}`,
@@ -188,26 +195,43 @@ function PlatformWorkspace({ output, onSaved }: { output: OutputView; onSaved: (
           </span>
           <Input value={c.title} onChange={(e) => setC({ ...c, title: e.target.value })} />
         </label>
-        {output.kind === 'wechat' ? (
+        {isScript ? (
           <label className="cw-field">
             <span>
-              摘要 <Counter value={textLen(c.summary)} max={lim.summary} />
+              {output.kind === 'douyin' ? '前三秒钩子' : '开头 15 秒看点'} <Counter value={textLen(c.hook)} max={lim.hook} />
+            </span>
+            <Input value={c.hook} onChange={(e) => setC({ ...c, hook: e.target.value })} />
+          </label>
+        ) : null}
+        {output.kind === 'wechat' || output.kind === 'bilibili' ? (
+          <label className="cw-field">
+            <span>
+              {output.kind === 'bilibili' ? '简介' : '摘要'} <Counter value={textLen(c.summary)} max={lim.summary} />
             </span>
             <Input.TextArea value={c.summary} onChange={(e) => setC({ ...c, summary: e.target.value })} autoSize={{ minRows: 2, maxRows: 4 }} />
           </label>
         ) : null}
         <label className="cw-field">
           <span>
-            正文{isWechat ? '（HTML，保存时清洗）' : output.kind === 'zhihu' ? '（Markdown）' : ''}{' '}
+            {isScript ? '口播稿' : '正文'}
+            {isWechat
+              ? '（HTML，保存时清洗）'
+              : output.kind === 'zhihu'
+                ? '（Markdown）'
+                : output.kind === 'douyin'
+                  ? '（一行一个镜头，行首【画面：…】）'
+                  : output.kind === 'bilibili'
+                    ? '（单独一行【弹幕】标互动点）'
+                    : ''}{' '}
             <Counter value={textLen(isWechat ? stripTags(c.body) : c.body)} max={lim.body} />
           </span>
           <Input.TextArea value={c.body} onChange={(e) => setC({ ...c, body: e.target.value })} autoSize={{ minRows: 12, maxRows: 30 }} />
         </label>
-        {output.kind === 'xhs' ? (
+        {social ? (
           <>
             <label className="cw-field">
               <span>
-                话题（空格分隔） <Counter value={tags.length} max={lim.tags?.[1]} />
+                {output.kind === 'bilibili' ? '标签' : '话题'}（空格分隔） <Counter value={tags.length} max={lim.tags?.[1]} />
               </span>
               <Input value={c.tags} onChange={(e) => setC({ ...c, tags: e.target.value })} />
             </label>
@@ -233,7 +257,7 @@ function PlatformWorkspace({ output, onSaved }: { output: OutputView; onSaved: (
         <div className="cw-row">
           <Button onClick={() => copy(c.title, '标题')}>复制标题</Button>
           <Button onClick={() => copy(isWechat ? stripTags(c.body) : c.body, '正文')}>复制正文</Button>
-          {output.kind === 'xhs' ? <Button onClick={() => copy(tags.map((t) => `#${t}`).join(' '), '话题')}>复制话题</Button> : null}
+          {social ? <Button onClick={() => copy(tags.map((t) => `#${t}`).join(' '), '话题')}>复制话题</Button> : null}
           <a className="cw-btn" href={projectsApi.exportUrl(output.id, 'md')} target="_blank" rel="noreferrer">
             导出 Markdown
           </a>
@@ -278,13 +302,8 @@ function PlatformWorkspace({ output, onSaved }: { output: OutputView; onSaved: (
         <PublishPanel key={`${output.id}:${output.status}`} outputId={output.id} published={output.status === 'published'} settings={output.settings} />
       </div>
       <div className="cw-platform-preview" aria-label="平台预览">
-        {output.kind === 'xhs' ? (
-          <div className="cw-phone">
-            <div className="cw-phone-cover">{c.cover_text || '封面文案'}</div>
-            <h4>{c.title || '标题'}</h4>
-            <p>{c.body}</p>
-            <p className="cw-phone-tags">{tags.map((t) => `#${t} `)}</p>
-          </div>
+        {social ? (
+          <PlatformPreview kind={output.kind} c={{ ...c, tags }} />
         ) : isWechat ? (
           <iframe title="公众号预览" sandbox="" srcDoc={previewDoc} className="cw-preview-frame" />
         ) : (
@@ -852,7 +871,7 @@ export default function OutputWorkspace({ params }: { params: Promise<{ outputId
           删除
         </button>
       </header>
-      {['xhs', 'zhihu', 'wechat'].includes(output.kind) ? (
+      {['xhs', 'zhihu', 'wechat', 'bilibili', 'douyin'].includes(output.kind) ? (
         <PlatformWorkspace output={output} onSaved={saved} />
       ) : output.kind === 'prompt_bundle' ? (
         <BundleWorkspace output={output} onSaved={saved} />

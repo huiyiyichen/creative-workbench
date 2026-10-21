@@ -30,6 +30,8 @@ KIND_LABEL = {
     "xhs": "小红书",
     "zhihu": "知乎",
     "wechat": "公众号",
+    "bilibili": "B站",
+    "douyin": "抖音",
     "video": "讲解视频",
     "mv": "MV",
     "prompt_bundle": "提示词包",

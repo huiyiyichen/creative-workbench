@@ -40,6 +40,8 @@ export const OUTPUT_LABEL: Record<OutputKind, string> = {
   xhs: '小红书版',
   zhihu: '知乎版',
   wechat: '公众号版',
+  bilibili: 'B站版',
+  douyin: '抖音版',
   video: '讲解视频',
   mv: '音乐 MV',
   prompt_bundle: '视频提示词包',
@@ -151,6 +153,8 @@ const PIPE_OUTPUTS = [
   { value: 'xhs', label: '小红书' },
   { value: 'zhihu', label: '知乎' },
   { value: 'wechat', label: '公众号' },
+  { value: 'bilibili', label: 'B站' },
+  { value: 'douyin', label: '抖音' },
 ];
 
 function pipelineRun(p: PipelineView): number | undefined {

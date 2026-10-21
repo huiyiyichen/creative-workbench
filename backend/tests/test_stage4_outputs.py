@@ -113,3 +113,24 @@ async def test_prompt_bundle_complete(db, tmp_path, monkeypatch):
     assert any(n.startswith("assets/") and n.endswith("a.png") for n in names)
     assert "先看一个数字" in zf.read("storyboard.csv").decode("utf-8-sig")
     assert (await ps.output_view(db, out["id"]))["status"] == "exported"
+
+
+def test_short_video_platforms_hook_and_export():
+    raw = {
+        "title": "标题",
+        "hook": "这是一个超过二十个字的开头钩子它太长了必须截掉一些",
+        "body": "【画面：桌面】第一句\n【画面：特写】第二句",
+        "tags": ["a", "b", "c"],
+        "cover_text": "封面",
+    }
+    issues = {i["field"] for i in rules.check("douyin", raw)}
+    assert issues == {"hook"}
+    c = os_.normalize_platform("douyin", raw)
+    assert len(c["hook"]) == 20 and c["warnings"]
+    assert "hook" not in os_.normalize_platform("xhs", raw)
+    md, mime = os_.platform_export("douyin", c, "md")
+    assert mime == "text/markdown" and "> 开头钩子：" in md and "#a #b #c" in md
+    msgs = os_.platform_messages(
+        "bilibili", {"draft": {"title": "t", "body": "正文"}}, [{"snapshot": {"title": "A", "url": "https://a"}}]
+    )
+    assert '"hook"' in msgs[0]["content"] and "B站" in msgs[0]["content"]

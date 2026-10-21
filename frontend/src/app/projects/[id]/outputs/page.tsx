@@ -5,22 +5,64 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
+import { PlatformPreview } from '@/design/platform-preview';
 import { toast } from '@/design/feedback';
 import { EmptyInstrument, StatusLamp, type LampTone } from '@/design/instrument';
 import { SignalArt, kindColor } from '@/design/signal-art';
 import { OUTPUT_LABEL, OUTPUT_STATUS, apiError, useProject } from '@/design/studio';
-import { projectsApi, type OutputKind } from '@/lib/api/_projects';
+import { projectsApi, type Draft, type OutputKind, type OutputView } from '@/lib/api/_projects';
 import { useOutputs } from './_ctx';
 
 const KINDS: { kind: OutputKind; desc: string; needsFinal: boolean }[] = [
   { kind: 'xhs', desc: '标题、正文、标签、封面文案', needsFinal: false },
+  { kind: 'douyin', desc: '前三秒钩子、分镜口播、话题', needsFinal: false },
+  { kind: 'bilibili', desc: '标题、口播稿、弹幕点、简介', needsFinal: false },
   { kind: 'zhihu', desc: '长文回答', needsFinal: false },
   { kind: 'wechat', desc: '排版好的文章，可推草稿箱', needsFinal: false },
   { kind: 'video', desc: '分镜、配音、字幕、成片', needsFinal: true },
   { kind: 'mv', desc: '歌词时间轴与画面', needsFinal: true },
   { kind: 'prompt_bundle', desc: '交给外部工具制作的提示词包', needsFinal: true },
 ];
+
+const SOCIAL: OutputKind[] = ['xhs', 'douyin', 'bilibili'];
+
+/** 同一份定稿 → 三个平台的样子，并排看（也是拉票时「前后对比」的素材）。 */
+function TriCompare({ projectId, outputs }: { projectId: number; outputs: OutputView[] }) {
+  const [draft, setDraft] = useState<Draft | null>(null);
+  useEffect(() => {
+    projectsApi
+      .draft(projectId)
+      .then((d) => setDraft(d.draft))
+      .catch(() => setDraft(null));
+  }, [projectId]);
+  const picks = SOCIAL.map((k) => outputs.find((o) => o.kind === k && o.content?.body)).filter(Boolean) as OutputView[];
+  if (picks.length < 2) return null;
+  const words = (draft?.body || '').replace(/\s/g, '').length;
+  return (
+    <section className="cw-tri-wrap" aria-label="三平台对照">
+      <header className="cw-section-head">
+        <h3>同一份稿，{picks.length} 种腔调</h3>
+        <small className="cw-muted">
+          原稿 {words} 字{draft?.title ? ` ·「${draft.title}」` : ''}
+        </small>
+      </header>
+      <div className="cw-tri">
+        {picks.map((o) => (
+          <section key={o.id}>
+            <header>
+              <b>{OUTPUT_LABEL[o.kind]}</b>
+              <Link className="cw-link-btn" href={`/projects/${projectId}/outputs/${o.id}`}>
+                编辑
+              </Link>
+            </header>
+            <PlatformPreview kind={o.kind} c={o.content} />
+          </section>
+        ))}
+      </div>
+    </section>
+  );
+}
 
 const LAMP: Record<string, LampTone> = { draft: 'off', rendering: 'run', done: 'ok', failed: 'bad', exported: 'ok', published: 'ok' };
 
@@ -98,6 +140,7 @@ export default function OutputsIndex() {
           });
         })}
       </div>
+      <TriCompare projectId={project.id} outputs={items} />
     </div>
   );
 }

@@ -8076,7 +8076,7 @@ export interface components {
              * Kind
              * @enum {string}
              */
-            kind: "xhs" | "zhihu" | "wechat" | "video" | "mv" | "prompt_bundle";
+            kind: "xhs" | "zhihu" | "wechat" | "bilibili" | "douyin" | "video" | "mv" | "prompt_bundle";
             /**
              * Title
              * @default
@@ -8118,7 +8118,7 @@ export interface components {
              */
             choose_gate: boolean;
             /** Outputs */
-            outputs?: ("video" | "xhs" | "zhihu" | "wechat")[];
+            outputs?: ("video" | "xhs" | "zhihu" | "wechat" | "bilibili" | "douyin")[];
         };
         /** PlatformKeyBody */
         PlatformKeyBody: {
@@ -8128,7 +8128,7 @@ export interface components {
         /** PlatformRewrite */
         PlatformRewrite: {
             /** Kinds */
-            kinds?: ("xhs" | "zhihu" | "wechat")[];
+            kinds?: ("xhs" | "zhihu" | "wechat" | "bilibili" | "douyin")[];
             /** Output Ids */
             output_ids?: {
                 [key: string]: number;

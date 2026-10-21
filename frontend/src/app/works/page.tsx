@@ -22,6 +22,8 @@ const KINDS = [
   { value: 'xhs', label: '小红书' },
   { value: 'zhihu', label: '知乎' },
   { value: 'wechat', label: '公众号' },
+  { value: 'douyin', label: '抖音' },
+  { value: 'bilibili', label: 'B站' },
   { value: 'prompt_bundle', label: '提示词包' },
 ];
 

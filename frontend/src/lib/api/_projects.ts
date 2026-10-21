@@ -5,7 +5,7 @@ import { BASE_URL, request } from './_core';
 export type ProjectMode = 'article' | 'video_prompt' | 'animation_video' | 'music_video';
 export type ProjectStage = 'idea' | 'draft' | 'outputs';
 export type ProjectStatus = 'draft' | 'dirty' | 'finalized';
-export type OutputKind = 'xhs' | 'zhihu' | 'wechat' | 'video' | 'mv' | 'prompt_bundle';
+export type OutputKind = 'xhs' | 'zhihu' | 'wechat' | 'bilibili' | 'douyin' | 'video' | 'mv' | 'prompt_bundle';
 
 export interface CopyBrief {
   theme: string;
@@ -169,6 +169,7 @@ export interface PlatformContent {
   body?: string;
   tags?: string[];
   cover_text?: string;
+  hook?: string;
   summary?: string;
   image_suggestions?: string[];
   warnings?: string[];

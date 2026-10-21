@@ -41,6 +41,8 @@ export function artKind(kind: string | null | undefined): ArtKind {
   switch (kind) {
     case 'video':
     case 'mv':
+    case 'douyin':
+    case 'bilibili':
       return 'video';
     case 'article':
     case 'wechat':
