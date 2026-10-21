@@ -2495,3 +2495,27 @@ a.cw-lamp:hover { color: var(--cw-text); }
 .cw-pv-dy, .cw-pv-bili-player { background: #0d0f12; }
 .cw-pv-dy-stage { background-color: #0d0f12; }
 :root[data-theme='light'] .cw-pv-dy-hook { color: #ffd84d; }
+
+/* 模型配置：路由链 */
+.cw-models { display: grid; gap: 16px; }
+.cw-models .cw-filters { margin-bottom: 0; }
+.cw-model-rows { list-style: none; margin: 0; padding: 0; }
+.cw-model-row {
+  display: grid; grid-template-columns: 28px minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 1.2fr) minmax(120px, 0.9fr) auto;
+  gap: 14px; align-items: center; padding: 12px 4px; border-bottom: 1px solid var(--cw-grat);
+}
+.cw-model-row:last-child { border-bottom: 0; }
+.cw-model-row[data-off='true'] { opacity: 0.55; }
+.cw-model-rank { font-size: 18px; color: var(--cw-dim); text-align: center; }
+.cw-model-name, .cw-model-meta, .cw-model-state { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.cw-model-name b { font-size: 14px; color: var(--cw-text); }
+.cw-model-name small, .cw-model-meta small { font-size: 11px; color: var(--cw-faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cw-model-meta span { font-size: 12px; color: var(--cw-dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cw-model-test { font-size: 11px; line-height: 1.4; color: var(--cw-gr); overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.cw-model-test[data-tone='bad'] { color: var(--cw-rd); }
+.cw-model-test small { display: block; color: var(--cw-faint); }
+.cw-model-acts { display: flex; gap: 4px; justify-content: flex-end; }
+@media (max-width: 1100px) {
+  .cw-model-row { grid-template-columns: 28px minmax(0, 1fr) minmax(0, 1fr); }
+  .cw-model-row > .cw-model-meta:nth-of-type(2), .cw-model-acts { grid-column: 2 / -1; justify-content: flex-start; }
+}

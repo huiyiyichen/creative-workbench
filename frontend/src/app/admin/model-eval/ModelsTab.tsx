@@ -1,45 +1,61 @@
 'use client';
 
 /**
- * Models tab（模型库配置 + 列表 + 测试/启用/编辑/删除）。
- *
- * 从 app/model-eval/page.tsx 抽出的 145 行组件，包含：
- * - 模型统计 Surface（模型数 / 启用数 / 可调用数）
- * - 添加/编辑按钮触发 ModelEditForm 模态
- * - 模型卡片列表（Provider / 路由组 / 模型族 / 渠道 / 性能 / 费用 / 缓存命中）
- * - 内联测试按钮（handleTest 调用 modelsApi.test）
- * - 启用/编辑/删除 Toolbar
- *
- * 状态：editing（正在编辑的模型）/ testing（正在测试的 id）/
- * testResult（每个模型的最近测试结果）/ showAdd（显示添加表单）。
- *
- * ModelEditForm 以 AdminModal 弹窗承载，独立在 ModelEditForm.tsx，ModelsTab 通过
- * showAdd / editing 状态控制其显示；添加保存成功后自动对该模型触发一次连接测试。
+ * 模型配置（调色台样式）：按路由组分段，每组按优先级从上到下就是调用顺序（路由链）。
+ * 每行：顺位、名称与实际请求的模型串、接口与渠道、状态灯（启用 / 缺 Key / 停用）、单价、最近一次测试、操作。
+ * 添加 / 编辑仍用 ModelEditForm 弹窗；添加保存后自动测一次连接。
  */
 
-import React, { useState } from 'react';
-import {
-  KeyRound,
-  Plus,
-  Power,
-  Settings2,
-  Trash2,
-} from 'lucide-react';
-import { Button, Panel, Toolbar, cx } from '@/components/ui';
-import { Button as CwButton } from '@/design/components';
-import { EmptyInstrument } from '@/design/instrument';
-import { InfoCell, StatusPill, Surface } from './_components';
+import React, { useMemo, useState } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
+import { Button, Card } from '@/design/components';
+import { EmptyInstrument, StatusLamp, type LampTone } from '@/design/instrument';
+import { confirmAction } from '@/design/feedback';
 import { modelsApi } from '@/lib/api';
 import type { LlmModelItem } from '@/lib/api';
 import { formatPerMillion } from './_model-eval-utils';
 import { ModelEditForm } from './ModelEditForm';
-import { confirmAction } from '@/design/feedback';
+
+type TestResult = { status: string; response?: string; note?: string; error?: string; duration_ms: number };
+
+function lamp(m: LlmModelItem): { tone: LampTone; label: string } {
+  if (!m.enabled) return { tone: 'off', label: '停用' };
+  if (!m.api_key_set && m.api_base) return { tone: 'warn', label: '缺 Key' };
+  return { tone: 'ok', label: '启用' };
+}
+
+function TestLine({ r }: { r: TestResult }) {
+  if (r.status === 'success') {
+    return (
+      <span className="cw-model-test" data-tone="ok">
+        通 · <span className="cw-num">{r.duration_ms} ms</span>
+        {r.note ? <small>{r.note}</small> : null}
+      </span>
+    );
+  }
+  return (
+    <span className="cw-model-test" data-tone="bad" title={r.error}>
+      不通 · {(r.error || '').slice(0, 120)}
+    </span>
+  );
+}
 
 export function ModelsTab({ models, onRefresh }: { models: LlmModelItem[]; onRefresh: () => void }) {
   const [editing, setEditing] = useState<LlmModelItem | null>(null);
   const [testing, setTesting] = useState<number | null>(null);
-  const [testResult, setTestResult] = useState<Record<number, { status: string; response?: string; note?: string; error?: string; duration_ms: number }>>({});
+  const [testResult, setTestResult] = useState<Record<number, TestResult>>({});
   const [showAdd, setShowAdd] = useState(false);
+
+  const groups = useMemo(() => {
+    const by = new Map<string, LlmModelItem[]>();
+    for (const m of models) {
+      const g = m.routing_group || 'default';
+      by.set(g, [...(by.get(g) || []), m]);
+    }
+    return [...by.entries()]
+      .sort(([a], [b]) => (a === 'default' ? -1 : b === 'default' ? 1 : a.localeCompare(b)))
+      .map(([g, list]) => [g, list.sort((a, b) => Number(b.enabled) - Number(a.enabled) || a.routing_priority - b.routing_priority || a.id - b.id)] as const);
+  }, [models]);
 
   const handleTest = async (id: number) => {
     setTesting(id);
@@ -47,7 +63,7 @@ export function ModelsTab({ models, onRefresh }: { models: LlmModelItem[]; onRef
       const res = await modelsApi.test(id);
       setTestResult((prev) => ({ ...prev, [id]: res }));
     } catch (e: unknown) {
-      setTestResult((prev) => ({ ...prev, [id]: { status: 'failed', error: String(e), duration_ms: 0 } }));
+      setTestResult((prev) => ({ ...prev, [id]: { status: 'failed', error: e instanceof Error ? e.message : String(e), duration_ms: 0 } }));
     }
     setTesting(null);
   };
@@ -57,31 +73,14 @@ export function ModelsTab({ models, onRefresh }: { models: LlmModelItem[]; onRef
     onRefresh();
   };
 
-  const handleDelete = async (id: number) => {
-    if (!(await confirmAction({ title: '删除这个模型配置？', danger: true }))) return;
-    await modelsApi.delete(id);
+  const handleDelete = async (m: LlmModelItem) => {
+    if (!(await confirmAction({ title: `删除模型「${m.name}」？`, danger: true }))) return;
+    await modelsApi.delete(m.id);
     onRefresh();
   };
 
-  const enabledCount = models.filter((m) => m.enabled).length;
-  const keyedCount = models.filter((m) => m.api_key_set || !m.api_base).length;
-
   return (
-    <div className="flex flex-col gap-3.5">
-      {models.length ? (
-      <Surface title="模型配置" icon={Settings2} hint={`${models.length} 个模型 · ${enabledCount} 个启用 · ${keyedCount} 个可调用`}>
-        <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
-          <div className="text-[13px] leading-7 text-gray-500">
-            维护运行时路由链、渠道分组和可参与测评的候选模型。禁用模型不会参与自动任务和 A/B 测评。
-          </div>
-          <Button type="button" variant="primary" onClick={() => setShowAdd(true)} className="w-fit whitespace-nowrap">
-            <Plus size={14} strokeWidth={2.2} />
-            添加模型
-          </Button>
-        </div>
-      </Surface>
-      ) : null}
-
+    <div className="cw-models">
       {showAdd && (
         <ModelEditForm
           onClose={(saved, createdId) => {
@@ -101,108 +100,85 @@ export function ModelsTab({ models, onRefresh }: { models: LlmModelItem[]; onRef
         />
       )}
 
-      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-        {models.map((m) => (
-          <Panel
-            key={m.id}
-            className={cx(
-              'flex flex-col gap-3.5 p-4.5 transition',
-              !m.enabled && 'opacity-60',
-              m.enabled && m.routing_priority <= 10 && 'border-primary-border shadow-[0_12px_28px_rgba(255,107,53,0.08)]',
-            )}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <div className="mb-2 flex flex-wrap items-center gap-1.5">
-                  <StatusPill tone="neutral">#{m.routing_priority}</StatusPill>
-                  {!m.enabled && <StatusPill>已禁用</StatusPill>}
-                  {!m.api_key_set && m.api_base && <StatusPill tone="amber"><KeyRound size={11} />缺 Key</StatusPill>}
-                </div>
-                <div className="text-base font-black leading-5 text-gray-900">{m.name}</div>
-                <div className="mt-1 truncate font-mono text-[11px] text-gray-400">{m.model_id}</div>
-                {m.resolved_model !== m.model_id && (
-                  <div className="mt-1 truncate font-mono text-[11px] text-primary">
-                    实际请求 {m.resolved_model}
-                  </div>
-                )}
-              </div>
-              <StatusPill tone={m.enabled ? 'teal' : 'neutral'}>
-                <Power size={11} />
-                {m.enabled ? '启用' : '停用'}
-              </StatusPill>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <InfoCell label="Provider" value={m.provider} />
-              <InfoCell label="路由组" value={m.routing_group || 'default'} />
-              <InfoCell label="模型族" value={m.model_family || '-'} muted={!m.model_family} />
-              <InfoCell label="渠道" value={m.channel_name || '-'} muted={!m.channel_name} />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              <InfoCell label="稳定度" value={m.temperature} />
-              <InfoCell label="输出长度" value={m.max_tokens} />
-              <InfoCell label="请求/分" value={m.requests_per_minute} />
-              <InfoCell label="冷却" value={`${m.cooldown_seconds}s`} />
-            </div>
-
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-              <InfoCell label="输入未命中" value={formatPerMillion(m.cost_per_1m_input)} muted={m.cost_per_1m_input === null || m.cost_per_1m_input === undefined} />
-              <InfoCell label="输出单价" value={formatPerMillion(m.cost_per_1m_output)} muted={m.cost_per_1m_output === null || m.cost_per_1m_output === undefined} />
-            </div>
-
-            {m.cost_per_1m_input_cache_hit !== null && m.cost_per_1m_input_cache_hit !== undefined && (
-              <div className="flex items-center justify-between gap-3 rounded-xs border border-teal-border bg-teal-light px-2.5 py-2 text-[11px]">
-                <span className="font-black text-gray-500">输入缓存命中</span>
-                <span className="font-mono font-black text-teal">{formatPerMillion(m.cost_per_1m_input_cache_hit)}</span>
-              </div>
-            )}
-
-            {m.description && <div className="text-xs leading-5 text-gray-500">{m.description}</div>}
-
-            {testResult[m.id] && (
-              <div
-                className={cx(
-                  'whitespace-pre-line break-all rounded-xs border px-2.5 py-2 text-[11px] leading-4',
-                  testResult[m.id].status === 'success'
-                    ? 'border-teal-border bg-teal-light text-teal'
-                    : 'border-red-light bg-red-light text-red',
-                )}
-              >
-                {testResult[m.id].status === 'success'
-                  ? `${testResult[m.id].duration_ms}ms: ${(testResult[m.id].response || '').slice(0, 60)}`
-                  : `失败: ${(testResult[m.id].error || '').slice(0, 300)}`}
-                {testResult[m.id].note ? `\n${testResult[m.id].note}` : ''}
-              </div>
-            )}
-
-            <Toolbar className="border-t border-gray-100 pt-3">
-              <Button type="button" variant="secondary" onClick={() => handleToggle(m)}>{m.enabled ? '禁用' : '启用'}</Button>
-              <Button type="button" variant="secondary" onClick={() => handleTest(m.id)} disabled={testing === m.id} className="text-primary">
-                {testing === m.id ? '测试中...' : '测试'}
+      {models.length === 0 ? (
+        showAdd ? null : (
+          <EmptyInstrument
+            kind="unplugged"
+            title="还没有模型"
+            reason="日报、选题分析、写稿和改写都要用到语言模型。填一个 API Key 就能开始，之后可以再加备用模型做路由。"
+            actions={
+              <Button variant="primary" icon={<Plus size={14} />} onClick={() => setShowAdd(true)}>
+                添加模型
               </Button>
-              <Button type="button" variant="secondary" onClick={() => setEditing(m)}>编辑</Button>
-              <Button type="button" variant="danger" onClick={() => handleDelete(m.id)}>
-                <Trash2 size={12} strokeWidth={2.2} />
-                删除
-              </Button>
-            </Toolbar>
-          </Panel>
-        ))}
-      </div>
-
-      {models.length === 0 && !showAdd ? (
-        <EmptyInstrument
-          kind="unplugged"
-          title="还没有模型"
-          reason="日报、选题分析、写稿和改写都要用到语言模型。填一个 API Key 就能开始，之后可以再加备用模型做路由。"
-          actions={
-            <CwButton variant="primary" icon={<Plus size={14} />} onClick={() => setShowAdd(true)}>
+            }
+          />
+        )
+      ) : (
+        <>
+          <div className="cw-filters">
+            <span className="cw-muted">同一路由组里从上到下依次调用：前一个失败或限流就自动换下一个。停用的不参与自动任务和测评。</span>
+            <span className="cw-grow" />
+            <Button variant="primary" icon={<Plus size={14} />} onClick={() => setShowAdd(true)}>
               添加模型
-            </CwButton>
-          }
-        />
-      ) : null}
+            </Button>
+          </div>
+          {groups.map(([group, list]) => (
+            <Card key={group} title={group === 'default' ? '默认路由' : `路由组 · ${group}`} extra={<small className="cw-muted cw-num">{list.filter((m) => m.enabled).length} / {list.length} 启用</small>}>
+              <ol className="cw-model-rows">
+                {list.map((m, i) => {
+                  const st = lamp(m);
+                  return (
+                    <li key={m.id} className="cw-model-row" data-off={m.enabled ? undefined : 'true'}>
+                      <span className="cw-model-rank cw-num" title={`优先级 ${m.routing_priority}`}>
+                        {m.enabled ? i + 1 : '—'}
+                      </span>
+                      <div className="cw-model-name">
+                        <b>{m.name}</b>
+                        <small className="cw-num" title={m.resolved_model}>
+                          {m.resolved_model || m.model_id}
+                        </small>
+                      </div>
+                      <div className="cw-model-meta">
+                        <span>{m.provider}</span>
+                        <small>
+                          {m.channel_name || m.api_base || '官方接口'}
+                          {m.model_family ? ` · ${m.model_family}` : ''}
+                        </small>
+                      </div>
+                      <div className="cw-model-meta">
+                        <span className="cw-num">
+                          {m.cost_per_1m_input == null && m.cost_per_1m_output == null
+                            ? '单价未填'
+                            : `入 ${formatPerMillion(m.cost_per_1m_input)} · 出 ${formatPerMillion(m.cost_per_1m_output)}`}
+                        </span>
+                        <small className="cw-num">
+                          {m.max_tokens} tok · {m.requests_per_minute}/分
+                        </small>
+                      </div>
+                      <div className="cw-model-state">
+                        <StatusLamp tone={st.tone} label={st.label} />
+                        {testResult[m.id] ? <TestLine r={testResult[m.id]} /> : null}
+                      </div>
+                      <div className="cw-model-acts">
+                        <Button onClick={() => handleTest(m.id)} disabled={testing === m.id}>
+                          {testing === m.id ? '测试中…' : '测试'}
+                        </Button>
+                        <Button variant="ghost" onClick={() => setEditing(m)}>
+                          编辑
+                        </Button>
+                        <Button variant="ghost" onClick={() => handleToggle(m)}>
+                          {m.enabled ? '停用' : '启用'}
+                        </Button>
+                        <Button variant="ghost" size="icon" aria-label={`删除 ${m.name}`} title="删除" onClick={() => handleDelete(m)} icon={<Trash2 size={14} />} />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </Card>
+          ))}
+        </>
+      )}
     </div>
   );
 }
