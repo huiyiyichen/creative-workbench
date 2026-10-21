@@ -3,6 +3,7 @@
 import React, { useState, useCallback } from 'react';
 import { CalendarDays } from 'lucide-react';
 import DigestReportPage from '@/components/DigestReportPage';
+import { PersonaPanel } from '@/design/persona';
 import { monthlyDigestApi } from '@/lib/api';
 import { useReadTracking } from '@/hooks/useReadTracking';
 import type { MonthlyDigest, MonthlyDigestMonthSummary } from '@/types';
@@ -48,6 +49,7 @@ export default function MonthlyDigestPage() {
       getSummaryKey={(summary) => summary.month_key}
       getSummaryLabel={(summary) => summary.month_label}
       onDigestChange={handleDigestChange}
+      aside={(key) => <PersonaPanel month={key && /^\d{4}-\d{2}$/.test(key) ? key : undefined} />}
     />
   );
 }

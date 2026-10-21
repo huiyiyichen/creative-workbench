@@ -3102,6 +3102,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/monthly-digests/persona": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Creator Persona
+         * @description 本月创作人格：按本月真实动作（项目、文稿版本、产出、灵感、随笔）统计并判定，北京时间。
+         */
+        get: operations["creator_persona_api_v1_monthly_digests_persona_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/mother-topics/": {
         parameters: {
             query?: never;
@@ -15122,6 +15142,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MonthlyDigestMonthsResponse"];
+                };
+            };
+        };
+    };
+    creator_persona_api_v1_monthly_digests_persona_get: {
+        parameters: {
+            query?: {
+                month?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

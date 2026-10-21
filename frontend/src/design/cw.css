@@ -2409,3 +2409,16 @@ a.cw-lamp:hover { color: var(--cw-text); }
 .cw-spin { animation: cw-spin 0.9s linear infinite; }
 @keyframes cw-spin { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .cw-spin { animation: none; } }
+
+/* 创作人格（design/persona.tsx） */
+.cw-persona { display: grid; grid-template-columns: 270px minmax(0, 1fr); gap: 24px; align-items: start; max-width: 900px; margin: 0 0 22px; padding: 18px; border: 1px solid var(--cw-line); border-radius: 10px; background: var(--cw-panel); }
+.cw-persona-card img { display: block; width: 100%; aspect-ratio: 9 / 16; border-radius: 8px; border: 1px solid var(--cw-line); }
+.cw-persona-side { display: flex; flex-direction: column; gap: 10px; }
+.cw-persona-name { margin: 0; font-family: var(--cw-serif); font-size: 40px; line-height: 1.15; box-shadow: inset 0 -0.3em 0 color-mix(in srgb, var(--cw-yl) 35%, transparent); align-self: flex-start; }
+.cw-persona-tag { margin: 0; font-size: 15px; line-height: 1.7; }
+.cw-persona-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin: 4px 0; border: 1px solid var(--cw-line); border-radius: 8px; overflow: hidden; }
+.cw-persona-stats div { padding: 8px 12px; border-right: 1px dashed var(--cw-line); }
+.cw-persona-stats div:last-child { border-right: 0; }
+.cw-persona-stats dt { font-size: 11px; color: var(--cw-dim); }
+.cw-persona-stats dd { margin: 0; font-size: 22px; }
+@media (max-width: 1023px) { .cw-persona { grid-template-columns: 1fr; } .cw-persona-card { max-width: 270px; } }

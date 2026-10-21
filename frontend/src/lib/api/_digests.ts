@@ -56,7 +56,37 @@ export const weeklyDigestApi = {
 
 // ─── Monthly Digest (月刊) API ───
 
+/** 本月创作人格（GET /monthly-digests/persona）。 */
+export interface CreatorPersona {
+  month: string;
+  archetype: { key: string; name: string; tagline: string };
+  stats: {
+    actions: number;
+    projects: number;
+    outputs: number;
+    published: number;
+    library: number;
+    breakdowns: number;
+    notes: number;
+    revisions: number;
+    days: number;
+    streak: number;
+    night_pct: number;
+    platforms: number;
+    videos: number;
+    xhs: number;
+    longform: number;
+  };
+  hours: number[];
+  peak_hour: number | null;
+  platform_mix: { kind: string; label: string; count: number }[];
+  titles: string[];
+}
+
 export const monthlyDigestApi = {
+  persona(month?: string): Promise<CreatorPersona> {
+    return request(`/monthly-digests/persona${month ? `?month=${month}` : ''}`);
+  },
   /** 获取最新完整月刊（不存在则自动生成） */
   getCurrent(): Promise<MonthlyDigest> {
     return request('/monthly-digests/current');

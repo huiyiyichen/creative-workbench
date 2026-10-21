@@ -134,6 +134,8 @@ interface DigestReportPageProps<TDigest extends DigestRecord, TSummary extends D
   getSummaryKey: (summary: TSummary) => string;
   getSummaryLabel: (summary: TSummary) => string;
   onDigestChange?: (digest: TDigest | null) => void;
+  /** 顶栏下方的附加区块（月刊放「本月创作人格」），参数是当前期号 */
+  aside?: (periodKey: string | undefined) => React.ReactNode;
 }
 
 function DigestStat({
@@ -223,6 +225,7 @@ export default function DigestReportPage<TDigest extends DigestRecord, TSummary 
   getSummaryKey,
   getSummaryLabel,
   onDigestChange,
+  aside,
 }: DigestReportPageProps<TDigest, TSummary>) {
   const [digest, setDigest] = useState<TDigest | null>(null);
   const [periods, setPeriods] = useState<TSummary[]>([]);
@@ -369,6 +372,8 @@ export default function DigestReportPage<TDigest extends DigestRecord, TSummary 
             重新生成
           </CwButton>
         </TopBar>
+
+        {aside ? aside(currentKey) : null}
 
         {loading ? (
           <ReportStatusPanel icon={HistoryIcon}>{loadingText}</ReportStatusPanel>

@@ -17304,6 +17304,55 @@
     ]
    }
   },
+  "/api/v1/monthly-digests/persona": {
+   "get": {
+    "description": "本月创作人格：按本月真实动作（项目、文稿版本、产出、灵感、随笔）统计并判定，北京时间。",
+    "operationId": "creator_persona_api_v1_monthly_digests_persona_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "month",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "pattern": "^\\d{4}-\\d{2}$",
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Month"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Creator Persona",
+    "tags": [
+     "monthly-digests"
+    ]
+   }
+  },
   "/api/v1/mother-topics/": {
    "get": {
     "description": "列出母题，按 name 去重。\n\nscope=mine （默认）→ 用户隔离视图：系统模板 + 自己的 fork，按 name 去重。\nscope=all  → admin 审计视图：全量母题（含其他用户私有 fork），仅 admin 可用。\nactive_only=true 时仅返回 is_active=True 的记录（在去重后过滤）。",

@@ -35,6 +35,16 @@ def _parse_month_key(month_key: str) -> date:
         ) from None
 
 
+@router.get("/persona")
+async def creator_persona(
+    month: str | None = Query(default=None, pattern=r"^\d{4}-\d{2}$"), db: AsyncSession = Depends(get_db)
+):
+    """本月创作人格：按本月真实动作（项目、文稿版本、产出、灵感、随笔）统计并判定，北京时间。"""
+    from app.services import persona_service
+
+    return await persona_service.persona(db, month)
+
+
 @router.get("/current", response_model=MonthlyDigestResponse)
 async def get_current_month_digest(db: AsyncSession = Depends(get_db)):
     """Get or generate the latest full monthly digest."""
