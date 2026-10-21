@@ -1,41 +1,24 @@
 'use client';
 
 /**
- * Usage tab（30 日用量统计 + 按模型/任务类型拆分）。
- *
- * 从 app/model-eval/page.tsx 抽出的 106 行组件，包含：
- * - 5 项总览 StatTile（Token/费用/缓存/调用/耗时）
- * - 刷新按钮
- * - 按模型拆分（带进度条 + InfoCell）
- * - 按任务类型拆分（按 estimated_cost 进度条）
- *
- * 状态由 page.tsx 传入：usage（ModelUsageSummary）/ loading（loading 中）。
- *
- * 7 个 UI 原子（Surface / Panel / Button / EmptyState / StatTile / InfoCell /
- * Toolbar）从 _components.tsx 复用。
+ * 用量统计（调色台样式）：一排读数（费用 / 缓存命中 / 成功率 / 平均耗时），
+ * 下面两张表：按模型、按任务类型，各带一条相对占比的细条。
  */
 
 import React from 'react';
-import {
-  BarChart3,
-  Clock3,
-  Coins,
-  FlaskConical,
-  Gauge,
-  KeyRound,
-  Layers3,
-  RefreshCw,
-  SlidersHorizontal,
-} from 'lucide-react';
-import { EmptyState, LoadingState } from '@/components/StateView';
-import { Button, Panel } from '@/components/ui';
+import { RefreshCw } from 'lucide-react';
+import { Button, Card } from '@/design/components';
+import { EmptyInstrument, Readout, Readouts, ScanSkeleton } from '@/design/instrument';
 import type { ModelUsageSummary } from '@/lib/api';
-import {
-  formatCurrency,
-  formatTokens,
-  promptTypeLabel,
-} from './_model-eval-utils';
-import { InfoCell, StatTile, Surface } from './_components';
+import { formatCurrency, formatTokens, promptTypeLabel } from './_model-eval-utils';
+
+function Meter({ ratio }: { ratio: number }) {
+  return (
+    <div className="cw-meter" aria-hidden>
+      <i style={{ width: `${Math.max(3, Math.round(ratio * 100))}%` }} />
+    </div>
+  );
+}
 
 export function UsageTab({
   usage,
@@ -46,100 +29,98 @@ export function UsageTab({
   loading: boolean;
   onRefresh: () => void;
 }) {
-  if (loading) {
+  if (loading) return <ScanSkeleton height={220} label="读取用量" />;
+  if (!usage || usage.total.calls === 0) {
     return (
-      <Surface title="用量统计" icon={BarChart3}>
-        <LoadingState minHeight="220px" />
-      </Surface>
+      <EmptyInstrument
+        kind="flat"
+        title="近 30 天还没有模型调用"
+        reason="写稿、改写、日报等任务跑过之后，这里会按模型和任务类型列出 Token 和费用。"
+        actions={
+          <Button icon={<RefreshCw size={14} />} onClick={onRefresh}>
+            刷新
+          </Button>
+        }
+      />
     );
   }
 
-  if (!usage) {
-    return (
-      <Surface title="用量统计" icon={BarChart3}>
-        <EmptyState panel={false} minHeight="220px" title="暂无用量数据" />
-      </Surface>
-    );
-  }
-
-  const maxModelTokens = Math.max(...usage.by_model.map((item) => item.tokens_input + item.tokens_output), 1);
-  const maxPromptCost = Math.max(...usage.by_prompt.map((item) => item.estimated_cost), 0.000001);
+  const t = usage.total;
+  const maxModel = Math.max(...usage.by_model.map((i) => i.tokens_input + i.tokens_output), 1);
+  const maxPrompt = Math.max(...usage.by_prompt.map((i) => i.estimated_cost), 0.000001);
 
   return (
-    <div className="flex flex-col gap-3.5">
-      <Surface title="30 日用量概览" icon={BarChart3} hint={`自 ${usage.since.slice(0, 10)} 起`}>
-        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-5">
-          <StatTile icon={Gauge} label="总 Token" value={formatTokens(usage.total.tokens_total)} hint={`输入 ${formatTokens(usage.total.tokens_input)} · 输出 ${formatTokens(usage.total.tokens_output)}`} tone="purple" />
-          <StatTile icon={Coins} label="费用预估" value={formatCurrency(usage.total.estimated_cost)} hint="按模型配置单价估算" tone="primary" />
-          <StatTile icon={KeyRound} label="缓存命中" value={formatTokens(usage.total.cache_read_tokens)} hint={`实际输入 ${formatTokens(usage.total.billable_input_tokens)}`} />
-          <StatTile icon={FlaskConical} label="调用次数" value={usage.total.calls} hint={`${usage.total.success_calls} 成功 · ${usage.total.failed_calls} 失败`} tone="teal" />
-          <StatTile icon={Clock3} label="平均耗时" value={`${usage.total.avg_duration_ms}ms`} hint={`成功率 ${(usage.total.success_rate * 100).toFixed(1)}%`} tone="amber" />
-        </div>
-        <div className="mt-3.5 flex justify-end">
-          <Button type="button" variant="secondary" onClick={onRefresh} className="text-primary">
-            <RefreshCw size={12} strokeWidth={2.2} />
-            刷新用量
-          </Button>
-        </div>
-      </Surface>
+    <div className="cw-models">
+      <Readouts>
+        <Readout label="费用预估" value={formatCurrency(t.estimated_cost)} sub="按模型单价估算" />
+        <Readout label="缓存命中" value={formatTokens(t.cache_read_tokens)} sub={`实际计费输入 ${formatTokens(t.billable_input_tokens)}`} />
+        <Readout label="成功率" value={`${(t.success_rate * 100).toFixed(1)}%`} sub={`${t.success_calls} 成功 · ${t.failed_calls} 失败`} />
+        <Readout label="平均耗时" value={`${t.avg_duration_ms} ms`} sub={`自 ${usage.since.slice(0, 10)} 起`} />
+      </Readouts>
 
-      <div className="grid grid-cols-1 gap-3.5 xl:grid-cols-2">
-        <Surface title="按模型拆分" icon={Layers3} hint={`${usage.by_model.length} 个模型`}>
-          <div className="flex flex-col gap-2.5">
-            {usage.by_model.length === 0 && <EmptyState panel={false} minHeight="220px" title="暂无模型调用记录" />}
-            {usage.by_model.map((item) => {
-              const totalTokens = item.tokens_input + item.tokens_output;
-              const width = Math.max(4, Math.round((totalTokens / maxModelTokens) * 100));
-              return (
-                <Panel key={item.model_id ?? item.model_name} className="p-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="truncate text-[13px] font-black text-gray-900">{item.model_name}</div>
-                      <div className="mt-1 text-[11px] text-gray-400">{item.provider || 'unknown'} · {item.calls} 次调用 · 平均 {item.avg_duration_ms}ms</div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <div className="font-mono text-[13px] font-black text-primary">{formatCurrency(item.estimated_cost)}</div>
-                      <div className="mt-1 text-[10px] text-gray-400">{formatTokens(totalTokens)} tokens</div>
-                    </div>
-                  </div>
-                  <div className="mt-3 h-2 overflow-hidden rounded-full bg-gray-100">
-                    <div className="h-full rounded-full bg-[linear-gradient(90deg,var(--color-primary),var(--color-teal))]" style={{ width: `${width}%` }} />
-                  </div>
-                  <div className="mt-2.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
-                    <InfoCell label="输入" value={formatTokens(item.tokens_input)} />
-                    <InfoCell label="输出" value={formatTokens(item.tokens_output)} />
-                    <InfoCell label="成功" value={item.success_calls} />
-                    <InfoCell label="失败" value={item.failed_calls} />
-                  </div>
-                </Panel>
-              );
-            })}
-          </div>
-        </Surface>
+      <Card title="按模型" extra={<Button variant="ghost" icon={<RefreshCw size={14} />} onClick={onRefresh}>刷新</Button>}>
+        <table className="cw-table">
+          <thead>
+            <tr>
+              <th>模型</th>
+              <th>调用</th>
+              <th>输入</th>
+              <th>输出</th>
+              <th>平均耗时</th>
+              <th>费用</th>
+              <th style={{ width: '22%' }}>Token 占比</th>
+            </tr>
+          </thead>
+          <tbody>
+            {usage.by_model.map((i) => (
+              <tr key={i.model_id ?? i.model_name}>
+                <td>
+                  {i.model_name}
+                  <small className="cw-muted" style={{ display: 'block' }}>{i.provider || '未知接口'}</small>
+                </td>
+                <td className="cw-num">
+                  {i.calls}
+                  {i.failed_calls ? <small style={{ color: 'var(--cw-rd)' }}> · {i.failed_calls} 失败</small> : null}
+                </td>
+                <td className="cw-num">{formatTokens(i.tokens_input)}</td>
+                <td className="cw-num">{formatTokens(i.tokens_output)}</td>
+                <td className="cw-num">{i.avg_duration_ms} ms</td>
+                <td className="cw-num">{formatCurrency(i.estimated_cost)}</td>
+                <td><Meter ratio={(i.tokens_input + i.tokens_output) / maxModel} /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </Card>
 
-        <Surface title="按任务类型" icon={SlidersHorizontal} hint={`${usage.by_prompt.length} 类任务`}>
-          <div className="flex flex-col gap-2.5">
-            {usage.by_prompt.length === 0 && <EmptyState panel={false} minHeight="220px" title="暂无任务统计" />}
-            {usage.by_prompt.map((item) => {
-              const width = Math.max(4, Math.round((item.estimated_cost / maxPromptCost) * 100));
-              return (
-                <div key={item.prompt_type} className="border-b border-gray-100 pb-2.5 last:border-b-0">
-                  <div className="flex justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="truncate text-[13px] font-black text-gray-900">{promptTypeLabel[item.prompt_type] || item.prompt_type}</div>
-                      <div className="mt-1 text-[11px] text-gray-400">{item.calls} 次 · {formatTokens(item.tokens_input + item.tokens_output)} tokens</div>
-                    </div>
-                    <div className="shrink-0 font-mono text-[13px] font-black text-primary">{formatCurrency(item.estimated_cost)}</div>
-                  </div>
-                  <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-gray-100">
-                    <div className="h-full rounded-full bg-primary" style={{ width: `${width}%` }} />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Surface>
-      </div>
+      <Card title="按任务类型" extra={<small className="cw-muted">{usage.by_prompt.length} 类</small>}>
+        {usage.by_prompt.length ? (
+          <table className="cw-table">
+            <thead>
+              <tr>
+                <th>任务</th>
+                <th>调用</th>
+                <th>Token</th>
+                <th>费用</th>
+                <th style={{ width: '30%' }}>费用占比</th>
+              </tr>
+            </thead>
+            <tbody>
+              {usage.by_prompt.map((i) => (
+                <tr key={i.prompt_type}>
+                  <td>{promptTypeLabel[i.prompt_type] || i.prompt_type}</td>
+                  <td className="cw-num">{i.calls}</td>
+                  <td className="cw-num">{formatTokens(i.tokens_input + i.tokens_output)}</td>
+                  <td className="cw-num">{formatCurrency(i.estimated_cost)}</td>
+                  <td><Meter ratio={i.estimated_cost / maxPrompt} /></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <p className="cw-muted">还没有按任务归类的调用。</p>
+        )}
+      </Card>
     </div>
   );
 }
