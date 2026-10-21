@@ -399,9 +399,9 @@ try {
       -RedirectStandardError (Join-Path $frontendRoot '.runtime-start-error.log') `
       -WindowStyle Hidden
   }
-  $studioUrl = "http://127.0.0.1:$FrontendPort/studio"
+  $studioUrl = "http://127.0.0.1:$FrontendPort/"
   Wait-Http $studioUrl (Join-Path $frontendRoot '.runtime-start-error.log')
-  Wait-Http "http://127.0.0.1:$FrontendPort/api/v1/studio/catalog" (Join-Path $frontendRoot '.runtime-start-error.log')
+  Wait-Http "http://127.0.0.1:$FrontendPort/api/v1/models" (Join-Path $frontendRoot '.runtime-start-error.log')
   $buildRoot = if ($Production) { $productionRoot } else { Join-Path $frontendRoot '.next\dev' }
   $manifest = Get-Content -LiteralPath (Join-Path $buildRoot 'build-manifest.json') -Raw | ConvertFrom-Json
   foreach ($asset in $manifest.rootMainFiles) {
