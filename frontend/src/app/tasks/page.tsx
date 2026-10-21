@@ -73,7 +73,7 @@ export default function TasksPage() {
             <Readout label="进行中" value="0" count={data.active} sub={counts && counts.waiting ? `其中 ${counts.waiting} 个等你处理` : undefined} tone={counts && counts.waiting ? 'warn' : undefined} />
             <Readout label="失败" value="0" count={failed} tone={failed ? 'bad' : 'good'} sub={failed ? '可以在下面重试' : '没有失败'} />
             <Readout label="完成" value="0" count={counts?.done ?? 0} />
-            <Readout label="花费" value={`¥${totalCost.toFixed(2)}`} sub="生成与流程运行" />
+            {totalCost > 0 ? <Readout label="花费" value={`¥${totalCost.toFixed(2)}`} sub="生成与流程运行" /> : null}
           </Readouts>
           {now ? <TaskLanes items={data.items} hours={days * 24} now={now} /> : null}
         </Instrument>

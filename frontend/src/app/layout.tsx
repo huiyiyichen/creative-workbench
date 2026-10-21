@@ -4,6 +4,7 @@ import './globals.css';
 import '@/design/tokens.css';
 import '@/design/cw.css';
 import { THEME_BOOT_SCRIPT } from '@/design/theme-boot';
+import { AntdRegistry } from '@ant-design/nextjs-registry';
 import ClientLayout from '@/components/ClientLayout';
 import SkipToContent from '@/components/SkipToContent';
 import { prefetchInitialData } from '@/lib/server-prefetch';
@@ -70,7 +71,10 @@ export default async function RootLayout({
       </head>
       <body>
         <SkipToContent />
-        <ClientLayout initialData={initialData}>{children}</ClientLayout>
+        {/* antd cssinjs 样式随 SSR 输出，首屏不闪无样式控件 */}
+        <AntdRegistry>
+          <ClientLayout initialData={initialData}>{children}</ClientLayout>
+        </AntdRegistry>
       </body>
     </html>
   );

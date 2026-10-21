@@ -18,7 +18,12 @@ import {
   TrendingUp,
   KeyRound,
 } from 'lucide-react';
+import Link from 'next/link';
 import { Panel, cx } from '@/components/ui';
+import { Button, Segmented, TopBar } from '@/design/components';
+import { StatusLamp } from '@/design/instrument';
+import { ReportEmpty } from '@/design/report-empty';
+import { fmtDay } from '@/lib/time-cn';
 import { useAppContext } from '@/components/ClientLayout';
 import { isAdmin } from '@/lib/navigation';
 import { dailyReportApi } from '@/lib/api';
@@ -369,164 +374,110 @@ export default function DailyReportPage() {
 
   return (
     <div className="h-full w-full overflow-hidden">
-      {/* 工具栏：scope + 日期选择 */}
-      <div className="flex items-center justify-between gap-3 border-b border-gray-200 bg-white px-4 py-2">
-        {/* scope 切换 */}
-        <div className="flex items-center gap-1 text-[11px] font-black text-gray-500">
-          <a
-            href="/daily"
-            className={cx("rounded px-2.5 py-1", reportScope === 'public' ? "bg-teal-light text-teal" : "text-gray-500 hover:text-gray-700")}
-          >
-            公共日报
-          </a>
-          <a
-            href="/daily?scope=mine"
-            className={cx("rounded px-2.5 py-1", reportScope === 'mine' ? "bg-teal-light text-teal" : "text-gray-500 hover:text-gray-700")}
-          >
-            我的日报
-          </a>
-          {/* 今日已选入口（一期补行动闭环）：点击打开抽屉 */}
-          <button
-            type="button"
+      {/* 页头：全站同款 TopBar；副标题只放读数 */}
+      <div className="cw-daily-head">
+        <TopBar
+          title="日报"
+          sub={
+            <span className="cw-num">
+              {report?.report_date ? fmtDay(`${report.report_date}T12:00:00+08:00`) : todayStr ? fmtDay(`${todayStr}T12:00:00+08:00`) : ""}
+              {report && pickList.length ? ` · ${pickList.length} 个选题 · 约 ${readMinutes} 分钟` : ''}
+            </span>
+          }
+        >
+          <Segmented<'public' | 'mine'>
+            label="日报范围"
+            value={reportScope}
+            onChange={(v) => {
+              window.location.href = v === 'mine' ? '/daily?scope=mine' : '/daily';
+            }}
+            options={[
+              { value: 'public', label: '公共' },
+              { value: 'mine', label: '我的' },
+            ]}
+          />
+          <Button
+            variant="ghost"
+            icon={<ListChecks size={14} />}
             onClick={() => setDrawerOpen(true)}
             disabled={writeCount === 0}
-            className={cx(
-              'ml-2 inline-flex items-center gap-1 rounded px-2 py-1 transition',
-              writeCount > 0
-                ? 'bg-primary-light text-primary hover:bg-primary/15'
-                : 'text-gray-300',
-            )}
             title={writeCount > 0 ? `今日已选 ${writeCount} 个选题` : '今日还未选选题'}
           >
-            <ListChecks size={12} />
-            <span className="tabular-nums">{writeCount}</span>
-            <span className="hidden sm:inline">已选</span>
-          </button>
-          {markError && (
-            <span className="text-[10px] font-bold text-red" title={markError}>
-              ⚠
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* 简洁日期选择器（替代 30 天日历） */}
-          <button
-            type="button"
-            onClick={() => {
-              if (report) {
-                const d = new Date(report.report_date);
-                d.setDate(d.getDate() - 1);
-                fetchReport(localDateString(d));
-              }
-            }}
-            className="grid h-7 w-7 place-items-center rounded-xs border border-gray-200 text-gray-400 hover:text-gray-700"
-            title="前一天"
-          >
-            <ChevronRight size={14} className="rotate-180" />
-          </button>
-          <span className="min-w-[100px] text-center text-xs font-bold text-gray-700">
-            {report?.report_date || todayStr}
+            已选 <span className="cw-num">{writeCount}</span>
+          </Button>
+          {markError ? <StatusLamp tone="bad" title={markError} label="标记失败" /> : null}
+          <span className="cw-datenav" role="group" aria-label="切换日期">
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label="前一天"
+              onClick={() => {
+                if (report) {
+                  const d = new Date(report.report_date);
+                  d.setDate(d.getDate() - 1);
+                  fetchReport(localDateString(d));
+                }
+              }}
+            >
+              <ChevronRight size={14} style={{ transform: 'rotate(180deg)' }} />
+            </Button>
+            <Button variant={isToday ? 'default' : 'ghost'} aria-pressed={isToday} onClick={() => fetchReport()}>
+              今天
+            </Button>
+            <Button
+              size="icon"
+              variant="ghost"
+              aria-label="后一天"
+              disabled={isToday}
+              onClick={() => {
+                if (report) {
+                  const d = new Date(report.report_date);
+                  d.setDate(d.getDate() + 1);
+                  if (localDateString(d) <= todayStr) fetchReport(localDateString(d));
+                }
+              }}
+            >
+              <ChevronRight size={14} />
+            </Button>
           </span>
-          <button
-            type="button"
-            onClick={() => {
-              if (report) {
-                const d = new Date(report.report_date);
-                d.setDate(d.getDate() + 1);
-                if (localDateString(d) <= todayStr) fetchReport(localDateString(d));
-              }
-            }}
-            disabled={isToday}
-            className="grid h-7 w-7 place-items-center rounded-xs border border-gray-200 text-gray-400 hover:text-gray-700 disabled:opacity-30"
-            title="后一天"
-          >
-            <ChevronRight size={14} />
-          </button>
-          <button
-            type="button"
-            onClick={() => fetchReport()}
-            className={cx('ml-1 rounded-xs px-2 py-1 text-[11px] font-bold', isToday ? 'bg-primary text-white' : 'text-gray-500 hover:bg-gray-50')}
-          >
-            今天
-          </button>
-
-          {/* 管理入口（折叠隐藏的补录中心入口） */}
-          {recoveryDays.length > 0 && (
-            <span className="ml-2 rounded-full bg-amber-light px-2 py-0.5 text-[10px] font-bold text-amber" title={`${recoveryDays.length} 天待补录`}>
-              {recoveryDays.length} 待补
-            </span>
-          )}
-          {report && (
-            <button
-              type="button"
-              onClick={handleRegenerate}
-              disabled={generating}
-              className="ml-1 flex items-center gap-1 rounded-xs border border-gray-200 px-2 py-1 text-[11px] font-bold text-gray-500 hover:text-primary disabled:opacity-50"
-            >
-              {generating ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+          {recoveryDays.length > 0 ? (
+            <Link href="/reports?tab=periods" className="cw-link" title={`${recoveryDays.length} 天没有日报，去报告页的空档视图补`}>
+              <span className="cw-num">{recoveryDays.length}</span> 天待补
+            </Link>
+          ) : null}
+          {report ? (
+            <Button variant="ghost" icon={generating ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />} onClick={handleRegenerate} disabled={generating}>
               刷新
-            </button>
-          )}
-          {report?.status === 'DONE' && isAdmin(currentUser) && (
-            <button
-              type="button"
-              onClick={handlePushWebhook}
-              disabled={pushing}
-              title="将当前日报推送到已配置的飞书/钉钉/Slack 群机器人"
-              className="ml-1 flex items-center gap-1 rounded-xs border border-gray-200 px-2 py-1 text-[11px] font-bold text-gray-500 hover:text-primary disabled:opacity-50"
-            >
-              {pushing ? <Loader2 size={12} className="animate-spin" /> : <Send size={12} />}
+            </Button>
+          ) : null}
+          {report?.status === 'DONE' && isAdmin(currentUser) ? (
+            <Button variant="ghost" icon={pushing ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />} onClick={handlePushWebhook} disabled={pushing} title="将当前日报推送到已配置的飞书 / 钉钉 / Slack 群机器人">
               {pushing ? '推送中…' : '推送到群'}
-            </button>
-          )}
-          {pushMsg && (
-            <span className={cx('ml-1 text-[10px] font-bold', pushMsg.includes('失败') || pushMsg.includes('未配置') ? 'text-red' : 'text-teal')}>
-              {pushMsg}
-            </span>
-          )}
-        </div>
+            </Button>
+          ) : null}
+          {pushMsg ? <span className="cw-muted" role="status">{pushMsg}</span> : null}
+        </TopBar>
       </div>
 
       {/* 主区域 */}
-      <div className="h-[calc(100%-40px)] overflow-y-auto bg-page">
+      <div className="cw-daily-body">
         <div className="mx-auto max-w-[920px] px-4 py-4 sm:px-6">
           {loading ? (
             <ReportStatusPanel icon={FileText}>正在加载日报...</ReportStatusPanel>
           ) : error ? (
-            <ReportStatusPanel
-              icon={AlertTriangle}
-              tone="error"
-              action={(
-                <div className="flex items-center justify-center gap-3">
-                <ReportActionButton
-                  onClick={() => generateForDate(recoveryDate)}
-                  loading={generating && generatingDate === recoveryDate}
-                  icon={RotateCcw}
-                >
-                  生成 {recoveryDate}
-                </ReportActionButton>
-                <a href="/admin/model-eval" className="text-sm text-primary underline underline-offset-4">AI 引擎</a>
-                </div>
-              )}
-            >
-              {error}
-            </ReportStatusPanel>
+            <ReportEmpty
+              message={error}
+              onRetry={() => generateForDate(recoveryDate)}
+              retryLabel={`生成 ${recoveryDate}`}
+              busy={generating && generatingDate === recoveryDate}
+            />
           ) : report?.status === 'ERROR' ? (
-            <div className="grid min-h-[300px] place-items-center p-8 text-center">
-              <div>
-                <AlertTriangle size={28} className="mx-auto mb-3 text-red" strokeWidth={1.9} />
-                <div className="mb-3 text-sm text-gray-500">{report.overview}</div>
-                <ReportActionButton
-                  onClick={() => generateForDate(report.report_date)}
-                  loading={generating && generatingDate === report.report_date}
-                  icon={RotateCcw}
-                >
-                  重试生成
-                </ReportActionButton>
-                <a href="/admin/model-eval" className="mt-3 block text-sm text-primary underline underline-offset-4">AI 引擎</a>
-              </div>
-            </div>
+            <ReportEmpty
+              message={report.overview || '日报没写出来'}
+              onRetry={() => generateForDate(report.report_date)}
+              retryLabel="重试生成"
+              busy={generating && generatingDate === report.report_date}
+            />
           ) : report?.status === 'GENERATING' ? (
             <ReportStatusPanel icon={Loader2}>日报生成中，请稍候...</ReportStatusPanel>
           ) : report && pickList.length > 0 ? (
@@ -769,3 +720,4 @@ export default function DailyReportPage() {
     </div>
   );
 }
+

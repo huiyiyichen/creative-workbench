@@ -3,12 +3,12 @@
 /** 作品库（改造方案 9）：按项目归档产出物，可预览、下载、复制；完成 / 已导出 / 已发布自动收录，草稿可在产出页手动加入。 */
 
 import Link from 'next/link';
-import { Input, message } from 'antd';
+import { message } from 'antd';
 import { Copy, Download, ExternalLink } from 'lucide-react';
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { kindColor, SignalArt } from '@/design/signal-art';
 import { EmptyInstrument, ScanSkeleton } from '@/design/instrument';
-import { CwPage, Segmented, TopBar } from '@/design/components';
+import { CwPage, SearchField, Segmented, TopBar } from '@/design/components';
 import { OUTPUT_LABEL, OUTPUT_STATUS } from '@/design/studio';
 import { PerformancePanel, PublishWeek } from '@/design/publishing';
 import { compactNum } from '@/lib/publishing';
@@ -135,7 +135,7 @@ export default function WorksPage() {
         <>
           <div className="cw-row cw-task-filters">
             <Segmented label="形态" value={kind} onChange={setKind} options={KINDS} />
-            <Input.Search allowClear placeholder="搜项目或作品" style={{ maxWidth: 260 }} value={q} onChange={(e) => setQ(e.target.value)} />
+            <SearchField placeholder="搜项目或作品" width={260} value={q} onChange={setQ} />
           </div>
           {data === null ? <ScanSkeleton height={260} /> : null}
           {data && !data.total ? (

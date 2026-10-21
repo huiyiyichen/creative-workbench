@@ -12,7 +12,7 @@ import { usePathname } from 'next/navigation';
 import { Checkbox, Input, Modal, Switch, message } from 'antd';
 import { Lock, Pencil } from 'lucide-react';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from 'react';
-import { Button, Cover } from './components';
+import { Button, Cover, SearchField } from './components';
 import { ImageGenPanel } from './imagegen';
 import { color, mediaColor } from './tokens';
 import { platformName } from './discover';
@@ -396,7 +396,7 @@ export function AssetPicker({
   return (
     <Modal open={open} onCancel={onClose} title={title} width={860} onOk={done} okText={`添加${picked.length ? ` ${picked.length} 项` : ''}`} okButtonProps={{ disabled: !picked.length }} destroyOnHidden>
       <div className="cw-row" style={{ marginBottom: 10 }}>
-        <Input.Search allowClear placeholder="搜索标题、描述、标签" value={q} onChange={(e) => setQ(e.target.value)} style={{ flex: 1 }} />
+        <SearchField placeholder="搜索标题、描述、标签" value={q} onChange={setQ} />
         <div className="cw-seg" role="group" aria-label="类型">
           {PICK_KINDS.map((k) => (
             <button key={k.value} type="button" aria-pressed={kind === k.value} onClick={() => setKind(k.value)}>
@@ -560,7 +560,7 @@ export function SourcePicker({
           </div>
         ) : (
           <>
-            <Input.Search allowClear placeholder="搜索" value={q} onChange={(e) => setQ(e.target.value)} style={{ marginBottom: 8 }} />
+            <SearchField placeholder="搜索" width="100%" value={q} onChange={setQ} />
             <ul className="cw-cands" aria-busy={loading}>
               {items.map((c) => (
                 <li key={c.key}>

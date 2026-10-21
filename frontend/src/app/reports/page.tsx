@@ -7,12 +7,12 @@
 import { ScanSkeleton } from '@/design/instrument';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { DatePicker, Input, message } from 'antd';
+import { DatePicker, message } from 'antd';
 import type { Dayjs } from 'dayjs';
 import { ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { Suspense, useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { cnParts } from '@/lib/time-cn';
-import { Button, Card, CwPage, Segmented, TopBar } from '@/design/components';
+import { Button, Card, CwPage, SearchField, Segmented, TopBar } from '@/design/components';
 import { discoverApi, type PeriodSummary, type ReportCalendar, type ReportHit } from '@/lib/api/_discover';
 import { monthGrid } from '@/lib/discover';
 
@@ -91,18 +91,6 @@ function Archive() {
             <span><i className="cw-cal-key" data-k="gap" /> 空档</span>
           </span>
         </div>
-        <div className="cw-month-bars" role="img" aria-label="这个月每天采到的条数">
-          {monthDays.map((d) => (
-            <i
-              key={d.date}
-              data-state={d.state}
-              data-today={d.date === todayKey ? 'true' : undefined}
-              title={`${d.date} · ${d.items} 条`}
-              style={{ height: `${d.items ? Math.max(8, (d.items / maxItems) * 100) : 4}%` }}
-              onClick={() => setPicked(d.date)}
-            />
-          ))}
-        </div>
         <div className="cw-cal">
           {WEEK.map((w) => (
             <div key={w} className="cw-cal-head">
@@ -123,14 +111,15 @@ function Archive() {
                 aria-pressed={picked === date}
                 data-today={date === todayKey ? 'true' : undefined}
                 onClick={() => setPicked(date)}
-                style={{ '--h': d && d.items ? Math.min(1, d.items / maxItems) : 0 } as CSSProperties}
+                style={{ '--h': d && d.items ? Math.max(0.12, Math.min(1, Math.log1p(d.items) / Math.log1p(maxItems))) : 0 } as CSSProperties}
               >
                 <span className="cw-cal-day cw-num">
                   {Number(date.slice(8))}
                   {state === 'report' ? <i className="cw-cal-lamp" title="有日报" /> : null}
+                  <small className="cw-cal-count">{d && d.items ? d.items : ''}</small>
                 </span>
                 <span className="cw-cal-headline">{d?.headline || STATE_TEXT[state]}</span>
-                <span className="cw-cal-foot cw-num">{d && d.items ? `${d.items} 条` : ''}</span>
+                <span className="cw-cal-level" aria-hidden />
               </button>
             );
           })}
@@ -305,7 +294,7 @@ function Search() {
   };
   return (
     <>
-      <Input.Search placeholder="搜索所有日报、周刊、月刊、空档回看" value={q} onChange={(e) => setQ(e.target.value)} onSearch={run} style={{ maxWidth: 480 }} enterButton="搜索" />
+      <SearchField placeholder="搜索所有日报、周刊、月刊、空档回看（回车）" width="min(480px, 100%)" value={q} onChange={setQ} onSubmit={run} />
       {hits === null ? null : hits.length === 0 ? (
         <div className="cw-empty">没有找到</div>
       ) : (
@@ -329,7 +318,7 @@ function ReportsPage() {
   const tab = (gap ? 'periods' : (params.get('tab') as Tab)) || 'archive';
   return (
     <CwPage>
-      <TopBar title="报告" sub="日报、周刊、月刊与空档回看">
+      <TopBar title="报告">
         <Segmented
           label="报告分页"
           value={tab}
@@ -340,10 +329,10 @@ function ReportsPage() {
             { value: 'search', label: '搜索' },
           ]}
         />
-        <Link className="cw-btn" href="/weekly">
+        <Link className="cw-btn" data-variant="ghost" href="/weekly">
           周刊
         </Link>
-        <Link className="cw-btn" href="/monthly">
+        <Link className="cw-btn" data-variant="ghost" href="/monthly">
           月刊
         </Link>
         <Link className="cw-btn" data-variant="primary" href="/daily">

@@ -57,11 +57,30 @@ function blockToNode(block: string): PMNode {
   return para(block);
 }
 
+/**
+ * 小标题行单独成块：模型 / 粘贴来的正文常写成「## 标题\n正文」不空行，
+ * 不拆开的话整块会当成段落、编辑器里露出「## 」字面量。
+ */
+export function splitHeadingLines(block: string): string[] {
+  const out: string[] = [];
+  let buf: string[] = [];
+  for (const line of block.split('\n')) {
+    if (/^#{1,3}\s+\S/.test(line)) {
+      if (buf.length) out.push(buf.join('\n'));
+      out.push(line);
+      buf = [];
+    } else buf.push(line);
+  }
+  if (buf.length) out.push(buf.join('\n'));
+  return out.filter((p) => p.trim());
+}
+
 export function mdToDoc(body: string): PMNode {
   const blocks = (body || '')
     .split(/\n\s*\n/)
     .map((p) => p.replace(/^\n+|\n+$/g, ''))
-    .filter((p) => p.trim());
+    .filter((p) => p.trim())
+    .flatMap(splitHeadingLines);
   return { type: 'doc', content: blocks.length ? blocks.map(blockToNode) : [{ type: 'paragraph' }] };
 }
 

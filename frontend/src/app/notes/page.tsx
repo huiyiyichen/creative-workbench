@@ -12,7 +12,7 @@ import { useSearchParams } from 'next/navigation';
 import { Input, message } from 'antd';
 import { Trash2 } from 'lucide-react';
 import { Suspense, useCallback, useEffect, useState } from 'react';
-import { Button, Card, CwPage, TopBar } from '@/design/components';
+import { Button, Card, CwPage, SearchField, TopBar } from '@/design/components';
 import { libraryApi, libraryFileUrl, type NoteRelated } from '@/lib/api/_library';
 import { NoteComposer, renderNoteBody } from '@/design/notes';
 
@@ -68,7 +68,7 @@ function NotesPage() {
             }}
           />
           <div className="cw-filters" style={{ marginTop: 16 }}>
-            <Input.Search allowClear placeholder="搜索随笔" style={{ width: 240 }} value={q} onChange={(e) => setQ(e.target.value)} />
+            <SearchField placeholder="搜索随笔" width={240} value={q} onChange={setQ} />
             {tag ? (
               <button type="button" className="cw-chip" onClick={() => setTag(undefined)}>
                 #{tag} ✕

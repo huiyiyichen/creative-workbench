@@ -9,7 +9,7 @@ import { useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { Button } from './components';
 import { TASK_STATUS_LABEL, TASK_TYPE_LABEL, fmtDuration, groupTasks, subscribeTasks, tasksApi, type TaskStatus, type TaskType, type TaskView } from '@/lib/api/_tasks';
 import { onTasksChanged } from '@/lib/events';
-import { LANE_ORDER, batchClips, laneClips } from '@/lib/task-lanes';
+import { LANE_ORDER, batchClips, fitWindow, laneClips } from '@/lib/task-lanes';
 import { CN_OFFSET_MS, cnParts, fmtHM } from '@/lib/time-cn';
 import { StatusLamp, type LampTone , ScanSkeleton } from './instrument';
 
@@ -163,15 +163,16 @@ export function TaskDrawer({ open, onClose }: { open: boolean; onClose: () => vo
 /** 任务泳道：轨道 = 任务类型，片段宽度 = 实际耗时，颜色 = 状态；失败发光、运行中脉冲，播放头 = 现在。 */
 export function TaskLanes({ items, hours, now }: { items: TaskView[]; hours: number; now: number }) {
   const end = now;
-  const start = now - hours * 3600 * 1000;
+  const start = fitWindow(items, now - hours * 3600 * 1000, end);
+  const spanH = (end - start) / 3600000;
   const lanes = laneClips(items, start, end, now);
-  const step = hours <= 24 ? 3 : hours <= 24 * 7 ? 24 : 24 * 7;
+  const step = spanH <= 3 ? 0.5 : spanH <= 8 ? 1 : spanH <= 24 ? 3 : spanH <= 24 * 7 ? 24 : 24 * 7;
   const ticks: { pos: number; label: string }[] = [];
   const H = 3600 * 1000;
   let t = Math.ceil((start + CN_OFFSET_MS) / (step * H)) * step * H - CN_OFFSET_MS;
   for (; t < end; t += step * H) {
     const p = cnParts(t);
-    ticks.push({ pos: (t - start) / (end - start), label: step < 24 ? `${String(p.h).padStart(2, '0')}:00` : `${p.mo}/${p.d}` });
+    ticks.push({ pos: (t - start) / (end - start), label: step < 24 ? `${String(p.h).padStart(2, '0')}:${String(p.mi).padStart(2, '0')}` : `${p.mo}/${p.d}` });
   }
   return (
     <div className="cw-timeline cw-lanes" style={{ border: 0, background: 'none' }}>
@@ -209,8 +210,9 @@ export function TaskLanes({ items, hours, now }: { items: TaskView[]; hours: num
                       className="cw-taskclip"
                       data-status={b.status}
                       data-batch={b.count > 1 ? 'true' : undefined}
+                      data-partial={b.failed && b.failed < b.count ? 'true' : undefined}
                       title={label}
-                      style={{ ...(b.left > 0.97 ? { right: 0 } : { left: `${b.left * 100}%` }), width: `max(${b.count > 1 ? 18 : 4}px, ${b.width * 100}%)`, '--c': TASK_STATUS_COLOR[b.status] } as unknown as CSSProperties}
+                      style={{ ...(b.left > 0.97 ? { right: 0 } : { left: `${b.left * 100}%` }), width: `max(${b.count > 1 ? 18 : 4}px, ${b.width * 100}%)`, '--c': TASK_STATUS_COLOR[b.status], '--fail': b.failed / b.count } as unknown as CSSProperties}
                     >
                       {b.count > 1 ? <b className="cw-num">{b.count}</b> : null}
                     </Link>

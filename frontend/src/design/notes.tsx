@@ -5,6 +5,7 @@
 import Link from 'next/link';
 import { Input, Modal, message } from 'antd';
 import { Mic, PenLine, Square } from 'lucide-react';
+import { usePathname } from 'next/navigation';
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Button } from '@/design/components';
 import { libraryApi, libraryFileUrl, type NoteRelated, type NoteView, type RelatedRef } from '@/lib/api/_library';
@@ -165,6 +166,9 @@ export function renderNoteBody(body: string, links: RelatedRef[], onTag?: (tag: 
 /** 任何页面按 Alt+N 或点右下角按钮弹出输入框，写一句就存，不打断当前操作（6.4） */
 export function QuickNote() {
   const [open, setOpen] = useState(false);
+  // 编辑页底栏右端有操作按钮，浮钮会压住：这些页只保留 Alt+N
+  const pathname = usePathname() || '';
+  const hideFab = /^\/projects\/[^/]+\/(draft|idea|outputs|storyboard)/.test(pathname);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.altKey && (e.key === 'n' || e.key === 'N')) {
@@ -177,9 +181,11 @@ export function QuickNote() {
   }, []);
   return (
     <>
-      <button type="button" className="cw-quick-note" aria-label="记一笔（Alt+N）" title="记一笔（Alt+N）" onClick={() => setOpen(true)}>
-        <PenLine size={18} />
-      </button>
+      {hideFab ? null : (
+        <button type="button" className="cw-quick-note" aria-label="记一笔（Alt+N）" title="记一笔（Alt+N）" onClick={() => setOpen(true)}>
+          <PenLine size={18} />
+        </button>
+      )}
       <Modal open={open} onCancel={() => setOpen(false)} footer={null} title="记一笔" destroyOnHidden width={560}>
         <NoteComposer
           autoFocus

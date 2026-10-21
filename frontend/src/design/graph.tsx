@@ -7,7 +7,8 @@
 
 import { useEffect, useRef } from 'react';
 import type { GraphData, GraphNode } from '@/lib/api/_library';
-import { color, mediaColor } from './tokens';
+import { color, mediaColor, palettes, type CwTheme } from './tokens';
+import { useCwTheme } from './theme';
 
 export const NODE_COLOR: Record<string, string> = {
   article: mediaColor.article,
@@ -49,6 +50,17 @@ export function nodeHref(n: GraphNode): string {
   if (type === 'style') return `/library/styles?style=${encodeURIComponent(n.ref || '')}`;
   if (type === 'template') return `/library/styles?template=${encodeURIComponent(n.ref || '')}`;
   return `/projects/${id}/idea`;
+}
+
+/**
+ * sigma 走 WebGL，认不得 `var(--cw-*)`：把 token 引用换成当前主题的真实色值。
+ * 不是变量引用的原样返回。
+ */
+export function resolveColor(value: string, theme: CwTheme): string {
+  const m = /^var\(--cw-([a-z-]+)\)$/.exec(value);
+  if (!m) return value;
+  const key = m[1].replace(/-([a-z])/g, (_, c: string) => c.toUpperCase()) as keyof (typeof palettes)['dark'];
+  return palettes[theme][key] ?? value;
 }
 
 /** 初始坐标：局部图谱按深度分圈，全局图谱按类型分扇区（之后交给 ForceAtlas2） */
@@ -95,8 +107,11 @@ export function LibraryGraph({
     selectedRef.current = selected;
   });
   const refresh = useRef<(() => void) | null>(null);
+  const [theme] = useCwTheme();
+  const hoverRef = useRef<string | null>(null);
 
   useEffect(() => {
+    const c = (v: string) => resolveColor(v, theme);
     let killed = false;
     let renderer: { kill: () => void; refresh: () => void } | null = null;
     (async () => {
@@ -115,27 +130,48 @@ export function LibraryGraph({
           x: pos[n.key]?.x ?? Math.random(),
           y: pos[n.key]?.y ?? Math.random(),
           size: Math.min(18, 3 + Math.sqrt(n.degree) * 3) + (n.key === data.center ? 4 : 0),
-          color: NODE_COLOR[n.kind] || color.dim,
+          color: c(NODE_COLOR[n.kind] || color.dim),
         });
       }
       for (const e of data.edges) {
         if (graph.hasNode(e.source) && graph.hasNode(e.target) && !graph.hasEdge(e.source, e.target)) {
-          graph.addEdge(e.source, e.target, { size: e.relation.startsWith('same_') ? 0.6 : 1.2, color: e.relation.startsWith('same_') ? color.grat : color.line });
+          graph.addEdge(e.source, e.target, { size: e.relation.startsWith('same_') ? 0.6 : 1.2, color: c(e.relation.startsWith('same_') ? color.grat : color.line) });
         }
       }
       if (!data.center && graph.order > 1) {
         fa2.default.assign(graph, { iterations: Math.min(400, 80 + graph.order), settings: { ...fa2.default.inferSettings(graph), gravity: 1.2, barnesHutOptimize: graph.order > 300 } });
       }
       renderer = new Sigma(graph, box.current, {
-        labelColor: { color: color.text },
+        labelColor: { color: c(color.text) },
+        labelFont: 'Noto Sans SC, sans-serif',
         labelSize: 12,
         labelRenderedSizeThreshold: data.center ? 0 : 8,
-        defaultEdgeColor: color.line,
-        nodeReducer: (key, attrs) => (selectedRef.current && key === selectedRef.current ? { ...attrs, highlighted: true, forceLabel: true } : attrs),
+        defaultEdgeColor: c(color.line),
+        // 悬停联动：非邻居压暗，邻边点亮（「联动胜过跳转」）
+        nodeReducer: (key, attrs) => {
+          const h = hoverRef.current;
+          if (selectedRef.current && key === selectedRef.current) return { ...attrs, highlighted: true, forceLabel: true };
+          if (h && key !== h && !graph.areNeighbors(h, key)) return { ...attrs, color: c(color.grat), label: '' };
+          if (h && key === h) return { ...attrs, forceLabel: true };
+          return attrs;
+        },
+        edgeReducer: (key, attrs) => {
+          const h = hoverRef.current;
+          if (!h) return attrs;
+          return graph.hasExtremity(key, h) ? { ...attrs, color: c(color.dim), size: (attrs.size as number) + 0.6 } : { ...attrs, hidden: true };
+        },
       }) as unknown as { kill: () => void; refresh: () => void };
       const r = renderer as unknown as { on: (ev: string, fn: (p: { node?: string }) => void) => void };
       r.on('clickNode', ({ node }) => onSelectRef.current?.((node && byKey.get(node)) || null));
       r.on('clickStage', () => onSelectRef.current?.(null));
+      r.on('enterNode', ({ node }) => {
+        hoverRef.current = node ?? null;
+        renderer?.refresh();
+      });
+      r.on('leaveNode', () => {
+        hoverRef.current = null;
+        renderer?.refresh();
+      });
       refresh.current = () => renderer?.refresh();
     })();
     return () => {
@@ -143,7 +179,7 @@ export function LibraryGraph({
       renderer?.kill();
       refresh.current = null;
     };
-  }, [data]);
+  }, [data, theme]);
 
   useEffect(() => {
     refresh.current?.();

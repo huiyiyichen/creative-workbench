@@ -1,17 +1,14 @@
 'use client';
 
 import React from 'react';
-import { usePathname } from 'next/navigation';
-import NotificationBell from '@/components/NotificationBell';
 import AppShell from '@/design/AppShell';
 import { useSourcesAlert } from '@/design/useSourcesAlert';
-import { AppProvider, useAuthContext, useAppContext } from '@/providers/AppProvider';
+import { AppProvider, useAppContext } from '@/providers/AppProvider';
 import type { PrefetchData } from '@/lib/server-prefetch';
 
 // Backward compat: 旧页面从 @/components/ClientLayout 导入 useAppContext
 export { useAppContext };
 
-const ADMIN_PATH_PREFIX = '/admin';
 
 /**
  * 根布局壳：调色台主导航（改造方案 11.1）+ 页面区。
@@ -34,19 +31,10 @@ export default function ClientLayout({
 }
 
 function LayoutChrome({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname() || '/';
-  const { currentUser } = useAuthContext();
   const sourcesAlert = useSourcesAlert();
-  const isAdminPath = pathname === ADMIN_PATH_PREFIX || pathname.startsWith(`${ADMIN_PATH_PREFIX}/`);
-
-  const legacyBar = isAdminPath ? null : (
-    <div className="flex h-12 shrink-0 items-center justify-end border-b border-gray-100 bg-white px-6">
-      {currentUser && <NotificationBell />}
-    </div>
-  );
-
+  // 旧页顶条只有一个铃铛，和导航底部的通知中心重复，去掉（评审 #3 2.2）
   return (
-    <AppShell legacyBar={legacyBar} sourcesAlert={sourcesAlert}>
+    <AppShell sourcesAlert={sourcesAlert}>
       {children}
     </AppShell>
   );

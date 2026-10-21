@@ -1,5 +1,9 @@
 'use client';
 
+import { Button as CwButton, TopBar } from '@/design/components';
+import { EmptyInstrument, StatusLamp } from '@/design/instrument';
+import { ReportEmpty } from '@/design/report-empty';
+
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
@@ -336,9 +340,9 @@ export default function DigestReportPage<TDigest extends DigestRecord, TSummary 
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className={cx('truncate', isActive ? 'text-gray-900' : 'text-gray-700')}>{getSummaryLabel(period)}</span>
-                    <span className={cx('shrink-0 rounded px-1.5 py-0.5 text-[9px] font-bold', statusClass(period.status))}>
-                      {statusLabel(period.status)}
-                    </span>
+                    {period.status === 'DONE' ? null : (
+                      <StatusLamp tone={period.status === 'ERROR' ? 'bad' : period.status === 'GENERATING' ? 'run' : 'off'} label={statusLabel(period.status)} />
+                    )}
                   </div>
                   <div className="mt-0.5 text-[11px] text-gray-400">{periodKey}</div>
                   {period.takeaway && <div className="mt-1 truncate text-[11px] text-gray-400">{period.takeaway}</div>}
@@ -350,37 +354,28 @@ export default function DigestReportPage<TDigest extends DigestRecord, TSummary 
       </aside>
 
       <main className="flex-1 overflow-y-auto px-10 py-7 pb-16">
-        <header className="mb-4 flex items-start justify-between gap-5">
-          <div>
-            <div className="mb-2 flex flex-wrap items-center gap-2.5">
-              <h1 className="m-0 text-[26px] font-black text-gray-900">{title}</h1>
-              <ReportBadge>{badge}</ReportBadge>
-              {digest && <ReportBadge tone="history">{periodName}归档</ReportBadge>}
-            </div>
-            <p className="m-0 text-[13px] text-gray-500">
-              {digest ? `${getDigestLabel(digest)}（${getDigestStart(digest)} ~ ${getDigestEnd(digest)}）` : '加载中...'}
-              {digest?.content_count ? ` · 基于 ${digest.content_count} 条内容分析` : ''}
-            </p>
-          </div>
-          <ReportActionButton onClick={() => handleRegenerate(currentKey)} loading={generating} icon={RefreshCw}>
+        <TopBar
+          title={periodName}
+          sub={
+            digest ? (
+              <span className="cw-num">
+                {getDigestLabel(digest)} · {getDigestStart(digest)} ~ {getDigestEnd(digest)}
+                {digest.content_count ? ` · ${digest.content_count} 条内容` : ''}
+              </span>
+            ) : undefined
+          }
+        >
+          <CwButton variant="ghost" icon={<RefreshCw size={14} className={generating ? 'animate-spin' : undefined} />} onClick={() => handleRegenerate(currentKey)} disabled={generating}>
             重新生成
-          </ReportActionButton>
-        </header>
+          </CwButton>
+        </TopBar>
 
         {loading ? (
           <ReportStatusPanel icon={HistoryIcon}>{loadingText}</ReportStatusPanel>
         ) : error ? (
-          <ReportStatusPanel icon={AlertTriangle} tone="error">{error}</ReportStatusPanel>
+          <ReportEmpty noun={periodName} message={error} onRetry={() => handleRegenerate(currentKey)} retryLabel="重新生成" busy={generating} />
         ) : digest?.status === 'ERROR' ? (
-          <div className="grid min-h-[360px] place-items-center p-10 text-center">
-            <div>
-              <AlertTriangle size={30} className="mx-auto mb-3 text-red" strokeWidth={1.9} />
-              <div className="mb-3 text-sm text-gray-500">{digest.overview}</div>
-              <ReportActionButton onClick={() => handleRegenerate(currentKey)} loading={generating} icon={RefreshCw}>
-                重试生成
-              </ReportActionButton>
-            </div>
-          </div>
+          <ReportEmpty noun={periodName} message={digest.overview || '生成失败'} onRetry={() => handleRegenerate(currentKey)} retryLabel="重试生成" busy={generating} />
         ) : digest?.status === 'GENERATING' || digest?.status === 'PENDING' ? (
           <ReportStatusPanel
             icon={Loader2}
@@ -399,9 +394,6 @@ export default function DigestReportPage<TDigest extends DigestRecord, TSummary 
               <div className="relative grid grid-cols-1 items-start gap-5 lg:grid-cols-[minmax(0,1fr)_132px]">
                 <div className="min-w-0">
                   <div className="mb-4 flex flex-wrap items-center gap-2">
-                    <span className="rounded-full border border-primary-border bg-primary-light px-2.5 py-1 font-mono text-[11px] font-black text-primary">
-                      {heroLabel}
-                    </span>
                     <span className="text-xs text-gray-500">{getDigestLabel(digest)}</span>
                   </div>
                   <h2 className="mb-3.5 text-[34px] font-black leading-none text-gray-900">
@@ -622,7 +614,15 @@ export default function DigestReportPage<TDigest extends DigestRecord, TSummary 
             </div>
           </article>
         ) : (
-          <ReportStatusPanel icon={Inbox}>{emptyText}</ReportStatusPanel>
+          <EmptyInstrument
+            title={emptyText}
+            reason={`${periodName}按周期自动生成；也可以现在手动生成这一期。`}
+            actions={
+              <CwButton variant="primary" icon={<RefreshCw size={14} />} onClick={() => handleRegenerate(currentKey)} disabled={generating}>
+                生成{periodName}
+              </CwButton>
+            }
+          />
         )}
       </main>
     </div>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TaskView } from './api/_tasks';
-import { batchClips, laneClips, sortTasks } from './task-lanes';
+import { batchClips, fitWindow, laneClips, sortTasks } from './task-lanes';
 
 const t = (key: string, type: string, status: string, s: string, e: string | null): TaskView =>
   ({ key, type, status, title: key, created_at: s, started_at: s, finished_at: e, duration_ms: null }) as unknown as TaskView;
@@ -39,7 +39,24 @@ describe('batchClips', () => {
     const c = (key: string, left: number, status: string) => ({ key, left, width: 0.001, status, title: key, task: {} }) as never;
     const b = batchClips([c('a', 0.1, 'done'), c('b', 0.102, 'failed'), c('c', 0.5, 'done')]);
     expect(b.length).toBe(2);
-    expect(b[1].status).toBe('failed');
+    expect(b[1].status).toBe('done');
+    expect(b[1].failed).toBe(1);
     expect(b[1].count).toBe(2);
+  });
+  it('全部失败才整块失败', () => {
+    const c = (key: string, left: number, status: string) => ({ key, left, width: 0.001, status, title: key, task: {} }) as never;
+    expect(batchClips([c('a', 0.1, 'failed'), c('b', 0.101, 'failed')])[0].status).toBe('failed');
+  });
+});
+
+describe('fitWindow', () => {
+  const end = Date.parse('2026-10-21T10:00:00Z');
+  const start = end - 24 * 3600 * 1000;
+  it('任务集中在最后一小时：缩到前 30 分钟，最短 2 小时', () => {
+    const s = fitWindow([t('a', 'sync', 'done', '2026-10-21T09:30:00Z', '2026-10-21T09:31:00Z')], start, end);
+    expect(end - s).toBe(2 * 3600 * 1000);
+  });
+  it('分布开的不缩', () => {
+    expect(fitWindow([t('a', 'sync', 'done', '2026-10-20T12:00:00Z', null)], start, end)).toBe(start);
   });
 });

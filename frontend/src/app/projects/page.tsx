@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { Input } from 'antd';
 import { Copy, Plus } from 'lucide-react';
 import { useCallback, useEffect, useState, type CSSProperties } from 'react';
-import { Button, Chip, Cover, CwPage, Segmented, TopBar } from '@/design/components';
+import { Button, Chip, Cover, CwPage, SearchField, Segmented, TopBar } from '@/design/components';
 import { confirmAction, toast } from '@/design/feedback';
 import { EmptyInstrument, ScanSkeleton, SignalPath } from '@/design/instrument';
 import { MODE_COLOR, MODE_LABEL, STAGE_LABEL, apiError } from '@/design/studio';
@@ -216,7 +216,7 @@ export default function ProjectsPage() {
       </TopBar>
       {creating ? <CreateCard onClose={() => setCreating(false)} /> : null}
       <div className="cw-filters">
-        <Input.Search allowClear placeholder="搜索项目" value={q} onChange={(e) => setQ(e.target.value)} style={{ width: 240 }} />
+        <SearchField placeholder="搜索项目" width={240} value={q} onChange={setQ} />
         <button type="button" className="cw-chip cw-toggle" aria-pressed={archived} onClick={() => setArchived((v) => !v)}>
           <b />
           已归档

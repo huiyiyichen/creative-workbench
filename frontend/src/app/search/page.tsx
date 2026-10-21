@@ -13,6 +13,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { Button, CwPage, Segmented, TopBar } from '@/design/components';
 import { RecentCard } from '@/app/sources/_parts';
 import { PLATFORM_LABEL, relativeTime } from '@/lib/collection';
+import { splitHits, uniqBy } from '@/lib/text';
 import {
   SEARCH_GROUP_LABEL,
   SEARCH_GROUP_ORDER,
@@ -29,15 +30,11 @@ function errText(err: unknown): string {
   return err instanceof Error ? err.message : '请求失败';
 }
 
-/** 命中词高亮（大小写不敏感） */
+/** 命中词高亮：英文整词、全部命中；中文子串 */
 function Highlight({ text, q }: { text: string; q: string }) {
-  const i = q ? text.toLowerCase().indexOf(q.toLowerCase()) : -1;
-  if (i < 0) return <>{text}</>;
   return (
     <>
-      {text.slice(0, i)}
-      <mark className="cw-hit">{text.slice(i, i + q.length)}</mark>
-      {text.slice(i + q.length)}
+      {splitHits(text, q).map((p, i) => (p.hit ? <mark key={i} className="cw-hit">{p.text}</mark> : <span key={i}>{p.text}</span>))}
     </>
   );
 }
@@ -70,8 +67,8 @@ function LocalResults({ q, data, error }: { q: string; data: SearchResult | null
         <section key={g} className="cw-search-group">
           <h3>{SEARCH_GROUP_LABEL[g]}</h3>
           <ul>
-            {data.groups[g]!.map((h) => (
-              <li key={`${g}-${h.id}`}>
+            {uniqBy(data.groups[g]!, (h) => h.href).map((h) => (
+              <li key={h.href}>
                 <Link href={h.href}>
                   <Highlight text={h.title} q={q} />
                 </Link>
@@ -171,7 +168,7 @@ function CrawlPanel({ q, onDone }: { q: string; onDone: () => void }) {
         })}
       </div>
       <label className="cw-crawl-track">
-        <input type="checkbox" checked={track} disabled={busy} onChange={(e) => setTrack(e.target.checked)} />
+        <input className="cw-check" type="checkbox" checked={track} disabled={busy} onChange={(e) => setTrack(e.target.checked)} />
         以后自动追踪（每 2 小时抓一次，会出现在「专题」里）
       </label>
       {busy || result ? (
@@ -260,26 +257,34 @@ function SearchInner() {
     router.push(v ? `/search?q=${encodeURIComponent(v)}` : '/search');
   };
 
+  // 有关键词时搜索框放进左栏，和右侧「去平台抓」面板顶边对齐
+  const searchForm = (
+    <form className="cw-search-form" onSubmit={submit} role="search">
+      <SearchIcon size={16} aria-hidden />
+      <input
+        ref={inputRef}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        placeholder="输入关键词：先搜库里已有的，再去各平台抓"
+        aria-label="搜索关键词"
+        maxLength={100}
+      />
+      <kbd className="cw-kbd" aria-hidden>
+        ⏎
+      </kbd>
+      <button type="submit" className="cw-sr-only">
+        搜索
+      </button>
+    </form>
+  );
   return (
     <CwPage>
       <TopBar title="搜索" sub={q && data ? <span className="cw-num">{data.total} 条库内结果</span> : undefined} />
-      <form className="cw-search-form" onSubmit={submit} role="search">
-        <SearchIcon size={16} aria-hidden />
-        <input
-          ref={inputRef}
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          placeholder="输入关键词：先搜库里已有的，再去各平台抓"
-          aria-label="搜索关键词"
-          maxLength={100}
-        />
-        <Button type="submit" variant="primary">
-          搜索
-        </Button>
-      </form>
+      {q ? null : searchForm}
       {q ? (
         <div className="cw-search-layout">
           <div className="cw-search-local">
+            {searchForm}
             <LocalResults q={q} data={data} error={error} />
           </div>
           <CrawlPanel q={q} onDone={load} />

@@ -10,7 +10,7 @@ import Link from 'next/link';
 import { Input, message } from 'antd';
 import { Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
-import { Button, CwPage, Segmented, TopBar } from '@/design/components';
+import { Button, CwPage, SearchField, Segmented, TopBar } from '@/design/components';
 import { GapSpark, StatusTag, platformName } from '@/design/discover';
 import { color } from '@/design/tokens';
 import { discoverApi, type DossierSummary } from '@/lib/api/_discover';
@@ -67,7 +67,7 @@ export default function DossiersPage() {
             { value: 'archived', label: '已归档' },
           ]}
         />
-        <Input.Search allowClear placeholder="搜索专题" style={{ width: 240 }} value={q} onChange={(e) => setQ(e.target.value)} />
+        <SearchField placeholder="搜索专题" width={240} value={q} onChange={setQ} />
         <span className="cw-grow" />
         <Input placeholder="关注一个话题（按标题关键词）" style={{ width: 240 }} value={newTopic} onChange={(e) => setNewTopic(e.target.value)} onPressEnter={follow} />
         <Button icon={<Plus size={15} />} onClick={follow} disabled={!newTopic.trim()}>

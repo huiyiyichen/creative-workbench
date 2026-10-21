@@ -33,7 +33,11 @@ export function sortTasks(items: TaskView[]): TaskView[] {
 
 export type LaneBatch = { key: string; left: number; width: number; status: TaskStatus; count: number; failed: number; clips: LaneClip[] };
 
-/** 把挨得很近（间隔小于 gap，窗口比例）的片段合成一个批次块；批次里有失败就算失败，失败批次排在最后画（压在上面）。 */
+/**
+ * 把挨得很近（间隔小于 gap，窗口比例）的片段合成一个批次块。
+ * 只有全部失败才算失败（整块红）；部分失败仍按成功画，块里按比例画一段红（failed / count），免得 1 个失败盖住 23 个成功。
+ * 有失败的批次排在最后画（压在上面）。
+ */
 export function batchClips(clips: LaneClip[], gap = 0.006): LaneBatch[] {
   const out: LaneBatch[] = [];
   for (const c of clips) {
@@ -48,6 +52,21 @@ export function batchClips(clips: LaneClip[], gap = 0.006): LaneBatch[] {
       out.push({ key: c.key, left: c.left, width: c.width, status: c.status, count: 1, failed: c.status === 'failed' ? 1 : 0, clips: [c] });
     }
   }
-  for (const b of out) if (b.failed && b.status !== 'running') b.status = 'failed';
-  return out.sort((a, b) => Number(a.status === 'failed') - Number(b.status === 'failed'));
+  for (const b of out) if (b.failed && b.failed === b.count) b.status = 'failed';
+  return out.sort((a, b) => Number(a.failed > 0) - Number(b.failed > 0));
+}
+
+/**
+ * 任务都挤在窗口一小段时，把窗口缩到「最早任务前 30 分钟 → 现在」，最短 2 小时。
+ * 返回新的起点（不缩时原样返回）。
+ */
+export function fitWindow(items: TaskView[], start: number, end: number): number {
+  let first = Infinity;
+  for (const t of items) {
+    const s = new Date(t.started_at || t.created_at).getTime();
+    if (s >= start && s < first) first = s;
+  }
+  if (!Number.isFinite(first)) return start;
+  const fitted = Math.min(first - 30 * 60 * 1000, end - 2 * 3600 * 1000);
+  return (end - fitted) / (end - start) < 0.4 ? Math.max(start, fitted) : start;
 }

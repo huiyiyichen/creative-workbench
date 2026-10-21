@@ -589,7 +589,7 @@ export function AssistantPanel({
         }}
       />
       <div className="cw-row" style={{ justifyContent: 'flex-end', marginTop: 6 }}>
-        <Button variant="primary" disabled={busy || !text.trim() || Boolean(disabled)} onClick={() => send()}>
+        <Button disabled={busy || !text.trim() || Boolean(disabled)} onClick={() => send()}>
           {busy ? '生成中…' : '发送 Ctrl⏎'}
         </Button>
       </div>

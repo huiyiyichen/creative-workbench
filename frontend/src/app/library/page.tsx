@@ -12,7 +12,7 @@ import { Input, Select, message } from 'antd';
 import { CheckSquare, Plus, Sparkles } from 'lucide-react';
 import { Suspense, useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { EmptyInstrument, ScanSkeleton } from '@/design/instrument';
-import { Button, Card, CwPage, Segmented, TopBar } from '@/design/components';
+import { Button, Card, CwPage, SearchField, Segmented, TopBar } from '@/design/components';
 import {
   ASSET_LABEL,
   KIND_LABEL,
@@ -232,7 +232,7 @@ function LibraryPage() {
         />
       </div>
       <div className="cw-filters cw-lib-filters">
-        <Input.Search allowClear placeholder="搜索标题、正文、标签、AI 描述" style={{ width: 280 }} value={q} onChange={(e) => setQ(e.target.value)} />
+        <SearchField placeholder="搜索标题、正文、标签、AI 描述" width={280} value={q} onChange={setQ} />
         {kind === 'asset' ? (
           <Select
             allowClear

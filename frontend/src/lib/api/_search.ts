@@ -1,5 +1,6 @@
 /** 全局搜索：库内检索 + 按关键词去平台现抓（后端 /search）。 */
 import { request } from './_core';
+import { decodeTextDeep } from '../text';
 import type { RecentItem } from './_collection';
 
 export type SearchGroup = 'contents' | 'library' | 'notes' | 'projects' | 'outputs' | 'reports';
@@ -59,7 +60,7 @@ export const searchApi = {
     const p = new URLSearchParams({ q });
     if (opts.limit) p.set('limit', String(opts.limit));
     if (opts.groups?.length) p.set('groups', opts.groups.join(','));
-    return request(`/search?${p.toString()}`);
+    return request<SearchResult>(`/search?${p.toString()}`).then(decodeTextDeep);
   },
   platforms(): Promise<{ items: CrawlPlatform[] }> {
     return request('/search/platforms');

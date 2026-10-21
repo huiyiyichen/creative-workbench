@@ -7,6 +7,7 @@
 import { App as AntdApp, ConfigProvider } from 'antd';
 import zhCN from 'antd/locale/zh_CN';
 import { useLayoutEffect, useRef, useState, type ButtonHTMLAttributes, type CSSProperties, type ReactNode } from 'react';
+import { Search as SearchGlyph, X as XGlyph } from 'lucide-react';
 import { sparkPath } from '@/lib/collection';
 import { kindColor, SignalArt } from './signal-art';
 import { cwAntdThemeFor } from './antd-theme';
@@ -225,3 +226,56 @@ export function Cover({
 }
 
 export { kindColor } from './signal-art';
+
+/**
+ * 全站统一搜索框（替换 antd Input.Search）：内嵌放大镜、有字时显示清空、Esc 清空、回车提交。
+ * 不带独立的「搜索」按钮——回车即可。
+ */
+export function SearchField({
+  value,
+  onChange,
+  onSubmit,
+  placeholder = '搜索',
+  width,
+  label,
+  autoFocus,
+  busy,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  onSubmit?: (v: string) => void;
+  placeholder?: string;
+  width?: number | string;
+  label?: string;
+  autoFocus?: boolean;
+  busy?: boolean;
+}) {
+  return (
+    <span className="cw-searchfield" style={width !== undefined ? { width, flex: 'none' } : undefined} data-busy={busy ? 'true' : undefined}>
+      <SearchGlyph size={14} aria-hidden />
+      <input
+        type="search"
+        value={value}
+        placeholder={placeholder}
+        aria-label={label || placeholder}
+        autoFocus={autoFocus}
+        onChange={(e) => onChange(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            onSubmit?.(value);
+          } else if (e.key === 'Escape' && value) {
+            e.preventDefault();
+            e.stopPropagation();
+            onChange('');
+          }
+        }}
+      />
+      {value ? (
+        <button type="button" className="cw-searchfield-clear" aria-label="清空" onClick={() => onChange('')}>
+          <XGlyph size={12} aria-hidden />
+        </button>
+      ) : null}
+    </span>
+  );
+}

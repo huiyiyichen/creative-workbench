@@ -2,6 +2,7 @@
  * 发现：今日（5.1）、条目详情（5.6）、热点 · 升温 / 追踪词（5.2）、专题（5.5）、报告（5.4）、评分说明。
  */
 import { request } from './_core';
+import { decodeTextDeep } from '../text';
 
 export type Verdict = 'worth' | 'watch' | 'skip';
 export type TopicStatus = 'new' | 'rising' | 'steady' | 'peak' | 'cooling' | 'quiet';
@@ -332,13 +333,13 @@ export interface CommentList {
 
 export const discoverApi = {
   feed(params: { view?: 'all' | 'picks'; media?: string; platform?: string; limit?: number; offset?: number } = {}): Promise<TodayFeed> {
-    return request(`/today/feed${qs(params)}`);
+    return request<TodayFeed>(`/today/feed${qs(params)}`).then(decodeTextDeep);
   },
   signals(range: 'today' | '48h' | '7d' = 'today'): Promise<TodaySignals> {
-    return request(`/today/signals?range=${range}`);
+    return request<TodaySignals>(`/today/signals?range=${range}`).then(decodeTextDeep);
   },
   side(): Promise<TodaySide> {
-    return request('/today/side');
+    return request<TodaySide>('/today/side').then(decodeTextDeep);
   },
   seen(): Promise<{ previous: string | null; away_days: number | null; gap_start: string | null; gap_end: string | null }> {
     return request('/today/seen', { method: 'POST' });
