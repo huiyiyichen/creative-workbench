@@ -68,6 +68,8 @@ export type DeltaDir = 'up' | 'down' | 'flat';
 /** 与 7 天前对比；任一侧缺失时返回 null（不臆造变化） */
 export function delta(pair: MetricPair, higherIsBetter = true): { text: string; dir: DeltaDir } | null {
   if (pair.value === null || pair.previous === null) return null;
+  // 基数为 0 时增量就等于数值本身，没有信息量（评审 #4 P1-7）
+  if (pair.previous === 0) return null;
   const diff = pair.value - pair.previous;
   if (Math.abs(diff) < 1e-9) return { text: '持平', dir: 'flat' };
   const good = diff > 0 === higherIsBetter;

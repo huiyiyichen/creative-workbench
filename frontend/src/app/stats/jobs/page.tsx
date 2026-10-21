@@ -93,7 +93,7 @@ export default function JobStatsPage() {
 
   return (
     <CwPage>
-      <TopBar title="后台任务" sub="采集、调度和分析这些定时任务跑得怎么样">
+      <TopBar title="后台任务" sub="定时调度任务 · 单个信源的采集失败看「任务」">
         <TasksNav />
       </TopBar>
       <div className="cw-filters">
@@ -118,7 +118,7 @@ export default function JobStatsPage() {
         ) : (
           <div className="cw-models">
             <Readouts>
-              <Readout label="运行" value={t.total_runs.toLocaleString('zh-CN')} sub={`近 ${data.period.days} 天`} />
+              <Readout label="调度运行" value={t.total_runs.toLocaleString('zh-CN')} sub={`近 ${data.period.days} 天`} />
               <Readout label="成功率" value={pct(t.success_rate)} sub={`${t.success_count} 成功`} />
               <Readout label="平均耗时" value={dur(t.avg_duration_ms)} sub={`最长 ${dur(t.max_duration_ms)}`} />
               <Readout label="失败 / 超时" value={String(failed)} sub={failed ? '看下方最近失败' : '没有失败'} />

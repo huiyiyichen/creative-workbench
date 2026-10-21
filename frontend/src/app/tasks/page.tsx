@@ -7,11 +7,11 @@ import { FilterButton } from '@/design/filter-button';
 import { useCallback, useEffect, useState } from 'react';
 import { CwPage, Segmented as CwSegmented, TopBar } from '@/design/components';
 import { EmptyInstrument, Instrument, Readout, Readouts, ScanSkeleton, StatusLamp } from '@/design/instrument';
-import { TaskLanes, TaskRow } from '@/design/tasks';
+import { TaskFold, TaskLanes, TaskRow } from '@/design/tasks';
 import { TasksNav } from '@/design/TasksNav';
 import { sortTasks } from '@/lib/task-lanes';
 import { projectsApi, type ProjectSummary } from '@/lib/api/_projects';
-import { TASK_STATUS_LABEL, TASK_TYPE_LABEL, tasksApi, type TaskList, type TaskStatus, type TaskType } from '@/lib/api/_tasks';
+import { TASK_STATUS_LABEL, TASK_TYPE_LABEL, foldTasks, tasksApi, type TaskList, type TaskStatus, type TaskType } from '@/lib/api/_tasks';
 import { onTasksChanged } from '@/lib/events';
 
 const STATUS_ORDER: TaskStatus[] = ['running', 'waiting', 'failed', 'done', 'stopped'];
@@ -71,7 +71,7 @@ export default function TasksPage() {
       {data === null ? (
         <ScanSkeleton height={220} />
       ) : (
-        <Instrument title="任务泳道" legend={<span className="cw-muted" style={{ fontSize: 12 }}>片段长度 = 实际耗时 · 红色发光 = 失败 · 青色脉冲 = 进行中</span>}>
+        <Instrument title="任务泳道" legend={<span className="cw-muted" style={{ fontSize: 12 }}>片段长度 = 实际耗时</span>}>
           <Readouts>
             <Readout label="进行中" value="0" count={data.active} sub={counts && counts.waiting ? `其中 ${counts.waiting} 个等你处理` : undefined} tone={counts && counts.waiting ? 'warn' : undefined} />
             <Readout label="失败" value="0" count={failed} tone={failed ? 'bad' : 'good'} sub={failed ? '可以在下面重试' : '没有失败'} />
@@ -102,9 +102,7 @@ export default function TasksPage() {
         )
       ) : null}
       <div className="cw-task-list cw-stagger">
-        {items.map((t) => (
-          <TaskRow key={t.key} task={t} onChanged={load} />
-        ))}
+        {foldTasks(items).map((e) => (e.kind === 'one' ? <TaskRow key={e.task.key} task={e.task} onChanged={load} /> : <TaskFold key={e.key} tasks={e.tasks} onChanged={load} />))}
       </div>
     </CwPage>
   );

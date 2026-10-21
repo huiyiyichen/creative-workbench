@@ -48,6 +48,11 @@ export function PhaseChart({
         <text className="cw-phase-bandlab" x="8" y={BAND * H - 8}>首次观测</text>
         <rect className="cw-phase-q" data-hot="true" x={DAY_X * W} y={BAND * H} width={(1 - PAD_X - OVER_W - DAY_X) * W} height={ZERO_Y * H - BAND * H} />
         <line className="cw-phase-axis" x1="0" x2={W} y1={ZERO_Y * H} y2={ZERO_Y * H} />
+        {!pts.some((p) => !p.first && (p.change ?? 0) < 0) ? (
+          <text className="cw-phase-bandlab" x={DAY_X * W + 8} y={ZERO_Y * H + 18}>
+            暂无降温
+          </text>
+        ) : null}
         <line className="cw-phase-axis" x1={DAY_X * W} x2={DAY_X * W} y1={BAND * H} y2={H} />
         <rect className="cw-phase-over" x={(1 - PAD_X - OVER_W) * W} y={BAND * H} width={(OVER_W + PAD_X / 2) * W} height={H - BAND * H} />
         {TICKS.map((t) => (

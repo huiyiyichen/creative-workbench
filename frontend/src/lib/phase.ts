@@ -78,14 +78,24 @@ export function phasePoints(rows: PhaseInput[], now: number, minDx = 0.012, minD
     p.y = BAND * (row ? 0.7 : 0.32);
     cursor[row] = p.x;
   }
+  // 「>7 天」的首次观测点：在窄列里按网格排开（两行 × 列内可容纳的个数），不再叠成一团（评审 #4 P1-3）
+  const perRow = Math.max(1, Math.floor(OVER_W / minDx));
   pts
     .filter((p) => p.first && p.over)
     .forEach((p, i) => {
-      p.y = BAND * (i % 2 ? 0.7 : 0.32);
+      const row = Math.floor(i / perRow) % 2;
+      const k = i % perRow;
+      p.x = OVER_X - OVER_W / 2 + (k + 0.5) * (OVER_W / perRow);
+      p.y = BAND * (row ? 0.7 : 0.32);
     });
+  // 「>7 天」列：按 y 排序，纵向间距至少两点半径之和（按 260px 高换算），放不下就左右错开
   const col = pts.filter((p) => p.over && !p.first).sort((a, b) => a.y - b.y);
   for (let i = 1; i < col.length; i++) {
-    if (col[i].y - col[i - 1].y < minDy) col[i].y = Math.min(0.98, col[i - 1].y + minDy);
+    const need = Math.max(minDy, (col[i].r + col[i - 1].r + 2) / 260);
+    if (col[i].y - col[i - 1].y < need) {
+      if (col[i - 1].y + need > 0.98) col[i].x = OVER_X + (i % 2 ? -1 : 1) * OVER_W * 0.3;
+      col[i].y = Math.min(0.98, col[i - 1].y + need);
+    }
   }
   return pts;
 }

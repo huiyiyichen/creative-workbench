@@ -469,9 +469,8 @@ export default function DraftPage() {
         <Button onClick={saveVersion} disabled={locked}>
           保存版本 Ctrl S
         </Button>
-        {locked ? (
-          <Button onClick={doUnlock}>继续修改</Button>
-        ) : (
+        {/* 已定稿时「继续修改」只在顶部横幅出现一次（评审 #4 P1-5） */}
+        {locked ? null : (
           <Button variant="primary" onClick={() => setFinalizeOpen(true)} disabled={!draft.body.trim() && !draft.shots.length}>
             定稿
           </Button>

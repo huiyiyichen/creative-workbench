@@ -201,7 +201,7 @@ function LibraryPage() {
 
   return (
     <CwPage>
-      <TopBar title="灵感库" sub={board ? `画板 · ${board.name}` : facets ? `${Object.values(facets.kinds).reduce((a, b) => a + b, 0)} 条 · ${fmtBytes(facets.storage.bytes)}` : undefined}>
+      <TopBar title="灵感库" sub={board ? `画板 · ${board.name}` : facets ? `${Object.values(facets.kinds).reduce((a, b) => a + b, 0)} 条${facets.storage.bytes >= 1e3 ? ` · ${fmtBytes(facets.storage.bytes)}` : ''}` : undefined}>
         <nav className="cw-seg" aria-label="灵感库分页">
           <Link href="/library" aria-current="page">
             收藏

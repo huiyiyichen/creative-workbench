@@ -27,6 +27,11 @@ function stepOf(p: ProjectSummary): ProjectStage {
   return p.stage === 'outputs' ? 'outputs' : p.stage === 'draft' ? 'draft' : 'idea';
 }
 
+/** 落后：定稿后又改过（产出基于旧定稿） */
+function busyOrStuck(p: ProjectSummary): boolean {
+  return p.dirty;
+}
+
 function MiniPath({ p }: { p: ProjectSummary }) {
   const at = STAGES.indexOf(stepOf(p));
   return (
@@ -67,7 +72,8 @@ function ProjectCard({
           <span className="cw-num">{p.finalized_version ? `定稿 v${p.finalized_version}` : p.version ? `草稿 v${p.version}` : '未成稿'}</span>
           {p.outputs ? <span className="cw-num">{p.outputs} 个产出</span> : null}
         </div>
-        <MiniPath p={p} />
+        {/* 卡片所在列已经说明阶段：只有落后（定稿后又改过）时才画链路（评审 #3 1.5-3、#4 P1-4） */}
+        {busyOrStuck(p) ? <MiniPath p={p} /> : null}
         <footer>
           <span className="cw-num cw-muted">{relativeTime(p.updated_at)}更新</span>
           <span className="cw-grow" />
@@ -313,7 +319,8 @@ export default function ProjectsPage() {
                   </span>
                 </div>
                 <Chip color={MODE_COLOR[p.mode]}>{MODE_LABEL[p.mode]}</Chip>
-                <MiniPath p={p} />
+                {/* 卡片所在列已经说明阶段：只有落后（定稿后又改过）时才画链路（评审 #3 1.5-3、#4 P1-4） */}
+        {busyOrStuck(p) ? <MiniPath p={p} /> : null}
                 <span className={p.status === 'finalized' ? 'cw-pstatus' : 'cw-muted'} data-tone={p.status === 'finalized' ? 'final' : undefined}>
                   {p.finalized_version ? `已定稿 v${p.finalized_version}` : p.version ? `草稿 v${p.version}` : '草稿'}
                 </span>

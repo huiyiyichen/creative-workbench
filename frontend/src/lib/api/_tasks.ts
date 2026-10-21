@@ -104,6 +104,41 @@ export function groupTasks(items: TaskView[]): { id: 'active' | 'failed' | 'done
   ].filter((g) => g.items.length);
 }
 
+export type TaskEntry = { kind: 'one'; task: TaskView } | { kind: 'fold'; key: string; tasks: TaskView[] };
+
+/**
+ * 列表折叠（评审 #4 P1-1）：同类、同原因的失败 ≥3 条，或同类、同标题的完成 ≥2 条，折成一行放在第一条的位置。
+ * 进行中 / 等待的任务从不折叠。
+ */
+export function foldTasks(items: TaskView[]): TaskEntry[] {
+  const keyOf = (t: TaskView): string | null => {
+    if (t.status === 'failed') return `f|${t.kind}|${t.reason || ''}`;
+    if (t.status === 'done') return `d|${t.kind}|${t.title}`;
+    return null;
+  };
+  const buckets = new Map<string, TaskView[]>();
+  for (const t of items) {
+    const k = keyOf(t);
+    if (k) buckets.set(k, [...(buckets.get(k) || []), t]);
+  }
+  const folded = (k: string) => {
+    const n = buckets.get(k)!.length;
+    return k.startsWith('f|') ? n >= 3 : n >= 2;
+  };
+  const out: TaskEntry[] = [];
+  const seen = new Set<string>();
+  for (const t of items) {
+    const k = keyOf(t);
+    if (k && folded(k)) {
+      if (!seen.has(k)) {
+        seen.add(k);
+        out.push({ kind: 'fold', key: k, tasks: buckets.get(k)! });
+      }
+    } else out.push({ kind: 'one', task: t });
+  }
+  return out;
+}
+
 export function fmtDuration(ms: number | null): string {
   if (ms === null || ms === undefined) return '—';
   const s = Math.round(ms / 1000);

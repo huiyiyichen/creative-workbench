@@ -37,7 +37,7 @@ const nextConfig = {
       { source: '/admin', destination: '/sources', permanent: false },
       { source: '/algorithm', destination: '/settings/scoring', permanent: false },
       { source: '/sources/me', destination: '/admin/sources', permanent: false },
-      { source: '/settings', destination: '/settings/scoring', permanent: false },
+      { source: '/settings', destination: '/admin/model-eval', permanent: false },
       { source: '/model-eval', destination: '/admin/model-eval', permanent: false },
       { source: '/contents', destination: '/admin/contents', permanent: false },
       { source: '/favorites', destination: '/library', permanent: false },

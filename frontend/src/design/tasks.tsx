@@ -79,6 +79,42 @@ export function TaskRow({ task, onChanged, onOpen }: { task: TaskView; onChanged
   );
 }
 
+/** 折叠行：「7 个 追踪词抓取 失败 · 原因」，点开展开成普通行 */
+export function TaskFold({ tasks, onChanged }: { tasks: TaskView[]; onChanged?: () => void }) {
+  const [open, setOpen] = useState(false);
+  const head = tasks[0]!;
+  const failed = head.status === 'failed';
+  const retryable = tasks.filter((t) => t.can_retry);
+  const retryAll = async () => {
+    try {
+      await Promise.all(retryable.map((t) => tasksApi.retry(t.key)));
+      onChanged?.();
+    } catch (err) {
+      message.error(err instanceof Error ? err.message : '操作失败');
+    }
+  };
+  return (
+    <>
+      <div className="cw-task cw-task-fold" data-status={head.status}>
+        <StatusLamp tone={LAMP[head.status]} title={TASK_STATUS_LABEL[head.status]} />
+        <span className="cw-num cw-task-fold-n">{tasks.length}</span>
+        <div className="cw-task-main">
+          <button type="button" className="cw-task-title" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+            <small className="cw-muted">{head.kind_label}</small> {failed ? `${tasks.length} 个${head.kind_label}失败` : head.title}
+            <span className="cw-muted"> · {open ? '收起' : '展开'}</span>
+          </button>
+          {failed && head.reason ? <p className="cw-task-reason">{head.reason}</p> : <div className="cw-task-meta"><span>{`完成 ${tasks.length} 次`}</span></div>}
+        </div>
+        {failed ? <span className="cw-task-status" style={{ color: TASK_STATUS_COLOR.failed }}>失败</span> : <span />}
+        <span className="cw-num cw-muted cw-task-dur">{fmtDuration(head.duration_ms)}</span>
+        <span className="cw-num cw-muted cw-task-at">{fmtHM(head.started_at || head.created_at)}</span>
+        <span className="cw-task-acts">{failed && retryable.length ? <Button onClick={retryAll}>全部重试</Button> : null}</span>
+      </div>
+      {open ? tasks.map((t) => <TaskRow key={t.key} task={t} onChanged={onChanged} />) : null}
+    </>
+  );
+}
+
 export function useTaskCount(): number {
   const [active, setActive] = useState(0);
   // 先取一次、之后每 30 秒兜底（SSE 被代理缓冲或断开时计数也不会停住）

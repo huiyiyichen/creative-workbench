@@ -35,26 +35,41 @@ import {
 } from '@/lib/collection';
 
 
+/** 失败原因：分类已知用中文短语；归到「其他」时直接给报错开头一截，没有报错写「未知错误 · 看日志」（评审 #4 P1-7） */
+function lastErrorText(e: { kind?: string | null; message?: string | null }): string {
+  const k = e.kind || 'other';
+  if (k !== 'other' && ERROR_KIND_LABEL[k]) return ERROR_KIND_LABEL[k];
+  const m = (e.message || '').replace(/\s+/g, ' ').trim();
+  if (!m) return '未知错误 · 看日志';
+  return m.length > 18 ? `${m.slice(0, 18)}…` : m;
+}
+
 function errorText(err: unknown): string {
   return err instanceof Error ? err.message : '请求失败';
 }
 
-function Kpi({ label, pair, digits = 0, suffix = '', higherIsBetter = true, href }: {
+function Kpi({ label, pair, digits = 0, suffix = '', higherIsBetter = true, href, empty }: {
   label: string;
   href?: string;
   pair: MetricPair | undefined;
   digits?: number;
   suffix?: string;
   higherIsBetter?: boolean;
+  /** 没有数值时写的话（代替一条裸横线） */
+  empty?: string;
 }) {
   const d = pair ? delta(pair, higherIsBetter) : null;
   return (
     <div className="cw-kpi">
       <div className="cw-kpi-label">{href ? <Link href={href}>{label} ›</Link> : label}</div>
       <div className="cw-kpi-value">
-        <b>
-          <Num value={pair?.value} digits={digits} suffix={suffix} />
-        </b>
+        {pair && pair.value === null && empty ? (
+          <span className="cw-muted cw-kpi-empty">{empty}</span>
+        ) : (
+          <b>
+            <Num value={pair?.value} digits={digits} suffix={suffix} />
+          </b>
+        )}
         {d ? (
           <span className="cw-delta" data-dir={d.dir} title="与 7 天前相比">
             {d.text}
@@ -115,6 +130,8 @@ function HealthTable({
                       row.source_type,
                     ]
                       .filter(Boolean)
+                      // 元信息去重：RSS 源常是「RSS · RSS」（评审 #4 P1-7）
+                      .filter((v, i, arr) => arr.findIndex((x) => String(x).toLowerCase() === String(v).toLowerCase()) === i)
                       .join(' · ')}
                   </div>
                 </button>
@@ -136,7 +153,7 @@ function HealthTable({
                 {row.last_error ? (
                   <Tooltip title={row.last_error.message || undefined}>
                     <span className="cw-dimtext">
-                      {ERROR_KIND_LABEL[row.last_error.kind || 'other'] ?? row.last_error.kind}
+                      {lastErrorText(row.last_error)}
                       {row.last_error.http_status ? <span className="cw-num"> {row.last_error.http_status}</span> : null}
                     </span>
                     <div className="cw-cell-sub">{relativeTime(row.last_error.at)}</div>
@@ -171,14 +188,10 @@ function HealthTable({
                       aria-label={`立即同步 ${row.name}`}
                     />
                   </Tooltip>
-                  <Tooltip title={row.enabled ? '停用' : '启用'}>
-                    <Button
-                      size="icon"
-                      icon={row.enabled ? <Pause /> : <Play />}
-                      onClick={() => onToggle(row)}
-                      aria-label={`${row.enabled ? '停用' : '启用'} ${row.name}`}
-                    />
-                  </Tooltip>
+                  {/* 12px 的暂停图标读成「00」：改成文字按钮（评审 #4 P1-7） */}
+                  <button type="button" className="cw-link-btn" onClick={() => onToggle(row)} aria-label={`${row.enabled ? '停用' : '启用'} ${row.name}`}>
+                    {row.enabled ? '停用' : '启用'}
+                  </button>
                 </span>
               </td>
             </tr>
@@ -381,7 +394,7 @@ export default function SourcesCollectionPage() {
         <Kpi label="今日新增" pair={overview?.today_new} />
         <Kpi label="7 天同步成功率" pair={overview?.success_rate_7d} suffix="%" />
         <Kpi label="待分析" pair={overview?.pending_analysis} higherIsBetter={false} />
-        <Kpi label="今日分析花费" href="/costs" pair={overview?.analysis_cost_today} digits={2} suffix=" 元" higherIsBetter={false} />
+        <Kpi label="今日分析花费" href="/costs" pair={overview?.analysis_cost_today} digits={2} suffix=" 元" higherIsBetter={false} empty="暂无记录" />
         <Kpi label="漏采" pair={overview?.missed} higherIsBetter={false} />
       </div>
 
