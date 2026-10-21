@@ -2,6 +2,7 @@
 
 /** 第二步：文稿（设计文档 5 节）——大纲 / 纸面编辑器或分镜表 / 侧面板；自动保存、版本、定稿。 */
 
+import { MemeInsert } from '@/design/memes';
 import Link from 'next/link';
 import { Input, Modal, message } from 'antd';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -464,6 +465,7 @@ export default function DraftPage() {
           {saveText}
         </span>
         <span className="cw-grow" />
+        <MemeInsert onInsert={(t) => insertAtCursor(t)} disabled={locked} />
         <Button onClick={saveVersion} disabled={locked}>
           保存版本 Ctrl S
         </Button>

@@ -14,6 +14,7 @@ import { mediaColor } from '@/design/tokens';
 import { discoverApi, type TodayFeed, type TodaySide, type TodaySignals } from '@/lib/api/_discover';
 import { MEDIA_FILTERS, SIGNAL_RANGES, type SignalRange } from '@/lib/discover';
 import { Onboarding } from '@/design/onboarding';
+import { MemeRadarCard } from '@/design/memes';
 import { OPEN_EVENT } from '@/design/command';
 import { Search } from 'lucide-react';
 import { fmtDay } from '@/lib/time-cn';
@@ -214,6 +215,7 @@ function TodayPage() {
         </section>
 
         <aside className="cw-today-side">
+          <MemeRadarCard />
           <Card title="采集" extra={<Link href="/sources" className="cw-muted">查看信源</Link>}>
             {healthy ? (
               <Readouts>

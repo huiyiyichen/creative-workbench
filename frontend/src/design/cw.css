@@ -2385,3 +2385,27 @@ a.cw-lamp:hover { color: var(--cw-text); }
 .cw-bd-titles .cw-link-btn { text-align: left; color: var(--cw-text); }
 .cw-tri-wrap { margin-top: 28px; }
 .cw-search-bd { display: flex; flex-direction: column; gap: 18px; max-width: 760px; }
+
+/* 今日梗雷达（design/memes.tsx） */
+.cw-memes { margin: 0 0 8px; padding: 0; list-style: none; display: flex; flex-direction: column; }
+.cw-meme { border-bottom: 1px dashed var(--cw-line); }
+.cw-meme:last-child { border-bottom: 0; }
+.cw-meme-head { display: grid; grid-template-columns: auto auto 1fr; align-items: baseline; gap: 8px; width: 100%; padding: 8px 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.cw-meme-head b { font-size: 15px; }
+.cw-meme[data-open] .cw-meme-head b { color: var(--cw-yl); }
+.cw-meme-head small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--cw-dim); font-size: 12px; }
+.cw-meme-heat { display: inline-flex; gap: 2px; }
+.cw-meme-heat i { width: 4px; height: 10px; border-radius: 1px; background: var(--cw-grat); }
+.cw-meme-heat[data-h="1"] i:nth-child(-n + 1), .cw-meme-heat[data-h="2"] i:nth-child(-n + 2), .cw-meme-heat[data-h="3"] i { background: var(--cw-yl); }
+.cw-meme-body { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 0 0 10px; font-size: 12px; animation: cw-pv-pop var(--cw-dur-2) var(--cw-ease-out); }
+.cw-meme-body p { margin: 0; }
+.cw-meme-usage { font-size: 13px; color: var(--cw-text); }
+.cw-meme-pick { margin: 0; padding: 0; list-style: none; width: 280px; max-height: 320px; overflow: auto; }
+.cw-meme-pick button { display: flex; flex-direction: column; width: 100%; padding: 6px 8px; border: 0; border-radius: 6px; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.cw-meme-pick button:hover { background: var(--cw-hover); }
+.cw-meme-pick small { color: var(--cw-dim); font-size: 12px; }
+@media (prefers-reduced-motion: reduce) { .cw-meme-body { animation: none; } }
+.cw-btn[data-size='small'] { height: 26px; padding: 0 10px; font-size: 12px; gap: 4px; }
+.cw-spin { animation: cw-spin 0.9s linear infinite; }
+@keyframes cw-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .cw-spin { animation: none; } }

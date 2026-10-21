@@ -131,6 +131,14 @@ async def build_trending_list_payload(
     return [TrendingItemOut.model_validate(item).model_dump() for item in items]
 
 
+@router.get("/memes")
+async def meme_radar(refresh: bool = False, db: AsyncSession = Depends(get_db)):
+    """今日梗雷达：热榜标题 + 热门评论里正在流行的梗，含意思、来源和一句示范用法。每天算一次。"""
+    from app.services import meme_service
+
+    return await meme_service.radar(db, refresh=refresh)
+
+
 @router.get("/sources", response_model=list[TrendingSourceInfo])
 async def get_trending_sources():
     """获取所有趋势源及其条目数量和最后同步时间。"""

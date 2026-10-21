@@ -8,7 +8,29 @@ import type { CrossPlatformCluster, PersistentTopic, TrendingAngleRecommendation
 
 // ─── Trending Radar (趋势雷达) API ───
 
+/** 今日梗雷达（GET /trending/memes）。 */
+export interface Meme {
+  word: string;
+  meaning: string;
+  origin: string;
+  usage: string;
+  fit: string;
+  platforms: string[];
+  heat: 1 | 2 | 3;
+}
+export interface MemeRadar {
+  date: string;
+  items: Meme[];
+  at: string | null;
+  reason?: string;
+  stale?: boolean;
+  basis?: { titles: number; comments: number };
+}
+
 export const trendingApi = {
+  memes(refresh = false): Promise<MemeRadar> {
+    return request(`/trending/memes${refresh ? '?refresh=true' : ''}`, { timeoutMs: 90_000 });
+  },
   /** 获取趋势数据 */
   list(params?: {
     category?: string;

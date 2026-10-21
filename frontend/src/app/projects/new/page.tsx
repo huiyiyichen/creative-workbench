@@ -21,7 +21,7 @@ function NewProject() {
       .flatMap((v) => v.split(','))
       .filter((s) => /^(content|library|note):\d+$/.test(s));
     projectsApi
-      .create({ theme: params.get('theme') || '', sources })
+      .create({ theme: params.get('theme') || '', sources, intent: params.get('intent') || undefined })
       .then((p) => router.replace(`/projects/${p.id}/idea`))
       .catch((err) => setError(apiError(err, '新建项目失败')));
   }, [params, router]);

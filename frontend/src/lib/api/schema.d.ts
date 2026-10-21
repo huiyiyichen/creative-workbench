@@ -5862,6 +5862,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/trending/memes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Meme Radar
+         * @description 今日梗雷达：热榜标题 + 热门评论里正在流行的梗，含意思、来源和一句示范用法。每天算一次。
+         */
+        get: operations["meme_radar_api_v1_trending_memes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/trending/persistent": {
         parameters: {
             query?: never;
@@ -20724,6 +20744,37 @@ export interface operations {
                 /** @description 最小共振平台数 */
                 min_resonance?: number;
                 limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    meme_radar_api_v1_trending_memes_get: {
+        parameters: {
+            query?: {
+                refresh?: boolean;
             };
             header?: never;
             path?: never;

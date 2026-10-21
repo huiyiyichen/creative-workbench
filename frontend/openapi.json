@@ -25368,6 +25368,48 @@
     ]
    }
   },
+  "/api/v1/trending/memes": {
+   "get": {
+    "description": "今日梗雷达：热榜标题 + 热门评论里正在流行的梗，含意思、来源和一句示范用法。每天算一次。",
+    "operationId": "meme_radar_api_v1_trending_memes_get",
+    "parameters": [
+     {
+      "in": "query",
+      "name": "refresh",
+      "required": false,
+      "schema": {
+       "default": false,
+       "title": "Refresh",
+       "type": "boolean"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Meme Radar",
+    "tags": [
+     "trending"
+    ]
+   }
+  },
   "/api/v1/trending/persistent": {
    "get": {
     "description": "持续热度分析：找出连续多天在榜的话题。\n\n核心价值：\n- 单次榜单只能看到\"现在什么火\"\n- 持续在榜说明不是昙花一现，是真正值得追的话题\n- 跨平台共振 = 社会级话题，最值得写\n\n返回按天数+平台数排序的话题列表。",
