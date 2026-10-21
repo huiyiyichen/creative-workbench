@@ -105,30 +105,57 @@ async def get_checkpointer() -> Any:
 
         url = str(getattr(settings, "DATABASE_URL", "") or "")
         mode = os.environ.get("FLOW_CHECKPOINTER", "auto")
+        if mode != "memory" and url.startswith("postgresql") and _proactor_loop():
+            # Windows 默认的 ProactorEventLoop 上 psycopg 异步连接用不了（会报错或一直等连接），
+            # 以前这里卡住会让流程停在「运行中」、一个节点都不开始。改用内存 checkpointer：
+            # 流程照常跑，只是后端重启后停在关卡的运行不能续跑。
+            logger.warning("Flow checkpointer: Windows ProactorEventLoop 不支持 psycopg 异步，改用内存 checkpointer")
+            mode = "memory"
         if mode != "memory" and url.startswith("postgresql"):
-            from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
-            from psycopg.rows import dict_row
-            from psycopg_pool import AsyncConnectionPool
-
-            conninfo = url.replace("postgresql+asyncpg://", "postgresql://").replace(
-                "postgresql+psycopg://", "postgresql://"
-            )
-            pool = AsyncConnectionPool(
-                conninfo,
-                max_size=5,
-                open=False,
-                kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row},
-            )
-            await pool.open()
-            saver = AsyncPostgresSaver(pool)
-            # 首次建表含 CREATE INDEX CONCURRENTLY，会等其他事务结束；启动时在 DuckDB ATTACH 之前调用
-            await asyncio.wait_for(saver.setup(), 60)
-            _checkpointer = saver
-        else:
+            try:
+                _checkpointer = await asyncio.wait_for(_postgres_saver(url), 30)
+            except Exception as exc:  # noqa: BLE001
+                logger.warning(
+                    "Flow checkpointer: Postgres 不可用（%s），改用内存 checkpointer", exc or exc.__class__.__name__
+                )
+        if _checkpointer is None:
             from langgraph.checkpoint.memory import InMemorySaver
 
             _checkpointer = InMemorySaver()
         return _checkpointer
+
+
+def _proactor_loop() -> bool:
+    import sys
+
+    if sys.platform != "win32":
+        return False
+    loop = asyncio.get_running_loop()
+    return isinstance(loop, getattr(asyncio, "ProactorEventLoop", ()))
+
+
+async def _postgres_saver(url: str) -> Any:
+    from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+    from psycopg.rows import dict_row
+    from psycopg_pool import AsyncConnectionPool
+
+    conninfo = url.replace("postgresql+asyncpg://", "postgresql://").replace("postgresql+psycopg://", "postgresql://")
+    pool = AsyncConnectionPool(
+        conninfo,
+        max_size=5,
+        open=False,
+        kwargs={"autocommit": True, "prepare_threshold": 0, "row_factory": dict_row},
+    )
+    try:
+        await pool.open(wait=True, timeout=15)
+        saver = AsyncPostgresSaver(pool)
+        # 首次建表含 CREATE INDEX CONCURRENTLY，会等其他事务结束；启动时在 DuckDB ATTACH 之前调用
+        await saver.setup()
+        return saver
+    except BaseException:
+        with contextlib.suppress(Exception):
+            await pool.close()
+        raise
 
 
 def set_checkpointer(saver: Any) -> None:
@@ -514,8 +541,9 @@ async def _drive(run_id: int, command: Any) -> None:
         run.status_reason = None
         await db.commit()
         await run_events.publish(run_id, {"type": "run", "run": trace_service.run_view(run)})
-    graph = await get_graph(spec)
     try:
+        # 放进 try：checkpointer / 编图出错时运行标记为失败并写明原因，而不是一直停在「运行中」
+        graph = await get_graph(spec)
         async for _chunk in graph.astream(command, config, stream_mode="updates"):
             pass
         snap = await graph.aget_state(config)
