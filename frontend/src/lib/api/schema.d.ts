@@ -1768,6 +1768,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/feishu/setup-columns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Setup Columns
+         * @description 按字段映射在表格里建好缺的列。
+         */
+        post: operations["setup_columns_api_v1_feishu_setup_columns_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/feishu/test": {
         parameters: {
             query?: never;
@@ -12742,6 +12762,26 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    setup_columns_api_v1_feishu_setup_columns_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
                 };
             };
         };

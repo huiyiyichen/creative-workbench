@@ -13779,6 +13779,26 @@
     ]
    }
   },
+  "/api/v1/feishu/setup-columns": {
+   "post": {
+    "description": "按字段映射在表格里建好缺的列。",
+    "operationId": "setup_columns_api_v1_feishu_setup_columns_post",
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     }
+    },
+    "summary": "Setup Columns",
+    "tags": [
+     "feishu"
+    ]
+   }
+  },
   "/api/v1/feishu/test": {
    "post": {
     "operationId": "test_connection_api_v1_feishu_test_post",

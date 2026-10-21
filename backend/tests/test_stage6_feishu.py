@@ -224,3 +224,41 @@ def test_api_base(monkeypatch):
     assert fs.api_base({"table_url": "https://a.larksuite.com/base/x?table=t"}) == fs.LARK_BASE
     monkeypatch.setenv("CW_FEISHU_API_BASE", "http://127.0.0.1:9/open-apis/")
     assert fs.api_base({}) == "http://127.0.0.1:9/open-apis"
+
+
+@pytest.mark.asyncio
+async def test_setup_columns_renames_primary_and_creates_missing(test_session_factory, monkeypatch):
+    cols = [{"field_name": "文本", "type": 1, "field_id": "fld0", "is_primary": True}]
+    calls: list[tuple[str, str, dict | None]] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        body = json.loads(req.content) if req.content else None
+        path = req.url.path
+        calls.append((req.method, path, body))
+        if path.endswith("/tenant_access_token/internal"):
+            return httpx.Response(200, json={"code": 0, "tenant_access_token": "t-abc", "expire": 7200})
+        if req.method == "GET" and path.endswith("/fields"):
+            return httpx.Response(200, json={"code": 0, "data": {"items": cols, "has_more": False}})
+        if req.method == "PUT" and "/fields/" in path:
+            cols[0]["field_name"] = body["field_name"]
+            return httpx.Response(200, json={"code": 0, "data": {}})
+        if req.method == "POST" and path.endswith("/fields"):
+            cols.append({"field_name": body["field_name"], "type": body["type"], "field_id": f"f{len(cols)}"})
+            return httpx.Response(200, json={"code": 0, "data": {}})
+        return httpx.Response(404, json={"code": 404, "msg": "not found"})
+
+    monkeypatch.setattr(fs, "TRANSPORT", httpx.MockTransport(handler))
+    fs._token_cache.clear()
+    async with test_session_factory() as db:
+        await _configure(db)
+        out = await fs.setup_columns(db)
+        again = await fs.setup_columns(db)
+    assert out["renamed"] == "文本 → 标题"
+    assert "标题" not in out["created"] and "状态" in out["created"] and "链接" in out["created"]
+    status = next(b for m, p, b in calls if m == "POST" and b and b.get("field_name") == "状态")
+    assert status["type"] == fs.T_SELECT and [o["name"] for o in status["property"]["options"]] == [
+        "未开始",
+        "创作中",
+        "已产出",
+    ]
+    assert again["created"] == [] and again["renamed"] is None

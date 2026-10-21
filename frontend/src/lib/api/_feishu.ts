@@ -36,6 +36,10 @@ export const feishuApi = {
   save(body: Partial<Pick<FeishuSettings, 'app_id' | 'table_url' | 'field_map' | 'auto_on_worth' | 'auto_on_project'>> & { app_secret?: string }): Promise<FeishuSettings> {
     return request('/feishu/settings', { method: 'PUT', body: j(body) });
   },
+  /** 按字段映射在表格里建好缺的列（首列「文本」会改名为「标题」） */
+  setupColumns(): Promise<{ ok: boolean; created: string[]; renamed: string | null }> {
+    return request('/feishu/setup-columns', { method: 'POST', timeoutMs: 60_000 });
+  },
   test(): Promise<{ ok: boolean; fields: { name: string; type: number }[]; missing: { key: string; column: string }[] }> {
     return request('/feishu/test', { method: 'POST', timeoutMs: 60_000 });
   },

@@ -60,6 +60,18 @@ export default function FeishuSettingsPage() {
       setBusy(null);
     }
   };
+  const setupColumns = async () => {
+    setBusy('setup');
+    try {
+      const r = await feishuApi.setupColumns();
+      const parts = [r.renamed ? `首列已改名（${r.renamed}）` : '', r.created.length ? `新建了 ${r.created.length} 列：${r.created.join('、')}` : ''].filter(Boolean);
+      message.success(parts.length ? parts.join('；') : '表格里的列都已经齐了');
+      await test();
+    } catch (err) {
+      message.error(errText(err));
+      setBusy(null);
+    }
+  };
   if (!s) return <ScanSkeleton shape="form" height={120} />;
   return (
     <div className="cw-stack">
@@ -87,7 +99,7 @@ export default function FeishuSettingsPage() {
           </Button>
         </div>
         <p className="cw-muted" style={{ fontSize: 12 }}>
-          在飞书开放平台建一个自建应用，开通「多维表格」权限并发布；再在表格右上角「…→ 添加文档应用」里加上这个应用。Secret 加密保存在本机。
+          步骤：① 飞书开放平台 open.feishu.cn →「创建企业自建应用」，在「凭证与基础信息」复制 App ID / App Secret；② 「权限管理」开通「查看、评论、编辑和管理多维表格」（表格在知识库里还要开「查看知识库」），然后「创建版本」并发布；③ 回到这张表格，右上角「…→ 添加文档应用」加上这个应用；④ 这里填好保存，点「测试连接」。Secret 加密保存在本机。
         </p>
       </Card>
       <Card title="字段映射" extra={<small className="cw-muted">左边是工作台的字段，右边填飞书表格里的列名；留空不写</small>}>
@@ -112,6 +124,9 @@ export default function FeishuSettingsPage() {
           <Button onClick={() => save()} disabled={busy !== null}>
             保存映射
           </Button>
+          <Button onClick={setupColumns} disabled={busy !== null || !s.configured}>
+            {busy === 'setup' ? '建列中…' : '在表格里建好这些列'}
+          </Button>
         </div>
         <p className="cw-muted" style={{ fontSize: 12 }}>
           链接、日期、数字、单选 / 多选列会按列的类型写入；状态列取值为「未开始 / 创作中 / 已产出」，项目阶段变化时自动更新。
@@ -121,8 +136,7 @@ export default function FeishuSettingsPage() {
         <label className="cw-inline">
           <Switch size="small" checked={s.auto_on_worth} onChange={(v) => void save({ auto_on_worth: v })} /> 结论为「值得做」时自动记入
         </label>
-        <br />
-        <label className="cw-inline">
+        <label className="cw-inline" style={{ marginTop: 10 }}>
           <Switch size="small" checked={s.auto_on_project} onChange={(v) => void save({ auto_on_project: v })} /> 新建项目时自动记入
         </label>
         <p className="cw-muted" style={{ fontSize: 12 }}>

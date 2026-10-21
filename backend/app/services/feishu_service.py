@@ -236,13 +236,29 @@ class Client:
                 "GET", f"/bitable/v1/apps/{app_token}/tables/{table_id}/fields", "读取表格字段", params=params
             )
             out += [
-                {"name": f.get("field_name"), "type": f.get("type"), "id": f.get("field_id")}
+                {
+                    "name": f.get("field_name"),
+                    "type": f.get("type"),
+                    "id": f.get("field_id"),
+                    "primary": bool(f.get("is_primary")),
+                }
                 for f in data.get("items") or []
             ]
             if not data.get("has_more"):
                 break
             page = data.get("page_token")
         return out
+
+    async def add_field(self, app_token: str, table_id: str, spec: dict[str, Any]) -> None:
+        await self._req("POST", f"/bitable/v1/apps/{app_token}/tables/{table_id}/fields", "新建列", json=spec)
+
+    async def rename_field(self, app_token: str, table_id: str, field_id: str, name: str, ftype: int) -> None:
+        await self._req(
+            "PUT",
+            f"/bitable/v1/apps/{app_token}/tables/{table_id}/fields/{field_id}",
+            "重命名列",
+            json={"field_name": name, "type": ftype},
+        )
 
     async def create(self, app_token: str, table_id: str, fields: dict[str, Any]) -> str:
         data = await self._req(
@@ -293,6 +309,52 @@ async def test_connection(db: AsyncSession) -> dict[str, Any]:
         "fields": fields,
         "missing": [{"key": k, "column": col} for k, col in mapping.items() if col and col not in names],
     }
+
+
+# 一键建列：每个工作台字段在飞书里用什么类型的列
+COLUMN_SPECS: dict[str, dict[str, Any]] = {
+    "title": {"type": T_TEXT},
+    "url": {"type": T_URL},
+    "platform": {"type": T_SELECT},
+    "published_at": {"type": T_DATE, "property": {"date_formatter": "yyyy/MM/dd HH:mm"}},
+    "metrics": {"type": T_TEXT},
+    "verdict": {"type": T_TEXT},
+    "keywords": {"type": T_MULTI},
+    "topic": {"type": T_TEXT},
+    "status": {
+        "type": T_SELECT,
+        "property": {"options": [{"name": n} for n in (STATUS_NOT_STARTED, STATUS_CREATING, STATUS_DONE)]},
+    },
+    "workbench_url": {"type": T_URL},
+}
+# 新建多维表格自带的首列名；没有「标题」列时把它改名成标题，免得多一列空的
+_DEFAULT_PRIMARY = {"文本", "多行文本", "Text", "标题"}
+
+
+async def setup_columns(db: AsyncSession) -> dict[str, Any]:
+    """按字段映射把表格里缺的列建好（已存在的列不动）。"""
+    client, data = await _client(db)
+    app, tbl = data["app_token"], data["table_id"]
+    fields = await client.fields(app, tbl)
+    names = {f["name"] for f in fields}
+    mapping = settings_view(data)["field_map"]
+    created: list[str] = []
+    renamed: str | None = None
+    title_col = mapping.get("title")
+    if title_col and title_col not in names:
+        primary = next((f for f in fields if f.get("primary")), None)
+        if primary and primary["name"] in _DEFAULT_PRIMARY and primary.get("type") == T_TEXT:
+            await client.rename_field(app, tbl, primary["id"], title_col, T_TEXT)
+            renamed = f"{primary['name']} → {title_col}"
+            names.add(title_col)
+    for key, col in mapping.items():
+        if not col or col in names:
+            continue
+        spec = COLUMN_SPECS.get(key, {"type": T_TEXT})
+        await client.add_field(app, tbl, {"field_name": col, **spec})
+        names.add(col)
+        created.append(col)
+    return {"ok": True, "created": created, "renamed": renamed}
 
 
 # ── 行数据 ──

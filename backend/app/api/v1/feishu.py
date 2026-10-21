@@ -44,6 +44,12 @@ async def test_connection(db: AsyncSession = Depends(get_db)):
     return await feishu_service.test_connection(db)
 
 
+@router.post("/setup-columns")
+async def setup_columns(db: AsyncSession = Depends(get_db)):
+    """按字段映射在表格里建好缺的列。"""
+    return await feishu_service.setup_columns(db)
+
+
 @router.post("/records")
 async def record(body: RecordBody, db: AsyncSession = Depends(get_db)):
     """记入飞书：没写过就新建记录，写过就更新。"""
