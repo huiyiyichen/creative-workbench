@@ -841,11 +841,11 @@ a.cw-chip:hover { color: var(--cw-text); border-color: var(--cw-faint); }
 .cw-verdict small { font-weight: 400; opacity: 0.8; }
 .cw-verdict[data-size='small'] { height: 20px; padding: 0 8px; font-size: 12px; }
 .cw-verdict[data-empty='true'] { --c: var(--cw-faint); color: var(--cw-faint); background: none; border: 1px dashed var(--cw-line); }
-.cw-status {
-  display: inline-flex; align-items: center; height: 20px; padding: 0 8px; border-radius: 4px;
-  border: 1px solid color-mix(in srgb, var(--c) 55%, transparent); color: var(--c); font-size: 12px; white-space: nowrap;
-}
-.cw-status[data-empty='true'] { --c: var(--cw-faint); border-style: dashed; }
+/* 状态：彩色只上点和字，不画描边方框（评审 #3 1.2-4 / 1.12） */
+.cw-status { display: inline-flex; align-items: center; gap: 6px; height: 20px; color: var(--cw-dim); font-size: 12px; white-space: nowrap; }
+.cw-status::before { content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--c); flex: none; }
+.cw-status[data-empty='true'] { --c: transparent; color: var(--cw-faint); }
+.cw-status[data-empty='true']::before { border: 1px dashed var(--cw-faint); }
 
 /* 指标示波 */
 .cw-scope { display: grid; gap: 2px; min-width: 0; }
@@ -1066,7 +1066,7 @@ a.cw-chip:hover { color: var(--cw-text); border-color: var(--cw-faint); }
 .cw-hotlist li .cw-rank { color: var(--cw-faint); text-align: right; }
 .cw-hotlist li:nth-child(-n + 3) .cw-rank { color: var(--cw-rd); font-weight: 600; }
 .cw-dossier-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 14px; }
-.cw-dossier-card { display: grid; gap: 8px; text-decoration: none; color: inherit; }
+.cw-dossier-card { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; gap: 8px; text-decoration: none; color: inherit; }
 .cw-dossier-card:hover { border-color: var(--cw-line); }
 .cw-dossier-card h3 { margin: 0; font-size: 15px; }
 .cw-dtl { list-style: none; margin: 0; padding: 0 0 0 16px; border-left: 1px solid var(--cw-line); display: grid; gap: 2px; }
@@ -2041,7 +2041,8 @@ a.cw-lamp:hover { color: var(--cw-text); }
 .cw-phase-label:hover, .cw-phase-label[aria-pressed='true'] { color: var(--cw-text); border-color: color-mix(in srgb, var(--c) 50%, transparent); background: color-mix(in srgb, var(--c) 8%, transparent); }
 .cw-phase-x { position: absolute; left: 0; right: 0; top: 262px; height: 16px; font-size: 11px; color: var(--cw-faint); }
 .cw-phase-x span { position: absolute; transform: translateX(-50%); white-space: nowrap; }
-.cw-phase-ylab { position: absolute; left: 50%; top: 4px; transform: translateX(-50%); font-size: 11px; color: var(--cw-faint); }
+.cw-phase-ylab { position: absolute; font-size: 11px; color: var(--cw-faint); pointer-events: none; }
+.cw-phase-over { fill: var(--cw-grat); opacity: .35; }
 .cw-phase-tip { transform: translate(-50%, calc(-100% - 12px)); }
 @media (prefers-reduced-motion: reduce) { .cw-phase-pt { animation: none; } }
 
@@ -2551,3 +2552,7 @@ a.cw-lamp:hover { color: var(--cw-text); }
 .cw-job-fail > div { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13px; }
 .cw-job-fail pre { margin: 6px 0 0; white-space: pre-wrap; word-break: break-word; font-size: 12px; color: var(--cw-rd); max-height: 120px; overflow: auto; }
 .cw-table tr[aria-selected='true'] td { background: var(--cw-grat); }
+.cw-dossier-grid[data-few='true'] { grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+.cw-dossier-slot { border-style: dashed; align-content: center; gap: 10px; }
+.cw-dossier-slot p { margin: 0; font-size: 13px; }
+.cw-dossier-slot .cw-row { flex-wrap: nowrap; }

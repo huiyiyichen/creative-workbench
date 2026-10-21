@@ -376,7 +376,7 @@ function Rising({ onOpen }: { onOpen: (id: number) => void }) {
                       </span>
                     ))}
                   </div>
-                  {t.representative ? (
+                  {t.representative && !sameTitle(t.representative.title, t.title) ? (
                     <button type="button" className="cw-link-btn" onClick={() => onOpen(t.representative!.id)} title={t.representative.title}>
                       {t.representative.title}
                     </button>
@@ -620,4 +620,12 @@ export default function Page() {
       <HotPage />
     </Suspense>
   );
+}
+
+/** 代表条目标题和话题标题基本一样时不再复述（评审 #3 1.2-4） */
+function sameTitle(a: string | null | undefined, b: string | null | undefined): boolean {
+  const norm = (x: string | null | undefined) => (x || '').replace(/[\s\p{P}]/gu, '').toLowerCase();
+  const x = norm(a);
+  const y = norm(b);
+  return !!x && !!y && (x === y || x.includes(y) || y.includes(x));
 }

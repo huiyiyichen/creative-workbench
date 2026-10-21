@@ -5,7 +5,7 @@
 import { useState, type CSSProperties } from 'react';
 import type { TopicStatus } from '@/lib/api/_discover';
 import { STATUS_COLOR, STATUS_LABEL } from '@/lib/discover';
-import { BAND, DAY_X, ZERO_Y, ageX as ageNorm, phasePoints, plotX, type PhaseInput } from '@/lib/phase';
+import { BAND, DAY_X, OVER_W, PAD_X, ZERO_Y, ageX as ageNorm, phasePoints, plotX, type PhaseInput } from '@/lib/phase';
 import { useReducedMotion } from './instrument';
 
 type Row = PhaseInput & { title: string; status: TopicStatus };
@@ -46,9 +46,10 @@ export function PhaseChart({
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" role="img" aria-label="话题热度相位图">
         <rect className="cw-phase-band" x="0" y="0" width={W} height={BAND * H} />
         <text className="cw-phase-bandlab" x="8" y={BAND * H - 8}>首次观测</text>
-        <rect className="cw-phase-q" data-hot="true" x={DAY_X * W} y={BAND * H} width={(1 - DAY_X) * W} height={ZERO_Y * H - BAND * H} />
+        <rect className="cw-phase-q" data-hot="true" x={DAY_X * W} y={BAND * H} width={(1 - PAD_X - OVER_W - DAY_X) * W} height={ZERO_Y * H - BAND * H} />
         <line className="cw-phase-axis" x1="0" x2={W} y1={ZERO_Y * H} y2={ZERO_Y * H} />
         <line className="cw-phase-axis" x1={DAY_X * W} x2={DAY_X * W} y1={BAND * H} y2={H} />
+        <rect className="cw-phase-over" x={(1 - PAD_X - OVER_W) * W} y={BAND * H} width={(OVER_W + PAD_X / 2) * W} height={H - BAND * H} />
         {TICKS.map((t) => (
           <line key={t.h} className="cw-phase-tick" x1={ageX(t.h)} x2={ageX(t.h)} y1={BAND * H} y2={H} />
         ))}
@@ -95,8 +96,9 @@ export function PhaseChart({
             {t.l}
           </span>
         ))}
+        <span style={{ left: `${(1 - PAD_X / 2 - OVER_W / 2) * 100}%` }}>&gt;7 天</span>
       </div>
-      <span className="cw-phase-ylab" aria-hidden>
+      <span className="cw-phase-ylab" aria-hidden style={{ left: `calc(${DAY_X * 100}% + 8px)`, top: ZERO_Y * 260 - 20 }}>
         ↑ 热度在涨
       </span>
       {h && hp ? (

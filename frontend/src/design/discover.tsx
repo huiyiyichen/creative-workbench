@@ -512,6 +512,9 @@ export function ResonanceTable({ data, onOpen }: { data: ResonanceMatrix; onOpen
 
 /** 带缺口的曲线：没有观测的时段断开，不画 0 */
 export function GapSpark({ values, width = 140, height = 30, accent = color.rd, label }: { values: (number | null)[]; width?: number; height?: number; accent?: string; label: string }) {
+  // 少于 4 次观测画不出趋势，两点斜线只会误导：统一写「观测 N 次」（评审 #3 1.2-3）
+  const n = values.filter((v) => v !== null).length;
+  if (n < 4) return <span className="cw-spark-empty cw-num">{n ? `观测 ${n} 次` : '观测不足'}</span>;
   const paths = gappedPaths(values, width, height);
   if (!paths.length) return <span className="cw-spark-empty">观测不足</span>;
   return (

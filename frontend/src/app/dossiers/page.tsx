@@ -54,9 +54,34 @@ export default function DossiersPage() {
     }
   };
 
+  // 「关注一个话题」放进网格最后的空槽卡里，页面上只留一个输入框
+  const followSlot = (
+    <div className="cw-card cw-dossier-card cw-dossier-slot">
+      <span className="cw-muted" style={{ fontSize: 12, display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+        <Plus size={12} /> 关注一个话题
+      </span>
+      <p className="cw-muted">输入标题关键词，之后出现相关内容就会归到这个专题里。</p>
+      <div className="cw-row">
+        <Input placeholder="例如：Agent 记忆" value={newTopic} onChange={(e) => setNewTopic(e.target.value)} onPressEnter={follow} />
+        <Button onClick={follow} disabled={!newTopic.trim()}>
+          关注
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
     <CwPage>
-      <TopBar title="专题" sub="一个话题从出现到现在的完整经过" />
+      <TopBar
+        title="专题"
+        sub={
+          items ? (
+            <span className="cw-num">
+              {items.length} 个{archived === 'archived' ? '已归档' : '进行中'} · 共 {items.reduce((n, d) => n + (d.content_count ?? 0), 0)} 条内容
+            </span>
+          ) : undefined
+        }
+      />
       <div className="cw-filters">
         <Segmented
           label="范围"
@@ -67,12 +92,8 @@ export default function DossiersPage() {
             { value: 'archived', label: '已归档' },
           ]}
         />
-        <SearchField placeholder="搜索专题" width={240} value={q} onChange={setQ} />
-        <span className="cw-grow" />
-        <Input placeholder="关注一个话题（按标题关键词）" style={{ width: 240 }} value={newTopic} onChange={(e) => setNewTopic(e.target.value)} onPressEnter={follow} />
-        <Button icon={<Plus size={15} />} onClick={follow} disabled={!newTopic.trim()}>
-          关注
-        </Button>
+        {/* 少于 10 个专题不需要搜索框（评审 #3 1.12） */}
+        {q || (items && items.length >= 10) ? <SearchField placeholder="搜索专题" width={240} value={q} onChange={setQ} /> : null}
       </div>
       {!items ? (
         <ScanSkeleton height={240} />
@@ -83,7 +104,7 @@ export default function DossiersPage() {
           <EmptyInstrument
             kind="flat"
             title="还没有专题"
-            reason="持续 3 天以上的事件和每个追踪词会自动成为专题；也可以在上面输入一个话题直接关注，或在热点 · 升温里点「关注」。"
+            reason="持续 3 天以上的事件和每个追踪词会自动成为专题；也可以在热点 · 升温里点「关注」。"
             actions={
               <Link className="cw-btn" data-variant="primary" href="/hot?tab=rising">
                 去热点看升温
@@ -92,7 +113,7 @@ export default function DossiersPage() {
           />
         )
       ) : (
-        <div className="cw-dossier-grid cw-stagger">
+        <div className="cw-dossier-grid cw-stagger" data-few={items.length <= 3 ? 'true' : undefined}>
           {items.map((d) => (
             <Link key={d.id} href={`/dossiers/${d.id}`} className="cw-card cw-dossier-card">
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -101,14 +122,16 @@ export default function DossiersPage() {
                   {d.followed ? ' · 已关注' : ''}
                 </span>
                 <span className="cw-grow" />
-                <StatusTag status={d.status} />
+                {d.status ? <StatusTag status={d.status} /> : null}
               </div>
               <h3>{d.title}</h3>
               <div className="cw-dossier-count">
-                已收集 <b className="cw-num">{d.content_count ?? 0}</b> 条
+                <div>
+                  已收集 <b className="cw-num">{d.content_count ?? 0}</b> 条
+                </div>
                 {d.latest_title ? <span title={d.latest_title}>最新：{d.latest_title}</span> : null}
               </div>
-              <GapSpark values={bucketSeries(d.series, 3)} width={260} label={`${d.title} 热度曲线`} accent={color.rd} />
+              <GapSpark values={bucketSeries(d.series, 3)} width={items.length <= 3 ? 360 : 260} label={`${d.title} 热度曲线`} accent={color.rd} />
               <div className="cw-rise-plats">
                 {topPlatforms(d.platforms, 4).map(([p, n]) => (
                   <span key={p}>
@@ -116,10 +139,11 @@ export default function DossiersPage() {
                   </span>
                 ))}
                 <span className="cw-grow" />
-                <span className="cw-muted">最近 {relativeTime(d.last_seen_at)}</span>
+                {d.last_seen_at ? <span className="cw-muted">最近 {relativeTime(d.last_seen_at)}</span> : null}
               </div>
             </Link>
           ))}
+          {archived === 'active' ? followSlot : null}
         </div>
       )}
     </CwPage>

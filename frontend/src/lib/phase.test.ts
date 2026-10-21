@@ -33,4 +33,14 @@ describe('phase', () => {
     expect(pts[1].y).toBeGreaterThan(ZERO_Y);
     expect(pts[0].r).toBe(10);
   });
+
+  it('首次观测带：同一时刻的一批点向右铺开、两行错位，不叠在一起', () => {
+    const now = Date.UTC(2026, 9, 21, 8);
+    const first = new Date(now - 5 * 3600000).toISOString();
+    const rows = Array.from({ length: 8 }, (_, i) => ({ id: i, first_seen_at: first, signal: 3, signal_prev: null, content_count: 1 }));
+    const pts = phasePoints(rows, now);
+    const keys = new Set(pts.map((p) => `${p.x.toFixed(4)}|${p.y.toFixed(4)}`));
+    expect(keys.size).toBe(8);
+    expect(new Set(pts.map((p) => p.y)).size).toBe(2);
+  });
 });
