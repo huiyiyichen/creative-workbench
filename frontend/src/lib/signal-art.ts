@@ -73,7 +73,7 @@ export type ArtSpec = {
   progress?: number;
 };
 
-export function artSpec(title: string, kind: ArtKind): ArtSpec {
+export function artSpec(title: string, kind: ArtKind, variant?: string | null): ArtSpec {
   const seed = hashStr(title || '·');
   const r = seeded(seed);
   const spec: ArtSpec = { traces: [], rects: [], dots: [], lines: [] };
@@ -86,17 +86,18 @@ export function artSpec(title: string, kind: ArtKind): ArtSpec {
       break;
     }
     case 'article': {
-      const lines = 3 + Math.floor(r() * 4);
-      const twoCol = r() > 0.6;
-      const colW = twoCol ? (ART_W - 36) / 2 : ART_W - 24;
-      let y = 22 + r() * 8;
+      // 两档跳变而非连续值（评审 #3 1.1-3）：段落 2 / 5 条、迹线在上 / 在下。
+      // 同一信源固定迹线位置（variant 是信源名），一列里能看出来源；段落从 y=26 起，给左上形态字留一行。
+      const lines = r() > 0.5 ? 5 : 2;
+      const traceTop = variant ? /hn|hacker/i.test(variant) || (!/rss|web/i.test(variant) && hashStr(variant) % 2 === 0) : r() > 0.5;
+      const colW = ART_W - 24;
+      let y = traceTop ? 50 : 26;
       for (let i = 0; i < lines; i += 1) {
         const w = i === 0 ? colW * (0.5 + r() * 0.4) : colW * (0.65 + r() * 0.35);
         spec.rects.push({ x: 12, y, w, h: i === 0 ? 6 : 3, o: i === 0 ? 0.55 : 0.18 + r() * 0.12 });
-        if (twoCol && i > 0) spec.rects.push({ x: 24 + colW, y, w: colW * (0.5 + r() * 0.5), h: 3, o: 0.14 + r() * 0.1 });
-        y += i === 0 ? 12 : 8;
+        y += i === 0 ? 10 : 7;
       }
-      spec.traces.push({ d: tracePath(seed, { base: Math.max(y + 10, 62 + r() * 18), amp: 3 + r() * 9, freq: 8 + r() * 8, noise: 2 + r() * 4 }), strong: true });
+      spec.traces.push({ d: tracePath(seed, { base: traceTop ? 32 : 72, amp: 4 + r() * 6, freq: 8 + r() * 8, noise: 2 + r() * 3 }), strong: true });
       break;
     }
     case 'image': {

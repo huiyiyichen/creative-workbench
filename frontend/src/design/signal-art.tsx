@@ -19,9 +19,9 @@ export function kindColor(kind: string | null | undefined): string {
 }
 
 /** 按标题生成的信号图（封面缺失时）。hover 时迹线会重新扫描一遍（.cw-art:hover）。 */
-export function SignalArt({ title, kind, className = '' }: { title: string; kind?: string | null; className?: string }) {
+export function SignalArt({ title, kind, variant, className = '' }: { title: string; kind?: string | null; variant?: string | null; className?: string }) {
   const k = artKind(kind);
-  const spec = artSpec(title, k);
+  const spec = artSpec(title, k, variant);
   return (
     <svg
       className={`cw-art ${className}`}

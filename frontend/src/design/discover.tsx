@@ -152,6 +152,7 @@ export function FeedItem({
           color={item.cover_color}
           orientation={item.media_type === 'video' ? 'landscape' : 'landscape'}
           kind={item.media_type}
+          variant={item.platform}
           badge={formatDuration(item.duration)}
         />
         <span className="cw-item-kind">{MEDIA_LABEL[item.media_type] || '文章'}</span>

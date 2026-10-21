@@ -9,6 +9,7 @@ import { parseUTC } from '@/lib/datetime';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Input, Select, message } from 'antd';
+import { FilterButton } from '@/design/filter-button';
 import { CheckSquare, Plus, Sparkles } from 'lucide-react';
 import { Suspense, useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
 import { EmptyInstrument, ScanSkeleton } from '@/design/instrument';
@@ -234,25 +235,10 @@ function LibraryPage() {
       <div className="cw-filters cw-lib-filters">
         <SearchField placeholder="搜索标题、正文、标签、AI 描述" width={280} value={q} onChange={setQ} />
         {kind === 'asset' ? (
-          <Select
-            allowClear
-            placeholder="素材类型"
-            style={{ width: 120 }}
-            value={assetKind}
-            onChange={setAssetKind}
-            options={Object.entries(ASSET_LABEL).map(([value, label]) => ({ value, label: `${label}${facets?.asset_kinds[value] ? ` ${facets.asset_kinds[value]}` : ''}` }))}
-          />
+          <FilterButton label="素材类型" value={assetKind} onChange={setAssetKind} options={Object.entries(ASSET_LABEL).map(([value, label]) => ({ value, label, count: facets?.asset_kinds[value] }))} />
         ) : null}
-        <Select allowClear placeholder="授权" style={{ width: 110 }} value={license} onChange={setLicense} options={Object.entries(LICENSE_LABEL).map(([value, label]) => ({ value, label }))} />
-        <Select
-          allowClear
-          showSearch
-          placeholder="标签"
-          style={{ width: 140 }}
-          value={tag}
-          onChange={setTag}
-          options={(facets?.tags || []).map(([t, n]) => ({ value: t, label: `${t} ${n}` }))}
-        />
+        <FilterButton label="授权" value={license} onChange={setLicense} options={Object.entries(LICENSE_LABEL).map(([value, label]) => ({ value, label }))} />
+        <FilterButton label="标签" value={tag} onChange={setTag} options={(facets?.tags || []).map(([t, n]) => ({ value: t, label: t, count: n }))} />
         <label className="cw-color-pick" title="按颜色找">
           <input type="color" value={colorQ || '#df5bd5'} onChange={(e) => setColorQ(e.target.value)} />
           {colorQ ? (

@@ -207,7 +207,9 @@ export function Cover({
   orientation,
   kind,
   badge,
+  variant,
 }: {
+  variant?: string | null;
   src: string | null;
   title: string;
   color?: string | null;
@@ -228,7 +230,7 @@ export function Cover({
         // eslint-disable-next-line @next/next/no-img-element
         <img src={src!} alt="" loading="lazy" onError={() => setFailed(true)} />
       ) : (
-        <SignalArt title={title} kind={kind} />
+        <SignalArt title={title} kind={kind} variant={variant} />
       )}
       {kind ? <span className="cw-cover-kind" style={{ '--c': kindColor(kind) } as CSSProperties} /> : null}
       {badge ? <span className="cw-cover-badge cw-num">{badge}</span> : null}

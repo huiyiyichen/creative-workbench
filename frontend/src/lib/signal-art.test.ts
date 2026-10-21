@@ -29,4 +29,17 @@ describe('signal-art', () => {
     expect(artSpec('t', 'video').progress).toBeGreaterThan(0);
     expect(artSpec('t', 'repo').dots.length).toBeGreaterThan(3);
   });
+  it('文章封面两档：段落 2 或 5 条、同信源迹线位置固定、段落不压形态字', () => {
+    const titles = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    for (const t of titles) {
+      const sp = artSpec(t, 'article', 'Hacker News');
+      expect([2, 5]).toContain(sp.rects.length);
+      expect(Math.min(...sp.rects.map((x) => x.y))).toBeGreaterThanOrEqual(26);
+    }
+    const base = (t: string) => Number(/M[\d.]+,([\d.]+)/.exec(artSpec(t, 'article', 'RSS').traces[0].d)![1]);
+    const sides = new Set(titles.map((t) => base(t) < 45));
+    expect(sides.size).toBe(1);
+    expect(base('a') < 45).toBe(false);
+    expect(Number(/M[\d.]+,([\d.]+)/.exec(artSpec('a', 'article', 'hackernews').traces[0].d)![1]) < 45).toBe(true);
+  });
 });

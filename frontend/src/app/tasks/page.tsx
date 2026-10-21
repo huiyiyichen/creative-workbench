@@ -2,7 +2,8 @@
 
 /** 任务中心（创作工作台设计 7）：流程运行、生成、采集、分析的完整列表，可按类型、状态、项目、时间筛选。 */
 
-import { Select, message } from 'antd';
+import { message } from 'antd';
+import { FilterButton } from '@/design/filter-button';
 import { useCallback, useEffect, useState } from 'react';
 import { CwPage, Segmented as CwSegmented, TopBar } from '@/design/components';
 import { EmptyInstrument, Instrument, Readout, Readouts, ScanSkeleton, StatusLamp } from '@/design/instrument';
@@ -90,25 +91,8 @@ export default function TasksPage() {
             ...STATUS_ORDER.map((s) => ({ value: s, label: TASK_STATUS_LABEL[s], count: counts ? counts[s] : null, tone: s === 'failed' && counts?.failed ? ('bad' as const) : undefined })),
           ]}
         />
-        <Select
-          mode="multiple"
-          allowClear
-          placeholder="全部类型"
-          style={{ minWidth: 180 }}
-          value={types}
-          onChange={setTypes}
-          options={(Object.keys(TASK_TYPE_LABEL) as TaskType[]).map((t) => ({ value: t, label: TASK_TYPE_LABEL[t] }))}
-        />
-        <Select
-          allowClear
-          showSearch
-          optionFilterProp="label"
-          placeholder="全部项目"
-          style={{ minWidth: 200 }}
-          value={project}
-          onChange={setProject}
-          options={projects.map((p) => ({ value: p.id, label: p.title }))}
-        />
+        <FilterButton label="类型" value={types[0]} onChange={(v) => setTypes(v ? [v] : [])} options={(Object.keys(TASK_TYPE_LABEL) as TaskType[]).map((t) => ({ value: t, label: TASK_TYPE_LABEL[t] }))} />
+        <FilterButton label="项目" value={project} onChange={setProject} options={projects.map((p) => ({ value: p.id, label: p.title }))} />
       </div>
       {data && !items.length ? (
         status === 'failed' ? (

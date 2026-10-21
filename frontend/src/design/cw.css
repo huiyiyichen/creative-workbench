@@ -2572,3 +2572,15 @@ a.cw-lamp:hover { color: var(--cw-text); }
 .cw-skel-card i:first-child { height: 8px; }
 @keyframes cw-skel-breathe { from { opacity: 1; } to { opacity: .55; } }
 @media (prefers-reduced-motion: reduce) { .cw-skel, .cw-skel-line i, .cw-skel-card i, .cw-skel-field i { animation: none; } }
+
+/* 统一筛选按钮 */
+.cw-filterbtn { display: inline-flex; align-items: center; height: 30px; border: 1px solid var(--cw-line); border-radius: 8px; background: none; color: var(--cw-dim); font-size: 13px; }
+.cw-filterbtn[data-on='true'] { color: var(--cw-text); border-color: color-mix(in srgb, var(--cw-text) 35%, var(--cw-line)); }
+.cw-filterbtn-main { display: inline-flex; align-items: center; gap: 6px; height: 100%; padding: 0 10px; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; }
+.cw-filterbtn-main b { font-weight: 500; max-width: 120px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cw-filterbtn-main b::before { content: '·'; margin-right: 6px; color: var(--cw-faint); }
+.cw-filterbtn-main:focus-visible, .cw-filterbtn-clear:focus-visible { outline: 2px solid var(--cw-cy); outline-offset: -2px; border-radius: 7px; }
+.cw-filterbtn-clear { display: grid; place-items: center; width: 24px; height: 100%; margin-left: -4px; border: 0; background: none; color: var(--cw-faint); cursor: pointer; }
+.cw-filterbtn-clear:hover { color: var(--cw-text); }
+.cw-filterbtn-item { display: flex; justify-content: space-between; gap: 16px; min-width: 120px; }
+.cw-filterbtn-item small { color: var(--cw-faint); }
