@@ -9,7 +9,9 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "gen:api": "openapi-typescript openapi.json -o src/lib/api/schema.d.ts",
+    "gen:api:all": "cd ../backend && uv run python scripts/export_openapi.py && cd ../frontend && npm run gen:api"
   },
   "dependencies": {
     "@ant-design/icons": "^6.3.4",
@@ -43,6 +45,7 @@
     "@vitest/coverage-v8": "^5.0.2",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "openapi-typescript": "^7.13.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^5.0.2"

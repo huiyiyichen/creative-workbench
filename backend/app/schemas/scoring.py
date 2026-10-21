@@ -79,6 +79,7 @@ class ScoreBreakdownResponse(BaseModel):
     content_id: int
     base_score: float = Field(..., description="Weighted 6-dimension sum (before adjustments).")
     source_bonus: float = Field(..., description="Bonus from source_weight_db tier.")
+    personalization_bonus: float | None = Field(None, description="今日精选里按用户偏好加的分（today_picks）。")
     quality_factor: float = Field(..., description="Quality gate multiplier (0-1, lower = thinner content).")
     risk_factor: float = Field(..., description="Soft risk multiplier (0-1, lower = riskier).")
     time_decay: float = Field(..., description="Time decay multiplier (0-1, lower = older).")

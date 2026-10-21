@@ -13,6 +13,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // OpenAPI 生成的类型（npm run gen:api）
+    "src/lib/api/schema.d.ts",
   ]),
   {
     files: ["*.js", "scripts/**/*.js"],

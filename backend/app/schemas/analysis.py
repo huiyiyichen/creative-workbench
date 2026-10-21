@@ -38,6 +38,9 @@ class AiAnalysisResponse(BaseModel):
     prescreen_model: str | None = None
     final_model: str | None = None
     escalated: bool | None = False
+    # 内容列表按策展打分排序时附带（contents.py _with_scoring_breakdown）
+    adjusted_curation_score: float | None = None
+    score_breakdown: dict[str, Any] | None = None
     escalation_reason: str | None = None
     prescreen_confidence: float | None = None
     prescreen_score: float | None = None

@@ -253,7 +253,6 @@ export interface ContentNormalizationMember {
   crawled_at?: string | null;
   relation_type: ContentNormalizationRelationType;
   confidence?: number | null;
-  reason?: string | null;
 }
 
 export interface ContentNormalizationSummary {
@@ -290,9 +289,6 @@ export interface ContentItem {
   created_at?: string;
   updated_at?: string;
   // Extended fields from today-picks API
-  analyses?: ContentAnalysis[];
-  topic_id?: number | null;
-  normalization?: ContentNormalizationSummary;
   // Legacy API field alias
   analysis?: ContentAnalysis;
 }

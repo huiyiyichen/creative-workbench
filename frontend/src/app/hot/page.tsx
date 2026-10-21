@@ -91,10 +91,7 @@ function HotList() {
   }, [items]);
 
   const categories = useMemo(() => Array.from(new Set(sources.map((s) => s.category))), [sources]);
-  const label = (src: string) => {
-    const d = sources.find((s) => s.source === src)?.display_name;
-    return d && d !== src ? d : HOT_SOURCE_LABEL[src] || src;
-  };
+  const label = (src: string) => HOT_SOURCE_LABEL[src] || src;
   const synced = (src: string) => sources.find((s) => s.source === src)?.last_synced;
 
   const syncAll = async () => {

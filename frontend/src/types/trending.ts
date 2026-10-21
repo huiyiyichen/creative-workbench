@@ -16,14 +16,11 @@ export interface TrendingItem {
   trend: string | null;
   cover_url: string | null;
   extra: Record<string, unknown> | null;
-  fetched_at: string;
-  batch_id: string;
 }
 
 export interface TrendingSource {
   source: string;
   category: string;
-  display_name: string;
   count: number;
   last_synced: string | null;
 }

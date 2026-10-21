@@ -66,6 +66,33 @@ jobs:
       - name: ESLint
         run: npx eslint . --quiet
 
+  # ── 接口类型：后端 OpenAPI 与前端生成类型一致（改了接口要 npm run gen:api:all）──
+  api-types:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install deps
+        run: |
+          pip install uv==0.11.21
+          (cd backend && uv sync --frozen)
+          (cd frontend && npm ci)
+      - name: Regenerate
+        run: |
+          (cd backend && uv run python scripts/export_openapi.py)
+          (cd frontend && npm run gen:api)
+      - name: Check drift
+        run: |
+          git diff --exit-code -- frontend/openapi.json frontend/src/lib/api/schema.d.ts \
+            || (echo "::error::接口类型过期：在本地运行 cd frontend && npm run gen:api:all 并提交" && exit 1)
+
   # ── Backend pytest（全量，PostgreSQL 17 服务容器）──
   backend-tests:
     runs-on: ubuntu-latest
