@@ -300,6 +300,11 @@ async def create_project(db: AsyncSession, owner_id: int, request: ProjectCreate
                 spec["brief"]["theme"] = first[:120]
                 project.title = first[:120] or project.title
             project.spec = spec
+    if request.intent.strip():
+        spec = deepcopy(project.spec)
+        prev = spec["brief"].get("intent") or ""
+        spec["brief"]["intent"] = "\n\n".join(filter(None, [prev, request.intent.strip()]))[:5000]
+        project.spec = spec
     for index, (kind, rid) in enumerate((k, r) for k, r in refs if k != "note"):
         await add_source(
             db,

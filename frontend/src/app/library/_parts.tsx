@@ -4,6 +4,7 @@
  * 灵感库的部件：条目卡片（瀑布流 / 列表）、详情抽屉、收进来（粘贴链接 / 拖入 / 剪贴板）。
  */
 
+import { BreakdownButton } from '@/design/breakdown';
 import { LibraryGraph, nodeHref } from '@/design/graph';
 import { parseUTC } from '@/lib/datetime';
 import Link from 'next/link';
@@ -604,6 +605,7 @@ export function LibraryDrawer({
               <Wand2 size={15} />
               用于新项目
             </Link>
+            {data.url ? <BreakdownButton target={{ library_item_id: data.id }} /> : null}
             <Popover
               trigger="click"
               content={

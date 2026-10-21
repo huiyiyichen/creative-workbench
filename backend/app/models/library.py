@@ -63,6 +63,7 @@ class ImportMethod(enum.StrEnum):
     EXTRACTED = "extracted"  # 从视频描述 / 网页中提取的提示词、仓库
     MIGRATED = "migrated"  # 旧收藏夹迁移
     OBSIDIAN = "obsidian"
+    BREAKDOWN = "breakdown"  # 爆款拆解时收进来
 
 
 class LibraryItem(Base):

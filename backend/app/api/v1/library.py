@@ -191,6 +191,23 @@ async def library_frame(body: FrameBody, db: AsyncSession = Depends(get_db)):
     return lib.item_view(item)
 
 
+class BreakdownBody(BaseModel):
+    url: str | None = Field(default=None, max_length=2000)
+    content_id: int | None = Field(default=None, gt=0)
+    library_item_id: int | None = Field(default=None, gt=0)
+    force: bool = False
+
+
+@router.post("/library/breakdown")
+async def library_breakdown(body: BreakdownBody, db: AsyncSession = Depends(get_db)):
+    """爆款拆解：钩子、结构节拍、情绪点、评论热词、可复用结构模板。拆过的收进灵感库，结果存条目 meta.breakdown。"""
+    from app.services import breakdown_service
+
+    return await breakdown_service.breakdown(
+        db, url=body.url, content_id=body.content_id, library_item_id=body.library_item_id, force=body.force
+    )
+
+
 @router.get("/library/items/{item_id}")
 async def library_item(item_id: int, db: AsyncSession = Depends(get_db)):
     try:

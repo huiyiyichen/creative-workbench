@@ -132,7 +132,9 @@ export function CommandPalette({ onToggleTheme, onOpenTasks }: { onToggleTheme: 
     const term = q.trim();
     const local = filterCommands(all, q, term ? 8 : 14) as (CommandItem & { run?: () => void })[];
     if (!term) return local;
-    const search: CommandItem = { id: 'search', label: `搜索「${term}」：库内内容 + 去平台抓`, group: '搜索', href: `/search?q=${encodeURIComponent(term)}` };
+    const search: CommandItem = /^https?:\/\/\S+$/i.test(term)
+      ? { id: 'search', label: '拆解这条链接：钩子、结构、评论热词', group: '搜索', href: `/search?q=${encodeURIComponent(term)}` }
+      : { id: 'search', label: `搜索「${term}」：库内内容 + 去平台抓`, group: '搜索', href: `/search?q=${encodeURIComponent(term)}` };
     return [search, ...local, ...hits];
   }, [all, q, hits]);
 

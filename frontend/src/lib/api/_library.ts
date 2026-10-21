@@ -165,7 +165,30 @@ export interface GraphData {
   center: string | null;
 }
 
+/** 爆款拆解（POST /library/breakdown）。 */
+export interface Breakdown {
+  item_id: number;
+  title: string;
+  url: string | null;
+  platform: string | null;
+  verdict: string;
+  hook: { text: string; type: string; why: string };
+  beats: { name: string; does: string }[];
+  emotions: { point: string; evidence: string }[];
+  comment_words: { word: string; meaning: string; count: number }[];
+  template: string;
+  titles: string[];
+  comments_used: number;
+  phrases: [string, number][];
+  at: string;
+}
+
+export type BreakdownTarget = { url: string } | { content_id: number } | { library_item_id: number };
+
 export const libraryApi = {
+  breakdown(target: BreakdownTarget, force = false): Promise<Breakdown> {
+    return request('/library/breakdown', { method: 'POST', body: JSON.stringify({ ...target, force }), timeoutMs: 120_000 });
+  },
   graph(params: { types?: string[]; days?: number; center?: string; depth?: 1 | 2 } = {}): Promise<GraphData> {
     return request(`/library/graph${qs({ types: params.types?.join(','), days: params.days, center: params.center, depth: params.depth })}`, { timeoutMs: 60_000 });
   },

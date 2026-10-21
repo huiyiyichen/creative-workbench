@@ -5,6 +5,7 @@
  * 升温榜行、带缺口曲线、条目详情（抽屉与独立页共用）。
  */
 
+import { BreakdownButton } from '@/design/breakdown';
 import { FeishuButton } from './feishu';
 import Link from 'next/link';
 import { Drawer, Input, Popover, Spin, message } from 'antd';
@@ -641,6 +642,7 @@ export function ItemDetailView({ id, compact, onClose, onChanged }: { id: number
           <Link className="cw-btn" data-variant="ghost" href={`/projects/new?source=content:${id}`} title="以这条内容为主来源新建项目">
             做成项目
           </Link>
+          <BreakdownButton target={{ content_id: id }} />
           <FeishuButton type="content" id={id} />
           {onClose ? (
             <Button variant="ghost" onClick={onClose}>

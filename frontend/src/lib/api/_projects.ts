@@ -297,7 +297,7 @@ export const projectsApi = {
     const q = sp.toString();
     return request(`/projects${q ? `?${q}` : ''}`);
   },
-  create(body: { theme?: string; mode?: ProjectMode; sources?: string[] }): Promise<ProjectView> {
+  create(body: { theme?: string; mode?: ProjectMode; sources?: string[]; intent?: string }): Promise<ProjectView> {
     return request('/projects', { method: 'POST', body: j(body) });
   },
   get(id: number): Promise<ProjectView> {

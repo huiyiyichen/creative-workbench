@@ -30,6 +30,8 @@ class ProjectCreate(BoundedModel):
     mode: Mode = "article"
     # 来源写法：content:123 / library:45
     sources: list[str] = Field(default_factory=list, max_length=10)
+    # 创作思路（如「照这个结构写」带进来的爆款结构）
+    intent: str = Field(default="", max_length=5000)
 
 
 class ProjectBatch(BoundedModel):

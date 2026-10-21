@@ -960,6 +960,53 @@
     "title": "Body_upload_favorite_api_v1_favorites_upload_post",
     "type": "object"
    },
+   "BreakdownBody": {
+    "properties": {
+     "content_id": {
+      "anyOf": [
+       {
+        "exclusiveMinimum": 0.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Content Id"
+     },
+     "force": {
+      "default": false,
+      "title": "Force",
+      "type": "boolean"
+     },
+     "library_item_id": {
+      "anyOf": [
+       {
+        "exclusiveMinimum": 0.0,
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Library Item Id"
+     },
+     "url": {
+      "anyOf": [
+       {
+        "maxLength": 2000,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Url"
+     }
+    },
+    "title": "BreakdownBody",
+    "type": "object"
+   },
    "BriefSave": {
     "additionalProperties": false,
     "properties": {
@@ -5306,6 +5353,12 @@
    "ProjectCreate": {
     "additionalProperties": false,
     "properties": {
+     "intent": {
+      "default": "",
+      "maxLength": 5000,
+      "title": "Intent",
+      "type": "string"
+     },
      "mode": {
       "default": "article",
       "enum": [
@@ -14865,6 +14918,46 @@
      }
     },
     "summary": "Board Remove",
+    "tags": [
+     "library"
+    ]
+   }
+  },
+  "/api/v1/library/breakdown": {
+   "post": {
+    "description": "爆款拆解：钩子、结构节拍、情绪点、评论热词、可复用结构模板。拆过的收进灵感库，结果存条目 meta.breakdown。",
+    "operationId": "library_breakdown_api_v1_library_breakdown_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/BreakdownBody"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "Library Breakdown",
     "tags": [
      "library"
     ]

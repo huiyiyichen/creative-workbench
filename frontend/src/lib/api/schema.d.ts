@@ -2225,6 +2225,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/library/breakdown": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Library Breakdown
+         * @description 爆款拆解：钩子、结构节拍、情绪点、评论热词、可复用结构模板。拆过的收进灵感库，结果存条目 meta.breakdown。
+         */
+        post: operations["library_breakdown_api_v1_library_breakdown_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/library/extension/ping": {
         parameters: {
             query?: never;
@@ -6773,6 +6793,20 @@ export interface components {
             /** Title */
             title: string;
         };
+        /** BreakdownBody */
+        BreakdownBody: {
+            /** Content Id */
+            content_id?: number | null;
+            /**
+             * Force
+             * @default false
+             */
+            force: boolean;
+            /** Library Item Id */
+            library_item_id?: number | null;
+            /** Url */
+            url?: string | null;
+        };
         /** BriefSave */
         BriefSave: {
             brief: components["schemas"]["CopyBrief"];
@@ -8146,6 +8180,11 @@ export interface components {
         };
         /** ProjectCreate */
         ProjectCreate: {
+            /**
+             * Intent
+             * @default
+             */
+            intent: string;
             /**
              * Mode
              * @default article
@@ -13496,6 +13535,39 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    library_breakdown_api_v1_library_breakdown_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BreakdownBody"];
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {

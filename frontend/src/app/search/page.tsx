@@ -14,6 +14,8 @@ import { Button, CwPage, Segmented, TopBar } from '@/design/components';
 import { RecentCard } from '@/app/sources/_parts';
 import { PLATFORM_LABEL, relativeTime } from '@/lib/collection';
 import { splitHits, uniqBy } from '@/lib/text';
+import { isUrl } from '@/lib/breakdown';
+import { BreakdownView } from '@/design/breakdown';
 import {
   SEARCH_GROUP_LABEL,
   SEARCH_GROUP_ORDER,
@@ -237,8 +239,9 @@ function SearchInner() {
     if (!q) inputRef.current?.focus();
   }, [q]);
 
+  const link = isUrl(q);
   const load = useCallback(() => {
-    if (!q) return;
+    if (!q || isUrl(q)) return;
     setError(null);
     searchApi
       .search(q, { limit: 20 })
@@ -265,9 +268,9 @@ function SearchInner() {
         ref={inputRef}
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
-        placeholder="输入关键词：先搜库里已有的，再去各平台抓"
-        aria-label="搜索关键词"
-        maxLength={100}
+        placeholder="输入关键词搜库里和各平台；贴一条链接，拆它为什么火"
+        aria-label="搜索关键词或链接"
+        maxLength={2000}
       />
       <kbd className="cw-kbd" aria-hidden>
         ⏎
@@ -279,9 +282,14 @@ function SearchInner() {
   );
   return (
     <CwPage>
-      <TopBar title="搜索" sub={q && data ? <span className="cw-num">{data.total} 条库内结果</span> : undefined} />
+      <TopBar title={link ? '爆款拆解' : '搜索'} sub={q && !link && data ? <span className="cw-num">{data.total} 条库内结果</span> : undefined} />
       {q ? null : searchForm}
-      {q ? (
+      {q && link ? (
+        <div className="cw-search-bd">
+          {searchForm}
+          <BreakdownView target={{ url: q }} />
+        </div>
+      ) : q ? (
         <div className="cw-search-layout">
           <div className="cw-search-local">
             {searchForm}
@@ -293,7 +301,7 @@ function SearchInner() {
         <EmptyInstrument
           kind="flat"
           title="输入一个关键词"
-          reason="库里有的（内容、灵感、随笔、项目、报告）先列出来；想看最新的，可以一键去 B站、YouTube、抖音、小红书等平台现抓。快捷键：任意页面按 / 或 Ctrl K。"
+          reason="库里有的（内容、灵感、随笔、项目、报告）先列出来；想看最新的，可以一键去 B站、YouTube、抖音、小红书等平台现抓。贴一条视频或笔记链接，会拆出它的钩子、结构和评论热词。快捷键：任意页面按 / 或 Ctrl K。"
         />
       )}
     </CwPage>
