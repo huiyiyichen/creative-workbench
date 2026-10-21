@@ -506,11 +506,11 @@ export function ModelEditForm({ model, onClose }: { model?: LlmModelItem | null;
                   options={modelIdOptions}
                   placeholder={selectedPreset?.model_id || selectedPreset?.model_id_placeholder || `如 ${currentPreset.modelPlaceholder}`}
                   status={submitAttempted && fieldErrors.model_id ? 'error' : undefined}
-                  filterOption={(input, option) => String(option?.value ?? '').toLowerCase().includes(input.toLowerCase())}
+                  filterOption={(input, option) => String((option as { value?: string } | undefined)?.value ?? '').toLowerCase().includes(input.toLowerCase())}
                   allowClear
                   aria-describedby={submitAttempted && fieldErrors.model_id ? 'model-id-error' : undefined}
                 />
-                <Button size="sm" onClick={() => void fetchRemoteModels()} disabled={remoteBusy}>
+                <Button variant="secondary" onClick={() => void fetchRemoteModels()} disabled={remoteBusy}>
                   {remoteBusy ? '拉取中…' : '从接口拉取'}
                 </Button>
               </div>
