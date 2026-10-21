@@ -21,6 +21,46 @@ const DAYS = [
   { value: '90', label: '90 天' },
 ];
 
+/** 定时任务 id → 中文名；未知的原样显示 id */
+const JOB_LABEL: Record<string, string> = {
+  cleanup_generations: '清理生成记录',
+  cleanup_old_notifications: '清理旧通知',
+  cleanup_old_read_records: '清理阅读记录',
+  cleanup_trending_snapshots: '清理热榜快照',
+  content_event_normalization: '内容事件归一',
+  cover_cache: '缓存封面',
+  cover_cache_evict: '封面缓存回收',
+  daily_report_evening: '日报 · 傍晚',
+  daily_report_final: '日报 · 定稿',
+  daily_report_noon: '日报 · 中午',
+  dispatch_analysis_jobs: '派发分析任务',
+  event_merge_vector: '事件合并（向量）',
+  library_inbox: '灵感库收件',
+  maintain_comments: '维护热门评论',
+  metrics_alerting: '指标告警',
+  metrics_snapshot_cleanup: '指标快照清理',
+  metrics_snapshot_persist: '保存指标快照',
+  monthly_digest: '月报',
+  obsidian_sync: 'Obsidian 同步',
+  post_sync_clustering: '采集后聚类',
+  post_sync_evidence: '采集后取证',
+  post_sync_pipeline: '采集后流水线',
+  post_sync_trends: '采集后趋势',
+  publishing_remind: '发布提醒',
+  refresh_model_catalog: '刷新模型目录',
+  refresh_verdicts: '刷新结论',
+  report_catchup: '补生成报告',
+  rescan_sources: '重扫信源',
+  save_trending_snapshots: '保存热榜快照',
+  snapshot_trends: '趋势快照',
+  sync_trending: '同步热榜',
+  topic_clustering_daily: '每日话题聚类',
+  topic_signals_hourly: '每小时话题信号',
+  weekly_backup: '每周备份',
+  weekly_digest: '周报',
+  work_metrics: '作品数据',
+};
+
 const STATUS_LABEL: Record<string, string> = { SUCCESS: '成功', FAILED: '失败', TIMEOUT: '超时', SKIPPED: '跳过', RUNNING: '运行中' };
 const STATUS_COLOR: Record<string, string> = {
   SUCCESS: 'var(--cw-gr)',
@@ -104,7 +144,7 @@ export default function JobStatsPage() {
                 <tbody>
                   {data.by_job_key.map((r) => (
                     <tr key={r.job_key} onClick={() => setJobKey(jobKey === r.job_key ? null : r.job_key)} style={{ cursor: 'pointer' }} aria-selected={jobKey === r.job_key}>
-                      <td className="cw-num">{r.job_key}</td>
+                      <td title={r.job_key}>{JOB_LABEL[r.job_key] || r.job_key}</td>
                       <td className="cw-num">{r.runs}</td>
                       <td className="cw-num" style={r.success_rate < 0.8 ? { color: 'var(--cw-rd)' } : undefined}>{pct(r.success_rate)}</td>
                       <td className="cw-num">{dur(r.avg_duration_ms)}</td>
@@ -125,7 +165,7 @@ export default function JobStatsPage() {
                     <li key={`${r.job_key}-${r.started_at}-${i}`} className="cw-job-fail">
                       <div>
                         <StatusLamp tone={STATUS_LAMP[r.status] || 'bad'} label={STATUS_LABEL[r.status] || r.status} />
-                        <b className="cw-num">{r.job_key}</b>
+                        <b title={r.job_key}>{JOB_LABEL[r.job_key] || r.job_key}</b>
                         <span className="cw-muted cw-num">{timeAgoShort(r.started_at)} · {dur(r.duration_ms)}</span>
                       </div>
                       {r.error_message ? <pre>{r.error_message}</pre> : null}
