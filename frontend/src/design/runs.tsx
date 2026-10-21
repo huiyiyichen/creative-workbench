@@ -62,7 +62,7 @@ export const ROLE_LABEL: Record<string, string> = {
 };
 
 export const EXECUTOR_LABEL: Record<string, string> = {
-  internal: '内部模型',
+  internal: '已配模型',
   deepseek_harness: 'DeepSeek Harness',
   claude_code: 'Claude Code',
   codex: 'Codex',
