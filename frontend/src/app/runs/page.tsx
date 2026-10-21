@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Input, InputNumber, Switch, message } from 'antd';
 import { Suspense, useCallback, useEffect, useState } from 'react';
 import { Button, Card, CwPage, Segmented, TopBar } from '@/design/components';
+import { TasksNav } from '@/design/TasksNav';
 import { BRANCH_LABEL, STATUS_COLOR, STATUS_LABEL, fmtCost, fmtMs } from '@/design/runs';
 import { runsApi, type FlowCatalogItem, type RunView } from '@/lib/api/_runs';
 import { onTasksChanged } from '@/lib/events';
@@ -126,10 +127,8 @@ function RunsInner() {
   const research = flows.find((f) => f.key === 'topic_research');
   return (
     <CwPage>
-      <TopBar title="任务 · 流程运行" sub="每次运行都能看节点图、时间线和调用树">
-        <Link href="/stats/jobs" className="cw-link-btn">
-          采集与分析任务
-        </Link>
+      <TopBar title="流程运行" sub="每次运行都能看节点图、时间线和调用树">
+        <TasksNav />
         <Link href="/settings/workbench" className="cw-link-btn">
           工作台工具与 MCP
         </Link>

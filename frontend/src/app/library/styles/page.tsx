@@ -96,12 +96,38 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+/** 样张：用这套配色和字体排一张示例封面 + 字体样例，一眼看出风格长什么样 */
+function StyleSample({ v, name }: { v: StyleVersion; name: string }) {
+  const pal = v.palette.map((p) => p.hex).filter(Boolean);
+  if (!pal.length) return null;
+  const font = v.fonts.find((f) => f.family)?.family;
+  const [bg, fg = '#ffffff', accent = fg] = pal;
+  return (
+    <div className="cw-style-sample">
+      <div className="cw-style-cover" style={{ background: bg, color: fg, fontFamily: font }}>
+        <small style={{ color: accent }}>示例封面</small>
+        <b>{name}</b>
+        <span>一段副标题，看看正文字号和行距</span>
+        <i style={{ background: accent }} />
+      </div>
+      <div className="cw-style-type" style={{ fontFamily: font }}>
+        <b>标题样例 Aa 123</b>
+        <span>正文样例：创作工作台把选题、写稿和改写放在一处。</span>
+        <small className="cw-muted">{font || '未指定字体（用系统默认）'}</small>
+      </div>
+    </div>
+  );
+}
+
 function StylesPage() {
   const router = useRouter();
   const params = useSearchParams();
   const kind: Kind = params.get('template') || params.get('kind') === 'template' ? 'template' : 'style';
-  const selectedKey = params.get(kind) || '';
+  const urlKey = params.get(kind) || '';
   const [list, setList] = useState<Entry[] | null>(null);
+  const [creating, setCreating] = useState(false);
+  // 评审 #3 2.8-2：没选时默认展示第一项，不留一大片空白
+  const selectedKey = urlKey || (creating ? '' : list?.[0]?.key || '');
   const [detail, setDetail] = useState<Entry | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busy, setBusy] = useState(false);
@@ -122,6 +148,7 @@ function StylesPage() {
   }, [load]);
 
   useEffect(() => {
+    if (creating) return;
     setDraft(null);
     if (!selectedKey) {
       setDetail(null);
@@ -130,9 +157,12 @@ function StylesPage() {
     (kind === 'style' ? libraryApi.style(selectedKey) : libraryApi.template(selectedKey))
       .then((d) => setDetail(withCurrent(d)))
       .catch((err) => message.error(errText(err)));
-  }, [kind, selectedKey]);
+  }, [kind, selectedKey, creating]);
 
-  const open = (k: Kind, key?: string) => router.replace(key ? `/library/styles?${k}=${encodeURIComponent(key)}` : `/library/styles?kind=${k}`);
+  const open = (k: Kind, key?: string) => {
+    setCreating(false);
+    router.replace(key ? `/library/styles?${k}=${encodeURIComponent(key)}` : `/library/styles?kind=${k}`);
+  };
 
   async function save() {
     if (!draft || !draft.name.trim()) return message.warning('请填写名称');
@@ -142,6 +172,7 @@ function StylesPage() {
       const r = detail ? await libraryApi.addVersion(kind, detail.key, payload) : await libraryApi.create(kind, payload);
       message.success(detail?.builtin ? '内置项已复制为自定义并保存' : detail ? `已保存为 v${r.current_version}` : '已创建');
       setDraft(null);
+      setCreating(false);
       await load();
       if (r.key === selectedKey) {
         setDetail(withCurrent(await (kind === 'style' ? libraryApi.style(r.key) : libraryApi.template(r.key))));
@@ -182,7 +213,17 @@ function StylesPage() {
 
   return (
     <CwPage>
-      <TopBar title="风格与模板" sub={<Link href="/library">← 灵感库</Link>}>
+      <TopBar title="风格与模板" sub={list ? `${list.length} 个${kind === 'style' ? '视觉风格' : '内容模板'}` : '加载中…'}>
+        <nav className="cw-seg" aria-label="灵感库分页">
+          <Link href="/library">收藏</Link>
+          <Link href="/notes">随笔</Link>
+          <Link href="/library/styles" aria-current="page">
+            风格与模板
+          </Link>
+          <Link href="/library/graph">图谱</Link>
+        </nav>
+      </TopBar>
+      <div className="cw-filters">
         <Segmented<Kind>
           label="类别"
           value={kind}
@@ -192,10 +233,18 @@ function StylesPage() {
             { value: 'template', label: '内容模板' },
           ]}
         />
-        <Button icon={<Plus size={14} />} onClick={() => { open(kind); setDraft({ ...EMPTY }); }}>
+        <span className="cw-grow" />
+        <Button
+          icon={<Plus size={14} />}
+          onClick={() => {
+            setCreating(true);
+            setDetail(null);
+            setDraft({ ...EMPTY });
+          }}
+        >
           新建
         </Button>
-      </TopBar>
+      </div>
       <div className="cw-style-list">
         <nav aria-label={kind === 'style' ? '视觉风格' : '内容模板'}>
           {!list ? <div className="cw-muted">加载中…</div> : null}
@@ -255,7 +304,7 @@ function StylesPage() {
                 <Button variant="primary" onClick={save} disabled={busy}>
                   {busy ? '保存中…' : '保存'}
                 </Button>
-                <Button variant="ghost" onClick={() => setDraft(null)}>
+                <Button variant="ghost" onClick={() => { setDraft(null); setCreating(false); }}>
                   取消
                 </Button>
               </div>
@@ -286,6 +335,7 @@ function StylesPage() {
                       <div key={i} style={{ background: p.hex, minHeight: 64, flex: 1 }} title={`${p.name || ''} ${p.hex}`} />
                     ))}
                   </div>
+                  <StyleSample v={style.current} name={detail.name} />
                   <p className="cw-muted cw-num">{style.current.palette.map((p) => `${p.name ? `${p.name} ` : ''}${p.hex}`).join(' · ')}</p>
                   {style.current.fonts.length ? <p>字体：{style.current.fonts.map((f) => `${f.role ? `${f.role} ` : ''}${f.family || ''}`).join('，')}</p> : null}
                   {style.current.layout_rules ? <p style={{ whiteSpace: 'pre-wrap' }}>排版：{style.current.layout_rules}</p> : null}

@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { CwPage, Segmented as CwSegmented, TopBar } from '@/design/components';
 import { EmptyInstrument, Instrument, Readout, Readouts, ScanSkeleton, StatusLamp } from '@/design/instrument';
 import { TaskLanes, TaskRow } from '@/design/tasks';
+import { TasksNav } from '@/design/TasksNav';
 import { sortTasks } from '@/lib/task-lanes';
 import { projectsApi, type ProjectSummary } from '@/lib/api/_projects';
 import { TASK_STATUS_LABEL, TASK_TYPE_LABEL, tasksApi, type TaskList, type TaskStatus, type TaskType } from '@/lib/api/_tasks';
@@ -58,6 +59,7 @@ export default function TasksPage() {
             label={data!.active ? `${data!.active} 个进行中` : failed ? `${failed} 个失败` : '都处理完了'}
           />
         ) : null}
+        <TasksNav />
         <CwSegmented
           label="时间范围"
           value={String(days)}
