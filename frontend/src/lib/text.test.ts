@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { decodeEntities, splitHits, uniqBy } from './text';
+import { decodeEntities, delatex, splitHits, uniqBy } from './text';
 
 describe('decodeEntities', () => {
   it('解码数字和命名实体', () => {
@@ -37,4 +37,12 @@ it('decodeTextDeep 只动标题摘要类字段', async () => {
   expect(v.items[0].title).toBe('a’b');
   expect(v.items[0].url).toBe('x?a=1&amp;b=2');
   expect(v.items[0].meta.summary).toBe('<p>');
+});
+
+describe('delatex', () => {
+  it('arXiv 作者名还原', () => {
+    expect(delatex('Mustafa \\"Ozayta\\c{c}, \\"Ozge Karada\\u{g} Ata\\c{c}')).toBe('Mustafa Özaytaç, Özge Karadağ Ataç');
+    expect(delatex("Jos\\'e, M\\\"{u}ller, \\v{S}ime, Ha\\ss")).toBe('José, Müller, Šime, Haß');
+    expect(delatex('Alice')).toBe('Alice');
+  });
 });

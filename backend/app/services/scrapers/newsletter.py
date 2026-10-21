@@ -16,6 +16,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from app.utils.latex_text import delatex
+
 from . import BaseScraper, fetch_feed_with_retry, parse_feed_async, register_scraper
 
 logger = logging.getLogger(__name__)
@@ -100,9 +102,9 @@ class NewsletterScraper(BaseScraper):
 
             entries.append(
                 {
-                    "title": entry.get("title", ""),
+                    "title": delatex(entry.get("title", "")) or "",
                     "url": entry.get("link", ""),
-                    "author": entry.get("author", ""),
+                    "author": delatex(entry.get("author", "")) or "",
                     "summary": summary,
                     "raw_content": (entry.get("content", [{}])[0].get("value", "") if entry.get("content") else ""),
                     "tags": [tag.get("term", "") for tag in entry.get("tags", [])],

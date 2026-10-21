@@ -85,6 +85,23 @@ export function uniqBy<T>(list: readonly T[], key: (x: T) => string): T[] {
   });
 }
 
+const COMBINING: Record<string, string> = { '"': '\u0308', "'": '\u0301', '`': '\u0300', '^': '\u0302', '~': '\u0303', '=': '\u0304', '.': '\u0307', c: '\u0327', u: '\u0306', v: '\u030c', H: '\u030b', k: '\u0328', r: '\u030a' };
+const LETTERS: Record<string, string> = { ss: 'ß', o: 'ø', O: 'Ø', l: 'ł', L: 'Ł', ae: 'æ', AE: 'Æ', oe: 'œ', OE: 'Œ', aa: 'å', AA: 'Å', i: 'ı' };
+
+/** BibTeX 重音转义 → Unicode（arXiv 作者名 `\"Ozayta\c{c}` → `Özaytaç`）。后端新入库已处理，这里兜存量数据 */
+export function delatex<T extends string | null | undefined>(text: T): T {
+  if (!text || text.indexOf('\\') < 0) return text;
+  let out = (text as string).replace(/\\(["'`^~=.])\s*(?:\{\s*(\\?[A-Za-z])\s*\}|(\\?[A-Za-z]))|\\([cuvHkr])(?:\s*\{\s*(\\?[A-Za-z])\s*\}|\s+([A-Za-z]))/g, (_w, c1, a, b, c2, d, e) => {
+    const cmd = (c1 || c2) as string;
+    let ch = (a || b || d || e) as string;
+    if (ch.startsWith('\\')) ch = ch.slice(1) === 'i' ? (`"'\`^~=`.includes(cmd) ? 'i' : 'ı') : ch.slice(1);
+    return (ch + COMBINING[cmd]).normalize('NFC');
+  });
+  out = out.replace(/\\(ss|ae|AE|oe|OE|aa|AA|o|O|l|L|i)(?![A-Za-z])(?:\{\})?/g, (_w, k: string) => LETTERS[k]);
+  out = out.replace(/\{([^{}\\]{1,3})\}/g, '$1');
+  return out as T;
+}
+
 const TEXT_KEYS = new Set(['title', 'title_zh', 'title_cn', 'snippet', 'summary', 'summary_zh', 'headline', 'excerpt', 'description']);
 
 /** 深度遍历 API 返回值，把标题 / 摘要类字段里的 HTML 实体解码（原地改，返回同一对象） */
@@ -96,7 +113,8 @@ export function decodeTextDeep<T>(value: T): T {
     for (const k of Object.keys(rec)) {
       const v = rec[k];
       if (typeof v === 'string') {
-        if (TEXT_KEYS.has(k)) rec[k] = decodeEntities(v);
+        if (TEXT_KEYS.has(k)) rec[k] = delatex(decodeEntities(v));
+        else if (k === 'author' || k === 'authors') rec[k] = delatex(v);
       } else if (v && typeof v === 'object') decodeTextDeep(v);
     }
   }

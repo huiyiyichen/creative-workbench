@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 from urllib.parse import quote
 
@@ -25,11 +26,24 @@ GROUPS = ("contents", "library", "notes", "projects", "outputs", "reports")
 MAX_QUERY = 100
 
 
+_TAIL = re.compile(r"(🔗\s*)?阅读原文.*$|\bvia\s+[A-Z][\w.]*\s*[•·]?\s*$")
+_URL = re.compile(r"https?://\S+")
+
+
+def clean_snippet_source(text: str) -> str:
+    """摘要取材前去掉转载尾巴（「🔗 阅读原文 via AIHOT • https://…」）和裸 URL（评审 #4 P0-5）。"""
+    flat = " ".join(_URL.sub(" ", text).split())
+    flat = _TAIL.sub("", flat).strip(" •·-—")
+    return flat
+
+
 def snippet(text: str | None, q: str, width: int = 40) -> str | None:
     """取命中词前后各 width 字；没命中给开头一段。大小写不敏感。"""
     if not text:
         return None
-    flat = " ".join(text.split())
+    flat = clean_snippet_source(text)
+    if not flat:
+        return None
     i = flat.lower().find(q.lower())
     if i < 0:
         return flat[: width * 2] + ("…" if len(flat) > width * 2 else "")

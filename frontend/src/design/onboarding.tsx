@@ -51,7 +51,7 @@ export function Onboarding() {
       </ol>
       <span className="cw-grow" />
       <small className="cw-muted cw-onboard-desc">{next.desc}</small>
-      <Link className="cw-btn" href={next.href}>
+      <Link className="cw-btn" data-variant="ghost" href={next.href}>
         {next.action}
       </Link>
       <Button variant="ghost" size="icon" aria-label="不再显示" title="不再显示" onClick={dismiss}>

@@ -1,3 +1,7 @@
+/* 英文撇号 ’ (U+2019) 走西文字体：Noto Sans SC 里是全角字形，「I’ ve」像多了半个空格（评审 #4 P0-4）。中文引号“”保持全角，所以只覆盖这一个码位 */
+@font-face { font-family: 'cw-latin-punct'; src: local('Inter'), local('Helvetica Neue'), local('Helvetica'), local('Arial'), local('Liberation Sans'), local('DejaVu Sans'); unicode-range: U+2019; }
+@font-face { font-family: 'cw-latin-punct-serif'; src: local('Georgia'), local('Times New Roman'), local('Liberation Serif'), local('DejaVu Serif'); unicode-range: U+2019; }
+
 /*
  * 方向 A「调色台」CSS 变量（与 tokens.ts 同值，tokens.test.ts 校验）。
  * 新界面只用 --cw-*；旧页面的浅色变量在 globals.css 保留到阶段 2 替换完毕。
@@ -33,9 +37,9 @@
   --cw-overlay: rgba(15, 18, 22, 0.85);
   --cw-hero: radial-gradient(120% 140% at 85% -20%, rgba(111, 139, 255, 0.1), transparent 55%), linear-gradient(180deg, #181c22, #14171c);
 
-  --cw-sans: var(--font-noto-sans-sc), "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
+  --cw-sans: "cw-latin-punct", var(--font-noto-sans-sc), "Noto Sans SC", "Microsoft YaHei UI", sans-serif;
   --cw-num: "Bahnschrift", var(--font-barlow-sc), "Segoe UI", sans-serif;
-  --cw-serif: var(--font-display), "Noto Serif SC", "Songti SC", serif;
+  --cw-serif: "cw-latin-punct-serif", var(--font-display), "Noto Serif SC", "Songti SC", serif;
 
   --cw-nav-w: 84px;
 

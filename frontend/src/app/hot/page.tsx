@@ -372,7 +372,7 @@ function Rising({ onOpen }: { onOpen: (id: number) => void }) {
                     {t.first_platform ? ` · 最先出现在${platformName(t.first_platform)}` : ''}
                   </small>
                 </div>
-                <GapSpark values={bucketSeries(t.series, 3)} label={`${t.title} 72 小时信号`} accent={t.status === 'cooling' ? color.bl : color.rd} />
+                <GapSpark values={bucketSeries(t.series, 3)} label={`${t.title} 72 小时信号`} accent={t.status === 'cooling' ? color.bl : color.text} />
                 <StatusTag status={t.status} />
                 <div className="cw-rise-rep">
                   <div className="cw-rise-plats">

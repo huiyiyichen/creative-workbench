@@ -12,7 +12,6 @@ import { Plus } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { Button, CwPage, SearchField, Segmented, TopBar } from '@/design/components';
 import { GapSpark, StatusTag, platformName } from '@/design/discover';
-import { color } from '@/design/tokens';
 import { discoverApi, type DossierSummary } from '@/lib/api/_discover';
 import { relativeTime } from '@/lib/collection';
 import { bucketSeries, topPlatforms } from '@/lib/discover';
@@ -131,7 +130,7 @@ export default function DossiersPage() {
                 </div>
                 {d.latest_title ? <span title={d.latest_title}>最新：{d.latest_title}</span> : null}
               </div>
-              <GapSpark values={bucketSeries(d.series, 3)} width={items.length <= 3 ? 360 : 260} label={`${d.title} 热度曲线`} accent={color.rd} />
+              <GapSpark values={bucketSeries(d.series, 6)} width={items.length <= 3 ? 360 : 260} label={`${d.title} 热度曲线`} />
               <div className="cw-rise-plats">
                 {topPlatforms(d.platforms, 4).map(([p, n]) => (
                   <span key={p}>

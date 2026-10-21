@@ -39,7 +39,7 @@ import {
   VERDICT_COLOR,
   VERDICT_LABEL,
   dayPosition,
-  gappedPaths,
+  bridgePath, gappedPaths, longestRun,
   heatOpacity,
   mediaKindColor,
   metricText,
@@ -512,16 +512,21 @@ export function ResonanceTable({ data, onOpen }: { data: ResonanceMatrix; onOpen
 }
 
 /** 带缺口的曲线：没有观测的时段断开，不画 0 */
-export function GapSpark({ values, width = 140, height = 30, accent = color.rd, label }: { values: (number | null)[]; width?: number; height?: number; accent?: string; label: string }) {
-  // 少于 4 次观测画不出趋势，两点斜线只会误导：统一写「观测 N 次」（评审 #3 1.2-3）
+export function GapSpark({ values, width = 140, height = 30, accent = color.text, label }: { values: (number | null)[]; width?: number; height?: number; accent?: string; label: string }) {
+  // 少于 4 次观测、或最长连续段不到 3 个点，画出来只会是碎片：统一写「观测 N 次」（评审 #3 1.2-3、#4 P0-2）
   const n = values.filter((v) => v !== null).length;
-  if (n < 4) return <span className="cw-spark-empty cw-num">{n ? `观测 ${n} 次` : '观测不足'}</span>;
+  if (n < 4 || longestRun(values) < 3) return <span className="cw-spark-empty cw-num">{n ? `观测 ${n} 次` : '观测不足'}</span>;
   const paths = gappedPaths(values, width, height);
-  if (!paths.length) return <span className="cw-spark-empty">观测不足</span>;
+  const bridge = bridgePath(values, width, height);
   return (
     <svg className="cw-spark" width={width} height={height} viewBox={`0 0 ${width} ${height}`} role="img" aria-label={label} style={{ '--c': accent } as CSSProperties}>
+      {/* 空档用淡虚线接上（这段没观测），实线只画连续段，孤立点画成圆点 */}
+      <path className="cw-spark-gap" d={bridge.d} />
       {paths.map((d, i) => (
         <path key={i} d={d} />
+      ))}
+      {bridge.isolated.map((p, i) => (
+        <circle key={`p${i}`} className="cw-spark-pt" cx={p.x} cy={p.y} r={1.5} />
       ))}
     </svg>
   );

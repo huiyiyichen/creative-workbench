@@ -19,7 +19,7 @@ export const STATUS_LABEL: Record<TopicStatus, string> = {
 };
 export const STATUS_COLOR: Record<TopicStatus, string> = {
   new: color.cy,
-  rising: color.rd,
+  rising: color.text,
   steady: color.yl,
   peak: color.mg,
   cooling: color.bl,
@@ -138,6 +138,36 @@ export function gappedPaths(values: (number | null)[], width: number, height: nu
   });
   if (cur.length >= 2) paths.push(cur.join(' '));
   return paths;
+}
+
+/** 最长连续（无空档）段的点数 */
+export function longestRun(values: (number | null)[]): number {
+  let best = 0;
+  let cur = 0;
+  for (const v of values) {
+    cur = v === null ? 0 : cur + 1;
+    best = Math.max(best, cur);
+  }
+  return best;
+}
+
+/** 把所有已知点按顺序连起来（跨过空档），给 GapSpark 画「这段没观测」的虚线底；孤立点单独返回画圆点 */
+export function bridgePath(values: (number | null)[], width: number, height: number, pad = 2): { d: string; isolated: { x: number; y: number }[] } {
+  const known = values.filter((v): v is number => v !== null);
+  if (known.length < 2) return { d: '', isolated: [] };
+  const min = Math.min(...known);
+  const span = Math.max(...known) - min;
+  const step = values.length > 1 ? (width - pad * 2) / (values.length - 1) : 0;
+  const pts: string[] = [];
+  const isolated: { x: number; y: number }[] = [];
+  values.forEach((v, i) => {
+    if (v === null) return;
+    const x = pad + i * step;
+    const y = span === 0 ? height / 2 : height - pad - ((v - min) / span) * (height - pad * 2);
+    pts.push(`${pts.length ? 'L' : 'M'}${x.toFixed(1)},${y.toFixed(1)}`);
+    if ((i === 0 || values[i - 1] === null) && (i === values.length - 1 || values[i + 1] === null)) isolated.push({ x, y });
+  });
+  return { d: pts.join(' '), isolated };
 }
 
 /** 逐小时序列按 n 小时合并（求和，整段都是 null 时为 null） */
