@@ -288,7 +288,7 @@ function LibraryPage() {
         <section>
           {dragging ? <div className="cw-lib-drop">松开导入到灵感库</div> : null}
           {!items ? (
-            <ScanSkeleton height={360} />
+            <ScanSkeleton shape="cards" height={360} />
           ) : items.length === 0 ? (
             q || license || tag || colorQ || kind || boardId ? (
               <EmptyInstrument kind="dark" title="没有符合条件的收藏" reason="换个关键词，或清掉筛选条件。" />

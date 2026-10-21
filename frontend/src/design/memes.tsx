@@ -112,7 +112,7 @@ export function MemeRadarCard() {
       {error ? (
         <EmptyInstrument compact kind="dark" title="梗雷达没算出来" reason={error} actions={<Button onClick={() => void load(true)}>再试一次</Button>} />
       ) : !data || busy ? (
-        <ScanSkeleton height={140} label="扫热榜标题和热门评论" />
+        <ScanSkeleton shape="scan" height={140} label="扫热榜标题和热门评论" />
       ) : !data.items.length ? (
         <EmptyInstrument compact kind="dark" title="今天还没扫到梗" reason={data.reason || '热榜和评论太少，晚点再看。'} />
       ) : (

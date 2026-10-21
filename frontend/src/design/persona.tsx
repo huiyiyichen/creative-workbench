@@ -30,7 +30,7 @@ export function PersonaPanel({ month }: { month?: string }) {
   }, [month]);
   const svg = useMemo(() => (data ? buildPersonaSvg(data, { vote: vote.trim() || undefined }) : ''), [data, vote]);
   if (error) return <p className="cw-error">{error}</p>;
-  if (!data) return <ScanSkeleton height={260} label="统计本月创作动作" />;
+  if (!data) return <ScanSkeleton shape="cards" height={260} label="统计本月创作动作" />;
   const s = data.stats;
   const saveVote = (v: string) => {
     setVote(v);

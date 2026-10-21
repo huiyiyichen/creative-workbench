@@ -144,7 +144,7 @@ export default function CostsPage() {
       ) : null}
       <section className="cw-instrument cw-cost-hero" data-hero="true" aria-label="花费读数" hidden={Boolean(data && empty)}>
         {!data ? (
-          <ScanSkeleton height={220} />
+          <ScanSkeleton shape="scan" height={220} />
         ) : (
           <>
             <div className="cw-readouts">

@@ -243,7 +243,7 @@ export default function ProjectsPage() {
         ) : null}
       </div>
       {items === null ? (
-        <ScanSkeleton height={320} />
+        <ScanSkeleton shape="columns" height={320} />
       ) : items.length === 0 ? (
         archived || q ? (
           <EmptyInstrument kind="dark" title={q ? `没有标题含「${q}」的项目` : '没有已归档的项目'} />

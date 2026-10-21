@@ -60,7 +60,7 @@ export default function FeishuSettingsPage() {
       setBusy(null);
     }
   };
-  if (!s) return <ScanSkeleton height={120} />;
+  if (!s) return <ScanSkeleton shape="form" height={120} />;
   return (
     <div className="cw-stack">
       <Card title="飞书多维表格" extra={s.configured ? <small className="cw-muted">已连接 · {s.table_id}</small> : <small className="cw-muted">未连接</small>}>

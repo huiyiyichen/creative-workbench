@@ -242,7 +242,7 @@ function Periods({ focusGap }: { focusGap: string | null }) {
         </span>
       </div>
       {!items ? (
-        <ScanSkeleton height={160} />
+        <ScanSkeleton shape="scan" height={160} />
       ) : items.length === 0 ? (
         <div className="cw-empty">还没有空档回看或时间段报告</div>
       ) : (

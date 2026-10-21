@@ -186,7 +186,7 @@ function TodayPage() {
           </div>
           {error ? <div className="cw-error">{error}</div> : null}
           {!feed ? (
-            <ScanSkeleton height={240} />
+            <ScanSkeleton shape="cards" height={240} />
           ) : feed.items.length === 0 ? (
             view === 'picks' ? (
               <EmptyInstrument kind="dark" title="近 7 天还没有「值得做」的内容" reason="分析给出「值得做」的结论后会出现在这里；也可以在条目里手动改结论。" actions={<Button onClick={() => setView('all')}>看全部</Button>} />

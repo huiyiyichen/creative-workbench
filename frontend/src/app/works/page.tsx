@@ -139,7 +139,7 @@ export default function WorksPage() {
             <Segmented label="形态" value={kind} onChange={setKind} options={KINDS} />
             <SearchField placeholder="搜项目或作品" width={260} value={q} onChange={setQ} />
           </div>
-          {data === null ? <ScanSkeleton height={260} /> : null}
+          {data === null ? <ScanSkeleton shape="cards" height={260} /> : null}
           {data && !data.total ? (
             <EmptyInstrument
               kind="dark"

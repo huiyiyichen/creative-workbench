@@ -52,7 +52,7 @@ export default function WechatSettingsPage() {
       setBusy(null);
     }
   };
-  if (!s) return <ScanSkeleton height={120} />;
+  if (!s) return <ScanSkeleton shape="form" height={120} />;
   return (
     <div className="cw-stack">
       <Card

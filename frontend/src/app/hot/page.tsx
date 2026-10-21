@@ -55,6 +55,13 @@ const HOT_SOURCE_LABEL: Record<string, string> = {
   wallstreetcn: '华尔街见闻',
   cls: '财联社',
   xiaoyuzhou: '小宇宙',
+  eastmoney: '东方财富',
+  xyzrank: '播客榜',
+  hupu: '虎扑',
+  tieba: '百度贴吧',
+  netease: '网易新闻',
+  sohu: '搜狐',
+  kr36: '36氪',
 };
 const HOT_CATEGORY_LABEL: Record<string, string> = { hot: '综合', tech: '科技', finance: '财经', podcast: '播客', news: '新闻', video: '视频', dev: '开发' };
 
@@ -94,6 +101,8 @@ function HotList() {
   const categories = useMemo(() => Array.from(new Set(sources.map((s) => s.category))), [sources]);
   const label = (src: string) => HOT_SOURCE_LABEL[src] || src;
   const synced = (src: string) => sources.find((s) => s.source === src)?.last_synced;
+  const [mountedAt] = useState(() => Date.now());
+  const stale = (ts: string | null | undefined) => !ts || mountedAt - new Date(ts).getTime() > 3 * 3600000;
 
   const syncAll = async () => {
     setSyncing(true);
@@ -123,7 +132,7 @@ function HotList() {
         </Button>
       </div>
       {!items ? (
-        <ScanSkeleton height={300} />
+        <ScanSkeleton shape="columns" height={300} />
       ) : bySource.size === 0 ? (
         <EmptyInstrument
           kind="unplugged"
@@ -138,14 +147,18 @@ function HotList() {
       ) : (
         <div className="cw-hotgrid cw-stagger">
           {Array.from(bySource.entries()).map(([src, rows]) => {
-            const top = Math.max(1, ...rows.slice(0, 15).map((r) => r.hot_value || 0));
             return (
               <Instrument
                 key={src}
                 className="cw-hotcol"
                 title={label(src)}
                 extra={
-                  <StatusLamp tone={synced(src) ? 'ok' : 'off'} label={<span className="cw-num">{synced(src) ? relativeTime(synced(src)) : '未同步'}</span>} />
+                  // 正常同步只写时间，不再每列一个绿灯；超过 3 小时没同步才亮黄灯（评审 #3 1.3）
+                  stale(synced(src)) ? (
+                    <StatusLamp tone={synced(src) ? 'warn' : 'off'} label={<span className="cw-num">{synced(src) ? relativeTime(synced(src)) : '未同步'}</span>} />
+                  ) : (
+                    <small className="cw-muted cw-num">{relativeTime(synced(src))}</small>
+                  )
                 }
               >
                 <ol>
@@ -155,14 +168,7 @@ function HotList() {
                       <a href={r.url} target="_blank" rel="noreferrer" title={r.title}>
                         {r.title}
                       </a>
-                      <small className="cw-num">{r.hot_value && r.hot_value_raw && !/^0(\.0+)?$/.test(r.hot_value_raw) ? r.hot_value_raw : ''}</small>
-                      {r.hot_value ? (
-                        <s
-                          style={{
-                            width: `${Math.max(2, (r.hot_value / top) * 100)}%`,
-                          }}
-                        />
-                      ) : null}
+                      <small className="cw-num">{r.hot_value && r.hot_value_raw && !/^0(\.0+)?$/.test(r.hot_value_raw) ? hotText(r.hot_value_raw) : ''}</small>
                     </li>
                   ))}
                 </ol>
@@ -293,7 +299,7 @@ function Rising({ onOpen }: { onOpen: (id: number) => void }) {
         <span className="cw-muted">{board?.computed_at ? `每小时计算 · ${relativeTime(board.computed_at)}` : ''}</span>
       </div>
       {!board ? (
-        <ScanSkeleton height={280} />
+        <ScanSkeleton shape="scan" height={280} />
       ) : board.items.length === 0 && !status && board.hot_rising?.length ? (
         <Card title="热榜升温" extra={<small className="cw-muted">话题信号攒够两次观测前，先看各热榜最近两批的变化</small>}>
           <ul className="cw-rows">
@@ -595,7 +601,7 @@ function HotPage() {
 
   return (
     <CwPage>
-      <TopBar title="热点" sub="各平台热榜、跨平台共振、话题升降与追踪词">
+      <TopBar title="热点">
         <Segmented
           label="热点分页"
           value={tab}
@@ -628,4 +634,13 @@ function sameTitle(a: string | null | undefined, b: string | null | undefined): 
   const x = norm(a);
   const y = norm(b);
   return !!x && !!y && (x === y || x.includes(y) || y.includes(x));
+}
+
+/** 纯数字的原始热度（抖音给 11504896）统一成「1150.5万」，和豆瓣等平台的写法对齐 */
+function hotText(raw: string): string {
+  if (!/^\d+$/.test(raw)) return raw;
+  const n = Number(raw);
+  if (n >= 1e8) return `${(n / 1e8).toFixed(1)}亿`;
+  if (n >= 1e4) return `${(n / 1e4).toFixed(1)}万`;
+  return raw;
 }

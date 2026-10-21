@@ -70,7 +70,7 @@ export default function JobStatsPage() {
       </div>
 
       {error ? <EmptyInstrument kind="unplugged" title="读不到后台任务统计" reason={error} actions={<Button onClick={() => void refetch()}>重试</Button>} /> : null}
-      {!data && !error ? <ScanSkeleton height={240} label="读取后台任务" /> : null}
+      {!data && !error ? <ScanSkeleton shape="scan" height={240} label="读取后台任务" /> : null}
 
       {data && t ? (
         t.total_runs === 0 ? (

@@ -52,7 +52,7 @@ export function BreakdownView({ target }: { target: BreakdownTarget }) {
       </div>
     );
   }
-  if (!data) return <ScanSkeleton height={320} label="在拆：读正文、抓热门评论、找钩子（约 20 秒）" />;
+  if (!data) return <ScanSkeleton shape="scan" height={320} label="在拆：读正文、抓热门评论、找钩子（约 20 秒）" />;
   const max = Math.max(0, ...data.comment_words.map((w) => w.count));
   const write = async () => {
     setBusy(true);

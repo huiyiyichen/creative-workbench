@@ -211,11 +211,55 @@ export function EmptyInstrument({
 }
 
 /** 加载态：保留刻度网格，一条带拖尾的竖向扫描线循环划过。 */
-export function ScanSkeleton({ height = 160, label = '加载中' }: { height?: number; label?: string }) {
+export type SkeletonShape = 'scan' | 'rows' | 'cards' | 'columns' | 'form';
+
+/**
+ * 加载占位。按页面实际版式画静态骨架（行 / 卡片 / 分栏 / 表单），只有图表类仪器（shape='scan'）
+ * 保留扫描线——扫描是「仪器在读数」的语义，不是通用转圈（用户反馈：很多页面不该扫）。
+ */
+export function ScanSkeleton({
+  height = 160,
+  label = '加载中',
+  shape = 'rows',
+  count,
+}: {
+  height?: number;
+  label?: string;
+  shape?: SkeletonShape;
+  count?: number;
+}) {
+  if (shape === 'scan') {
+    return (
+      <div className="cw-scan" style={{ height }} aria-busy="true" aria-label={label}>
+        <i />
+        <span>{label}</span>
+      </div>
+    );
+  }
+  const n = count ?? (shape === 'rows' ? Math.max(2, Math.round(height / 48)) : shape === 'form' ? 3 : 3);
   return (
-    <div className="cw-scan" style={{ height }} aria-busy="true" aria-label={label}>
-      <i />
-      <span>{label}</span>
+    <div className="cw-skel-wrap" data-shape={shape} aria-busy="true" aria-label={label}>
+      <span className="cw-sr-only">{label}</span>
+      {Array.from({ length: n }, (_, i) =>
+        shape === 'rows' ? (
+          <div key={i} className="cw-skel-line">
+            <i style={{ width: `${68 - (i % 3) * 14}%` }} />
+            <i style={{ width: `${34 - (i % 2) * 10}%` }} />
+          </div>
+        ) : shape === 'form' ? (
+          <div key={i} className="cw-skel-field">
+            <i />
+            <i />
+          </div>
+        ) : (
+          <div key={i} className="cw-skel-card" style={{ minHeight: shape === 'columns' ? height : Math.min(height, 200) }}>
+            <i style={{ width: '40%' }} />
+            <i style={{ width: '72%' }} />
+            <i style={{ width: '56%' }} />
+            {shape === 'columns' ? Array.from({ length: 6 }, (_, j) => <i key={j} style={{ width: `${84 - (j % 3) * 12}%` }} />) : null}
+          </div>
+        ),
+      )}
     </div>
   );
 }

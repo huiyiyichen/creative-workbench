@@ -153,7 +153,7 @@ export default function GenerationSettingsPage() {
       </Card>
       <Card title="生成服务" extra={<Button onClick={() => edit()}>添加服务</Button>}>
         {items === null ? (
-          <ScanSkeleton height={120} />
+          <ScanSkeleton shape="form" height={120} />
         ) : items.length ? (
           <table className="cw-table">
             <thead>

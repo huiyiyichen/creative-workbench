@@ -63,7 +63,7 @@ export default function BackupSettingsPage() {
       </Card>
       <Card title="备份记录">
         {items === null ? (
-          <ScanSkeleton height={120} />
+          <ScanSkeleton shape="form" height={120} />
         ) : items.length === 0 ? (
           <p className="cw-muted">还没有备份。</p>
         ) : (

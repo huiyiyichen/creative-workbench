@@ -76,7 +76,7 @@ function NotesPage() {
             ) : null}
           </div>
           {!data ? (
-            <ScanSkeleton height={200} />
+            <ScanSkeleton shape="cards" height={200} />
           ) : data.days.length === 0 ? (
             tag || q ? (
               <EmptyInstrument kind="dark" title="没有匹配的随笔" />

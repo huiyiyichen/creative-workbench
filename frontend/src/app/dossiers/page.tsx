@@ -96,7 +96,7 @@ export default function DossiersPage() {
         {q || (items && items.length >= 10) ? <SearchField placeholder="搜索专题" width={240} value={q} onChange={setQ} /> : null}
       </div>
       {!items ? (
-        <ScanSkeleton height={240} />
+        <ScanSkeleton shape="cards" height={240} />
       ) : items.length === 0 ? (
         archived === 'archived' ? (
           <EmptyInstrument kind="dark" title="没有归档的专题" />

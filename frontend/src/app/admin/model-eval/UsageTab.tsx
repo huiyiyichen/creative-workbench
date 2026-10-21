@@ -29,7 +29,7 @@ export function UsageTab({
   loading: boolean;
   onRefresh: () => void;
 }) {
-  if (loading) return <ScanSkeleton height={220} label="读取用量" />;
+  if (loading) return <ScanSkeleton shape="scan" height={220} label="读取用量" />;
   if (!usage || usage.total.calls === 0) {
     return (
       <EmptyInstrument

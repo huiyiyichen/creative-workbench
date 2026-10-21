@@ -98,7 +98,7 @@ export default function GraphPage() {
           ) : data ? (
             <LibraryGraph data={data} height={640} onSelect={setPicked} selected={picked?.key} />
           ) : (
-            <ScanSkeleton height={160} />
+            <ScanSkeleton shape="scan" height={160} />
           )}
         </section>
         <aside className="cw-today-side">
