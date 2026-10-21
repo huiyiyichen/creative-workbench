@@ -2950,6 +2950,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/models/remote-list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * List Remote Models Endpoint
+         * @description 用填写的 API Base + Key 向接口拉取实际可用的模型名（中转站以此为准）。
+         */
+        post: operations["list_remote_models_endpoint_api_v1_models_remote_list_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/models/usage/summary": {
         parameters: {
             query?: never;
@@ -8399,6 +8419,22 @@ export interface components {
              * @enum {string}
              */
             object_type: "content" | "project";
+        };
+        /** RemoteModelsRequest */
+        RemoteModelsRequest: {
+            /** Api Base */
+            api_base?: string | null;
+            /**
+             * Api Format
+             * @default openai
+             */
+            api_format: string;
+            /** Api Key */
+            api_key?: string | null;
+            /** Model Db Id */
+            model_db_id?: number | null;
+            /** Provider */
+            provider?: string | null;
         };
         /** ScheduleBody */
         ScheduleBody: {
@@ -14882,6 +14918,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": unknown;
+                };
+            };
+        };
+    };
+    list_remote_models_endpoint_api_v1_models_remote_list_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RemoteModelsRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

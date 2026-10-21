@@ -29,6 +29,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { AutoComplete } from 'antd';
 import {
   CheckCircle2,
   Loader2,
@@ -185,6 +186,43 @@ export function ModelEditForm({ model, onClose }: { model?: LlmModelItem | null;
       cancelled = true;
     };
   }, []);
+
+  // 接口实际可用的模型（GET {api_base}/models）；中转站按分组开放模型，以它为准
+  const [remoteModels, setRemoteModels] = useState<string[] | null>(null);
+  const [remoteBusy, setRemoteBusy] = useState(false);
+  const [remoteError, setRemoteError] = useState('');
+  const fetchRemoteModels = async () => {
+    setRemoteBusy(true);
+    setRemoteError('');
+    try {
+      const res = await modelsApi.remoteList({
+        api_base: form.api_base || undefined,
+        api_key: form.api_key || undefined,
+        provider: form.provider || undefined,
+        api_format: form.api_format,
+        model_db_id: model?.id,
+      });
+      setRemoteModels(res.models.map((m) => m.id));
+    } catch (err) {
+      setRemoteModels(null);
+      setRemoteError(err instanceof Error ? err.message : '拉取失败');
+    } finally {
+      setRemoteBusy(false);
+    }
+  };
+  const modelIdOptions = useMemo(() => {
+    const groups: { label: string; options: { value: string; label: string }[] }[] = [];
+    if (remoteModels?.length) groups.push({ label: '接口可用', options: remoteModels.map((id) => ({ value: id, label: id })) });
+    const remoteSet = new Set(remoteModels ?? []);
+    const fromCatalog = catalogModels
+      .filter((m) => !remoteSet.has(m.model_id))
+      .map((m) => ({
+        value: m.model_id,
+        label: `${m.model_id}${m.context_window ? ` · ${formatTokens(m.context_window)} ctx` : ''}${m.status && m.status !== 'ga' ? ` · ${m.status}` : ''}`,
+      }));
+    if (fromCatalog.length) groups.push({ label: remoteModels ? '目录参考（接口未列出）' : '目录参考（models.dev）', options: fromCatalog });
+    return groups;
+  }, [remoteModels, catalogModels]);
 
   /** 当前 Model ID 在目录中的命中项（价格/上下文参考提示用） */
   const matchedCatalogModel = useMemo(
@@ -459,14 +497,28 @@ export function ModelEditForm({ model, onClose }: { model?: LlmModelItem | null;
           {(needsModelId || showAdvanced || (submitAttempted && !!fieldErrors.model_id)) && (
             <div>
               <FieldLabel htmlFor="model-id" required>Model ID</FieldLabel>
-              <TextInput id="model-id" required list="model-catalog-models" aria-invalid={submitAttempted && !!fieldErrors.model_id} aria-describedby={submitAttempted && fieldErrors.model_id ? 'model-id-error' : undefined} value={form.model_id} onChange={(e) => handleModelIdChange(e.target.value)} placeholder={selectedPreset?.model_id || selectedPreset?.model_id_placeholder || `如 ${currentPreset.modelPlaceholder}`} />
-              <datalist id="model-catalog-models">
-                {catalogModels.map((m) => (
-                  <option key={`${m.provider}/${m.model_id}`} value={m.model_id}>
-                    {`${m.name ?? m.model_id}${m.context_window ? ` · ${formatTokens(m.context_window)} ctx` : ''}${m.status && m.status !== 'ga' ? ` · ${m.status}` : ''}`}
-                  </option>
-                ))}
-              </datalist>
+              <div className="flex gap-2">
+                <AutoComplete
+                  id="model-id"
+                  className="min-w-0 flex-1"
+                  value={form.model_id}
+                  onChange={(v) => handleModelIdChange(String(v ?? ''))}
+                  options={modelIdOptions}
+                  placeholder={selectedPreset?.model_id || selectedPreset?.model_id_placeholder || `如 ${currentPreset.modelPlaceholder}`}
+                  status={submitAttempted && fieldErrors.model_id ? 'error' : undefined}
+                  filterOption={(input, option) => String(option?.value ?? '').toLowerCase().includes(input.toLowerCase())}
+                  allowClear
+                  aria-describedby={submitAttempted && fieldErrors.model_id ? 'model-id-error' : undefined}
+                />
+                <Button size="sm" onClick={() => void fetchRemoteModels()} disabled={remoteBusy}>
+                  {remoteBusy ? '拉取中…' : '从接口拉取'}
+                </Button>
+              </div>
+              {remoteError ? (
+                <div role="alert" className="mt-1 text-[10px] font-bold leading-4 text-red">{remoteError}</div>
+              ) : remoteModels ? (
+                <div className="mt-1 text-[10px] leading-4 text-gray-400">接口返回 {remoteModels.length} 个可用模型，下拉里排在最前（以接口为准，目录名中转站可能不认）。</div>
+              ) : null}
               {submitAttempted && fieldErrors.model_id ? (
                 <div id="model-id-error" role="alert" className="mt-1 text-[10px] font-bold leading-4 text-red">{fieldErrors.model_id}</div>
               ) : matchedCatalogModel ? (
@@ -479,7 +531,7 @@ export function ModelEditForm({ model, onClose }: { model?: LlmModelItem | null;
                   （models.dev，费用与上下文窗口已预填，超出窗口的调用会自动跳过该路由）
                 </div>
               ) : catalogModels.length > 0 ? (
-                <div className="mt-1 text-[10px] leading-4 text-gray-400">可从下拉选择目录模型，或手填裸模型名 / 完整 LiteLLM 路由。</div>
+                <div className="mt-1 text-[10px] leading-4 text-gray-400">下拉里是 models.dev 目录名；用中转站时先点「从接口拉取」，以接口返回为准。</div>
               ) : (
                 <div className="mt-1 text-[10px] leading-4 text-gray-400">可填裸模型名，也可直接填完整 LiteLLM 路由。</div>
               )}

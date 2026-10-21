@@ -672,6 +672,38 @@ async def get_usage_summary(
     }
 
 
+class RemoteModelsRequest(BaseModel):
+    api_base: str | None = Field(None, max_length=500)
+    api_key: str | None = Field(None, max_length=500)
+    provider: str | None = Field(None, max_length=50)
+    api_format: str = Field("openai", max_length=20)
+    # 编辑已有模型时 Key 留空：用库里已保存的 Key
+    model_db_id: int | None = None
+
+
+@router.post("/remote-list", dependencies=[Depends(get_current_admin_user)])
+async def list_remote_models_endpoint(req: RemoteModelsRequest, db: AsyncSession = Depends(get_db)):
+    """用填写的 API Base + Key 向接口拉取实际可用的模型名（中转站以此为准）。"""
+    from app.services.llm.remote_models import RemoteModelsError, list_remote_models
+
+    api_key = (req.api_key or "").strip() or None
+    api_base = req.api_base
+    provider = req.provider
+    if req.model_db_id is not None:
+        saved = await LlmModelRepository(db).get_by_id(req.model_db_id)
+        if saved is not None:
+            if api_key is None and saved.api_key:
+                api_key = decrypt_secret(saved.api_key)
+            api_base = api_base or saved.api_base
+            provider = provider or saved.provider
+    try:
+        return await list_remote_models(
+            api_base=normalize_api_base(api_base), api_key=api_key, provider=provider, api_format=req.api_format
+        )
+    except RemoteModelsError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
 @router.put("/{model_id}", dependencies=[Depends(get_current_admin_user)])
 async def update_model(model_id: int, req: ModelUpdateRequest, db: AsyncSession = Depends(get_db)):
     """Update an existing model configuration."""

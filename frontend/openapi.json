@@ -5772,6 +5772,65 @@
     "title": "RecordBody",
     "type": "object"
    },
+   "RemoteModelsRequest": {
+    "properties": {
+     "api_base": {
+      "anyOf": [
+       {
+        "maxLength": 500,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Api Base"
+     },
+     "api_format": {
+      "default": "openai",
+      "maxLength": 20,
+      "title": "Api Format",
+      "type": "string"
+     },
+     "api_key": {
+      "anyOf": [
+       {
+        "maxLength": 500,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Api Key"
+     },
+     "model_db_id": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Model Db Id"
+     },
+     "provider": {
+      "anyOf": [
+       {
+        "maxLength": 50,
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Provider"
+     }
+    },
+    "title": "RemoteModelsRequest",
+    "type": "object"
+   },
    "ScheduleBody": {
     "properties": {
      "at": {
@@ -16943,6 +17002,46 @@
      }
     },
     "summary": "Get Model Presets",
+    "tags": [
+     "models"
+    ]
+   }
+  },
+  "/api/v1/models/remote-list": {
+   "post": {
+    "description": "用填写的 API Base + Key 向接口拉取实际可用的模型名（中转站以此为准）。",
+    "operationId": "list_remote_models_endpoint_api_v1_models_remote_list_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RemoteModelsRequest"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      },
+      "description": "Successful Response"
+     },
+     "422": {
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      },
+      "description": "Validation Error"
+     }
+    },
+    "summary": "List Remote Models Endpoint",
     "tags": [
      "models"
     ]

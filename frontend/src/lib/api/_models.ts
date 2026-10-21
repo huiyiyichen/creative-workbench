@@ -62,6 +62,10 @@ export const modelsApi = {
     if (search) params.set('search', search);
     return request(`/models/catalog/models?${params.toString()}`);
   },
+  /** 用填写的 API Base + Key 向接口拉取实际可用的模型名（中转站以此为准） */
+  remoteList(data: { api_base?: string; api_key?: string; provider?: string; api_format?: string; model_db_id?: number }): Promise<{ source: string; models: { id: string; owned_by: string | null }[]; total: number }> {
+    return request('/models/remote-list', { method: 'POST', body: JSON.stringify(data) });
+  },
   refreshCatalog(): Promise<ModelCatalogRefreshResponse> {
     return request('/models/catalog/refresh', { method: 'POST' });
   },
