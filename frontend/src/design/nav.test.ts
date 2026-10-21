@@ -15,6 +15,9 @@ describe('主导航', () => {
   it('按最长前缀判断当前入口', () => {
     expect(activeNavId('/')).toBe('today');
     expect(activeNavId('/items/3')).toBe('today');
+    expect(activeNavId('/projects')).toBe('projects');
+    expect(activeNavId('/projects/41/idea')).toBe('new');
+    expect(activeNavId('/projects/new')).toBe('new');
     expect(activeNavId('/weekly')).toBe('reports');
     expect(activeNavId('/sources')).toBe('sources');
     expect(activeNavId('/admin/sources')).toBe('sources');

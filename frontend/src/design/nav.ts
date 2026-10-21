@@ -53,8 +53,8 @@ export const CW_NAV: CwNavGroup[] = [
   {
     id: 'create',
     items: [
-      // 直接开始创作：不用先进项目看板再点一个项目（用户 2026-10-21 反馈）
-      { id: 'new', label: '创作', href: '/projects?new=1', icon: SquarePen },
+      // 直接开始创作：新建空白项目并进入「选题与创意」，不经过项目看板（用户 2026-10-21 反馈）
+      { id: 'new', label: '创作', href: '/projects/new', icon: SquarePen },
       { id: 'projects', label: '项目', href: '/projects', icon: FolderKanban, match: ['/studio'] },
     ],
   },
@@ -86,6 +86,8 @@ function matches(pathname: string, prefix: string): boolean {
 
 /** 当前路径对应的导航 id；更具体（更长）的前缀优先 */
 export function activeNavId(pathname: string): string | null {
+  // 项目内页（选题 / 文稿 / 产出）就是创作现场：亮「创作」，「项目」只代表看板
+  if (/^\/projects\/(new|\d+)(\/|$)/.test(pathname)) return 'new';
   const all = [...CW_NAV.flatMap((g) => g.items), ...CW_NAV_BOTTOM];
   let best: { id: string; len: number } | null = null;
   for (const item of all) {
