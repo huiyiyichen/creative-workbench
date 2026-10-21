@@ -329,6 +329,12 @@ function ReportsPage() {
             { value: 'search', label: '搜索' },
           ]}
         />
+        <Link className="cw-btn" data-variant="ghost" href="/weekly">
+          周刊
+        </Link>
+        <Link className="cw-btn" data-variant="ghost" href="/monthly">
+          月刊
+        </Link>
         <Link className="cw-btn" data-variant="primary" href="/daily">
           今日日报
         </Link>

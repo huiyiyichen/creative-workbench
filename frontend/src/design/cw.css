@@ -1190,7 +1190,7 @@ a.cw-cal-cell:hover { border-color: var(--cw-cy); }
 .cw-style-list nav button[aria-current='true'] { background: var(--cw-raise); }
 .cw-style-list nav button small { margin-left: auto; flex: none; color: var(--cw-faint); white-space: nowrap; }
 @media (max-width: 1100px) { .cw-style-list { grid-template-columns: 200px minmax(0, 1fr); } }
-.cw-graph { width: 100%; border: 1px solid var(--cw-grat); border-radius: 8px; background: var(--cw-deep); }
+.cw-graph { position: relative; overflow: hidden; width: 100%; border: 1px solid var(--cw-grat); border-radius: 8px; background: var(--cw-deep); }
 .cw-comment-digest { margin: 0 0 10px; padding: 10px 12px; border-radius: 6px; background: var(--cw-raise); }
 .cw-comment-digest ul { margin: 6px 0 0; padding-left: 18px; }
 .cw-comment-list { margin: 0; padding: 0; list-style: none; }

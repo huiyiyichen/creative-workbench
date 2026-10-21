@@ -6,6 +6,7 @@ import {
   ListChecks,
   Wallet,
   Newspaper,
+  SquarePen,
   RadioTower,
   Settings,
   Sun,
@@ -51,7 +52,11 @@ export const CW_NAV: CwNavGroup[] = [
   },
   {
     id: 'create',
-    items: [{ id: 'projects', label: '项目', href: '/projects', icon: FolderKanban, match: ['/studio'] }],
+    items: [
+      // 直接开始创作：不用先进项目看板再点一个项目（用户 2026-10-21 反馈）
+      { id: 'new', label: '创作', href: '/projects?new=1', icon: SquarePen },
+      { id: 'projects', label: '项目', href: '/projects', icon: FolderKanban, match: ['/studio'] },
+    ],
   },
   {
     id: 'output',
@@ -68,7 +73,7 @@ export const CW_NAV_BOTTOM: CwNavItem[] = [
   {
     id: 'settings',
     label: '设置',
-    href: '/settings/scoring',
+    href: '/admin/model-eval',
     icon: Settings,
     match: ['/settings', '/admin/model-eval', '/admin/prompts', '/admin/settings'],
   },

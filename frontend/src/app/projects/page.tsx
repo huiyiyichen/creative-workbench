@@ -3,10 +3,10 @@
 /** 项目（设计文档 2 节 + 设计评审 #1 · 2.6）：看板按步骤分三栏（选题中 / 写稿中 / 产出），也可切列表；新建、复制、批量归档。 */
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from 'antd';
 import { Copy, Plus } from 'lucide-react';
-import { useCallback, useEffect, useState, type CSSProperties } from 'react';
+import { Suspense, useCallback, useEffect, useState, type CSSProperties } from 'react';
 import { Button, Chip, Cover, CwPage, SearchField, Segmented, TopBar } from '@/design/components';
 import { confirmAction, toast } from '@/design/feedback';
 import { EmptyInstrument, ScanSkeleton, SignalPath } from '@/design/instrument';
@@ -144,12 +144,28 @@ function CreateCard({ onClose }: { onClose: () => void }) {
 }
 
 export default function ProjectsPage() {
+  return (
+    <Suspense fallback={null}>
+      <ProjectsBoard />
+    </Suspense>
+  );
+}
+
+function ProjectsBoard() {
   const router = useRouter();
   const [view, setView] = useState<'board' | 'list'>('board');
   const [archived, setArchived] = useState(false);
   const [q, setQ] = useState('');
   const [items, setItems] = useState<ProjectSummary[] | null>(null);
   const [creating, setCreating] = useState(false);
+  // 侧栏「创作」= /projects?new=1：直接打开新建
+  const params = useSearchParams();
+  useEffect(() => {
+    if (params.get('new') === '1') {
+      setCreating(true);
+      router.replace('/projects');
+    }
+  }, [params, router]);
   const [picked, setPicked] = useState<Set<number>>(new Set());
 
   const load = useCallback(async () => {
