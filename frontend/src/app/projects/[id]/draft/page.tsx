@@ -95,6 +95,22 @@ export default function DraftPage() {
   const aiActive = Boolean(aiRun && ['queued', 'running', 'waiting'].includes(aiRun.run.status));
 
   const locked = Boolean(project?.finalized_version);
+  // 文稿页也能直接让 AI 写全文（之前只有选题页有「AI 写初稿」，按模板进来后就找不到了）
+  const [aiStarting, setAiStarting] = useState(false);
+  const startAiDraft = async () => {
+    if (!project) return;
+    setAiStarting(true);
+    try {
+      await flushed();
+      await projectsApi.aiDraft(project.id);
+      message.success('AI 开始写全文，写完会存成新版本；现在的内容留在「版本」里');
+      await reload();
+    } catch (err) {
+      message.error(apiError(err, 'AI 写全文启动失败'));
+    } finally {
+      setAiStarting(false);
+    }
+  };
   const isVideo = view ? view.brief.mode !== 'article' : false;
 
   const change = (next: Draft) => {
@@ -221,6 +237,14 @@ export default function DraftPage() {
           <Button onClick={() => resolveConflict(false)}>载入最新</Button>
           <Button onClick={() => resolveConflict(true)}>用我的覆盖</Button>
           <small className="cw-muted">覆盖前会先把对方的内容存成一个版本</small>
+        </div>
+      ) : null}
+      {!locked && !aiActive && draft.provenance === 'compiled' ? (
+        <div className="cw-banner">
+          <span>这是按模板生成的结构，正文还是占位。点「AI 写全文」让 AI 按这个结构和来源写正文，或者直接自己改。</span>
+          <Button variant="primary" onClick={() => void startAiDraft()} disabled={aiStarting}>
+            {aiStarting ? '启动中…' : 'AI 写全文'}
+          </Button>
         </div>
       ) : null}
       {aiRun && (aiActive || aiRun.run.status === 'failed') ? (
@@ -466,6 +490,11 @@ export default function DraftPage() {
         </span>
         <span className="cw-grow" />
         <MemeInsert onInsert={(t) => insertAtCursor(t)} disabled={locked} />
+        {locked ? null : (
+          <Button onClick={() => void startAiDraft()} disabled={aiStarting || aiActive} title="写手 → 审校 → 写手修改，写完存成新版本">
+            {aiActive ? 'AI 写作中…' : aiStarting ? '启动中…' : 'AI 写全文'}
+          </Button>
+        )}
         <Button onClick={saveVersion} disabled={locked}>
           保存版本 Ctrl S
         </Button>
