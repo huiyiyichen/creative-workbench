@@ -49,7 +49,7 @@ function NotesPage() {
 
   return (
     <CwPage>
-      <TopBar title="随笔" sub="Alt+N 在任何页面随手记">
+      <TopBar title="随笔" sub={data ? <span className="cw-num">{data.days.reduce((n, d) => n + d.notes.length, 0)} 条</span> : undefined}>
         <nav className="cw-seg" aria-label="灵感库分页">
           <Link href="/library">收藏</Link>
           <Link href="/notes" aria-current="page">
@@ -124,6 +124,7 @@ function NotesPage() {
                       <div className="cw-item-meta">
                         {n.audio ? <span>录音{n.transcript_status === 'done' ? ' · 已转写' : n.transcript_status === 'not_configured' ? ' · 未配置转写' : ''}</span> : null}
                         {n.source !== 'app' ? <span>来自{n.source === 'tray' ? '托盘' : 'Obsidian'}</span> : null}
+                        <span className="cw-note-acts">
                         <button type="button" className="cw-link-btn" onClick={() => { setEditing(n.id); setDraft(n.body); }}>
                           编辑
                         </button>
@@ -139,6 +140,7 @@ function NotesPage() {
                         >
                           <Trash2 size={13} />
                         </button>
+                        </span>
                       </div>
                     </div>
                   </article>

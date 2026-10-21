@@ -86,12 +86,14 @@ export default function ModelEvalPage() {
       {/* 页头读数：没有模型时不摆一排 0（评审 #3 2.6），只留下面那台未接线的仪器 */}
       <div className="cw-admin-head" style={{ marginBottom: 14 }}>
         <h2 className="cw-sr-only">AI 模型与配音</h2>
+        {models.length ? (
         <Segmented<Tab>
           label="模型分页"
           value={tab}
           onChange={setTab}
-          options={tabs.filter((t) => models.length || t.key === 'models').map((t) => ({ value: t.key, label: t.label }))}
+          options={tabs.map((t) => ({ value: t.key, label: t.label }))}
         />
+        ) : <span />}
         <CwButton variant="ghost" icon={<RefreshCw size={14} />} onClick={refreshAll}>
           刷新
         </CwButton>

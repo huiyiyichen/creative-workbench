@@ -2275,3 +2275,15 @@ a.cw-lamp:hover { color: var(--cw-text); }
 .cw-srccard:not(:hover):not(:focus-within) .cw-srccard-acts { opacity: 0; }
 @media (hover: none) { .cw-srccard .cw-srccard-acts { opacity: 1; } }
 .cw-legacy-area .cw-distbars em { color: var(--cw-faint); font-style: normal; font-size: 11px; }
+
+/* 随笔：话题标签不用黄色（黄 = 文章形态）；行内动作悬停才显示；时间列加一条竖向刻度线，每条一个点，最新一条点亮 */
+.cw-note-tag { color: var(--cw-dim); }
+.cw-note-tag:hover { color: var(--cw-text); }
+.cw-note-acts { display: inline-flex; align-items: center; gap: 10px; transition: opacity var(--cw-dur-1, .12s); }
+.cw-note:not(:hover):not(:focus-within) .cw-note-acts { opacity: 0; }
+@media (hover: none) { .cw-note .cw-note-acts { opacity: 1; } }
+.cw-note { position: relative; }
+.cw-note-time { position: relative; padding-left: 14px; }
+.cw-note-time::before { content: ''; position: absolute; left: 3px; top: -12px; bottom: -14px; width: 1px; background: var(--cw-grat); }
+.cw-note-time::after { content: ''; position: absolute; left: 0; top: 7px; width: 7px; height: 7px; border-radius: 50%; background: var(--cw-panel); border: 1px solid var(--cw-line); }
+.cw-note-day:first-of-type .cw-note:first-of-type .cw-note-time::after { background: var(--cw-gr); border-color: var(--cw-gr); }
