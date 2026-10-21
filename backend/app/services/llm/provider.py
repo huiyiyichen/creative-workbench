@@ -421,6 +421,13 @@ async def call_llm_json_with_metadata(
                 return {"raw_response": raw}, metadata
             return result, metadata
         except json.JSONDecodeError:
+            # 被 max_tokens 截断时保留已完整的部分（例如方向卡写到第 3 张被截断，前两张照样能用）
+            from app.utils.json_salvage import salvage_truncated_json
+
+            salvaged = salvage_truncated_json(text)
+            if isinstance(salvaged, dict | list) and salvaged:
+                logger.warning("LLM JSON truncated, salvaged complete prefix (attempt %d)", attempt + 1)
+                return salvaged, metadata
             logger.warning("Failed to parse LLM JSON response (attempt %d): %s", attempt + 1, text[:200])
             if attempt < max_attempts - 1:
                 continue

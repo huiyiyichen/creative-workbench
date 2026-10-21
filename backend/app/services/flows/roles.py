@@ -272,7 +272,7 @@ async def aggregator(ctx: RoleContext) -> list[ArtifactOut]:
             {"role": "user", "content": f"运行 #{ctx.run_id}\n选题：{topic}\n\n" + "\n".join(lines)},
         ],
         scene="flow_aggregator",
-        max_tokens=2000,
+        max_tokens=3000,
     )
     if not isinstance(reply, dict):
         raise RoleError("汇总没有返回 JSON 对象")
@@ -347,7 +347,7 @@ async def planner(ctx: RoleContext) -> list[ArtifactOut]:
             },
         ],
         scene="flow_planner",
-        max_tokens=1600,
+        max_tokens=3500,
     )
     if not isinstance(reply, dict):
         raise RoleError("策划没有返回 JSON 对象")
