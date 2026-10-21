@@ -117,8 +117,10 @@ export function BreakdownView({ target }: { target: BreakdownTarget }) {
           <div className="cw-bd-words">
             {data.comment_words.map((w) => (
               <span key={w.word} data-tier={wordTier(w.count, max)} title={w.meaning}>
-                {w.word}
-                {w.count ? <sup className="cw-num">{w.count}</sup> : null}
+                <span>
+                  {w.word}
+                  {w.count ? <sup className="cw-num">{w.count}</sup> : null}
+                </span>
                 <small>{w.meaning}</small>
               </span>
             ))}

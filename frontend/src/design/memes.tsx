@@ -104,7 +104,7 @@ export function MemeRadarCard() {
     <Card
       title="今日梗雷达"
       extra={
-        <button type="button" className="cw-link-btn cw-muted" onClick={() => void load(true)} disabled={busy} title="重新扫一遍热榜和评论">
+        <button type="button" className="cw-link-btn cw-muted cw-meme-refresh" onClick={() => void load(true)} disabled={busy} title="重新扫一遍热榜和评论">
           <RefreshCw size={12} className={busy ? 'cw-spin' : undefined} /> {data?.date ? data.date.slice(5).replace('-', '/') : ''}
         </button>
       }

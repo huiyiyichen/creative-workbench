@@ -2357,6 +2357,7 @@ a.cw-lamp:hover { color: var(--cw-text); }
 .cw-bd { display: flex; flex-direction: column; gap: 18px; }
 .cw-bd-head h3 { margin: 4px 0 6px; font-size: 17px; line-height: 1.45; }
 .cw-bd-verdict { margin: 0; font-family: var(--cw-serif); font-size: 20px; line-height: 1.45; color: var(--cw-text); }
+.cw-bd-h .cw-link-btn, .cw-meme-refresh { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-weight: 400; letter-spacing: 0; }
 .cw-bd-h { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: var(--cw-dim); }
 .cw-bd-tag { display: inline-block; margin-bottom: 6px; font-size: 11px; color: var(--cw-yl); letter-spacing: 0.06em; }
 .cw-bd-hook { padding: 12px 14px; border: 1px solid var(--cw-line); border-left: 2px solid var(--cw-yl); border-radius: 8px; background: var(--cw-panel); }
@@ -2378,12 +2379,13 @@ a.cw-lamp:hover { color: var(--cw-text); }
 .cw-bd-words span[data-tier="1"] { font-size: 15px; }
 .cw-bd-words span[data-tier="2"] { font-size: 19px; }
 .cw-bd-words span[data-tier="3"] { font-size: 24px; color: var(--cw-yl); }
-.cw-bd-words sup { position: absolute; top: -2px; right: -12px; font-size: 10px; color: var(--cw-faint); font-weight: 400; }
+.cw-bd-words sup { margin-left: 2px; font-size: 10px; color: var(--cw-faint); font-weight: 400; vertical-align: super; }
+.cw-bd-words span > span { white-space: nowrap; }
 .cw-bd-words small { font-size: 11px; font-weight: 400; color: var(--cw-faint); max-width: 160px; }
 .cw-bd-template { margin: 0; padding: 12px 14px; border: 1px dashed var(--cw-line); border-radius: 8px; background: var(--cw-deep); font-family: var(--cw-sans); font-size: 13px; line-height: 1.8; white-space: pre-wrap; }
 .cw-bd-titles { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
 .cw-bd-titles .cw-link-btn { text-align: left; color: var(--cw-text); }
-.cw-tri-wrap { margin-top: 28px; }
+.cw-tri-wrap { margin: 0 0 28px; }
 .cw-search-bd { display: flex; flex-direction: column; gap: 18px; max-width: 760px; }
 
 /* 今日梗雷达（design/memes.tsx） */

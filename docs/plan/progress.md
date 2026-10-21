@@ -323,3 +323,13 @@
 - c208b6e 项目复制与批量操作。
 - N+1 抽查：任务列表 5、作品 3、项目 3、搜索 9、今日信息流 19 条查询，热路径没有循环查库，不再改。
 - 下一步：前端全站重做，规范见 work/design-review-1.md。
+
+## 投票拉票功能（2026-10-21，stage-6）
+
+单用户、无登录；四项都融进已有流程，没有单开孤立页面。
+
+- **平台腔调**（7b9d343）：平台版本新增 `douyin`（前三秒钩子 hook、一行一镜【画面：…】口播、3–5 话题）和 `bilibili`（开头 15 秒看点、【弹幕】互动点、简介 ≤250、3–10 标签）。规则在 output_rules.py（SCRIPT_KINDS），平台改写流程 / 全流程 / 作品库 / 发布都认。前端 design/platform-preview.tsx 三种原生样式预览（小红书笔记、抖音竖屏自动轮播分镜、B站播放器飞弹幕，reduced-motion 下静止），lib/script.ts 解析口播稿。产出总览顶部「同一份稿，N 种腔调」三栏并排。
+- **爆款拆解**（0bf3d19）：breakdown_service.py，POST /library/breakdown（url / content_id / library_item_id）。拆过的一律收进灵感库（import_method=breakdown），结果存 meta.breakdown；评论用评论服务缓存或按平台直接抓；hot_phrases 本地粗算 2–4 字高频片段再交模型。入口：条目详情、灵感库条目、搜索框 / Ctrl+K 贴链接。「照这个结构写」= 新建项目（来源 library:id，ProjectCreate.intent 写进创作思路）。
+- **今日梗雷达**（fb39370）：meme_service.py，GET /trending/memes，24h 热榜标题 + 72h 热门评论，按北京时间每天一次存 app_settings.meme_radar。今日页侧栏卡片（拿它开稿 → /projects/new?theme&intent），写稿底栏「今日梗」插入示范用法。
+- **创作人格**（5eee81e）：persona_service.py，GET /monthly-digests/persona?month=，规则判定 9 种人格（不调模型）。月刊顶部 PersonaPanel，lib/persona-card.ts 生成 1080×1920 SVG → canvas 导出 PNG，可印投票口令（localStorage cw.persona.vote），复制配图文案。看「最新」时按当月，点了历史期按那一期。
+- 演示数据：backend/seed_vote.py（dev 库直写）。截图 work/shots/r/vote2-*。

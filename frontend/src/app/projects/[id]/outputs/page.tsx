@@ -99,6 +99,7 @@ export default function OutputsIndex() {
           }
         />
       ) : null}
+      <TriCompare projectId={project.id} outputs={items} />
       <div className="cw-outgrid cw-stagger">
         {KINDS.map(({ kind, desc, needsFinal }) => {
           const mine = items.filter((o) => o.kind === kind);
@@ -140,7 +141,6 @@ export default function OutputsIndex() {
           });
         })}
       </div>
-      <TriCompare projectId={project.id} outputs={items} />
     </div>
   );
 }

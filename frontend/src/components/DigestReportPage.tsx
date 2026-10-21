@@ -230,6 +230,8 @@ export default function DigestReportPage<TDigest extends DigestRecord, TSummary 
   const [digest, setDigest] = useState<TDigest | null>(null);
   const [periods, setPeriods] = useState<TSummary[]>([]);
   const [selectedPeriod, setSelectedPeriod] = useState<string | null>(null);
+  // 用户在左栏主动点过的期号；看「最新」时为空（附加区块据此决定按当月还是按所选期）
+  const [pickedPeriod, setPickedPeriod] = useState<string | undefined>();
   const [loading, setLoading] = useState(true);
   const [periodsLoading, setPeriodsLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
@@ -259,6 +261,7 @@ export default function DigestReportPage<TDigest extends DigestRecord, TSummary 
       const data = periodKey ? await api.getByPeriod(periodKey) : await api.getCurrent();
       setDigest(data);
       setSelectedPeriod(getDigestKey(data));
+      setPickedPeriod(periodKey);
       onDigestChange?.(data);
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
@@ -373,7 +376,7 @@ export default function DigestReportPage<TDigest extends DigestRecord, TSummary 
           </CwButton>
         </TopBar>
 
-        {aside ? aside(currentKey) : null}
+        {aside ? aside(pickedPeriod) : null}
 
         {loading ? (
           <ReportStatusPanel icon={HistoryIcon}>{loadingText}</ReportStatusPanel>
