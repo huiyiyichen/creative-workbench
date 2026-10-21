@@ -101,7 +101,8 @@ export default function OutputsIndex() {
       ) : null}
       <TriCompare projectId={project.id} outputs={items} />
       <div className="cw-outgrid cw-stagger">
-        {KINDS.map(({ kind, desc, needsFinal }) => {
+        {/* 已有产出排前、空通道排后（评审 #3 1.6-4） */}
+        {KINDS.filter((k) => items.some((o) => o.kind === k.kind)).concat(KINDS.filter((k) => !items.some((o) => o.kind === k.kind))).map(({ kind, desc, needsFinal }) => {
           const mine = items.filter((o) => o.kind === kind);
           const locked = needsFinal && !final;
           if (!mine.length) {
