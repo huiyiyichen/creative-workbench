@@ -5694,7 +5694,10 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get Today Feed */
+        /**
+         * Get Today Feed
+         * @description 信号流：sort=score 按结论与初筛分（默认），sort=latest 按发布时间。
+         */
         get: operations["get_today_feed_api_v1_today_feed_get"];
         put?: never;
         post?: never;
@@ -20551,6 +20554,7 @@ export interface operations {
                 platform?: string | null;
                 limit?: number;
                 offset?: number;
+                sort?: "score" | "latest";
             };
             header?: never;
             path?: never;

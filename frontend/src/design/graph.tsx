@@ -129,7 +129,7 @@ export function LibraryGraph({
           label: n.label,
           x: pos[n.key]?.x ?? Math.random(),
           y: pos[n.key]?.y ?? Math.random(),
-          size: Math.min(18, 3 + Math.sqrt(n.degree) * 3) + (n.key === data.center ? 4 : 0),
+          size: Math.min(18, 5 + Math.sqrt(n.degree) * 3) + (n.key === data.center ? 4 : 0),
           color: c(NODE_COLOR[n.kind] || color.dim),
         });
       }
@@ -145,7 +145,8 @@ export function LibraryGraph({
         labelColor: { color: c(color.text) },
         labelFont: 'Noto Sans SC, sans-serif',
         labelSize: 12,
-        labelRenderedSizeThreshold: data.center ? 0 : 8,
+        // 节点不多时全部显示标题（散点没有标题就像一张空白图）；节点多时只给大节点标
+        labelRenderedSizeThreshold: data.center || data.nodes.length <= 160 ? 0 : 8,
         defaultEdgeColor: c(color.line),
         // 悬停联动：非邻居压暗，邻边点亮（「联动胜过跳转」）
         nodeReducer: (key, attrs) => {

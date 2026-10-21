@@ -9,7 +9,7 @@ inputs:
     type: list
     label: 平台
     default: [xhs, zhihu, wechat]
-    options: [xhs, zhihu, wechat]
+    options: [xhs, zhihu, wechat, bilibili, douyin]
   output_ids: {type: dict, label: 写入哪个产出物, default: {}}
 budget:
   cost: 1.0

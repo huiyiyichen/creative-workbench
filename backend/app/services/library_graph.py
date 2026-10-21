@@ -158,6 +158,9 @@ async def build_graph(
         if by_content:
             for a, b in await _similar_pairs(db, by_content):
                 add(_key("item", a), _key("item", b), "similar")
+        # 没有向量 / 标签时的兜底：标题字面相近（中文二字组 + 英文词的 Jaccard）也连一条，避免整张图都是散点
+        for a, b in _title_pairs(items):
+            add(_key("item", a), _key("item", b), "same_words")
 
     edge_list = [{"source": a, "target": b, "relation": r} for (a, b), r in edges.items()]
 
@@ -233,3 +236,39 @@ async def _similar_pairs(db: AsyncSession, by_content: dict[int, int]) -> list[t
             if sims[i, j] >= SIMILAR_MIN:
                 pairs.append((ids[i], ids[int(j)]))
     return pairs
+
+
+TITLE_SIM_MIN = 0.2
+TITLE_SIM_MAX_ITEMS = 600
+
+
+def _title_tokens(title: str) -> set[str]:
+    import re
+
+    t = (title or "").lower()
+    words = {w for w in re.findall(r"[a-z0-9][a-z0-9.+#-]{2,}", t) if w not in _STOP}
+    han = re.sub(r"[^\u4e00-\u9fff]", " ", t)
+    bigrams = {seg[i : i + 2] for seg in han.split() for i in range(len(seg) - 1)}
+    return words | bigrams
+
+
+_STOP = {"the", "and", "for", "with", "how", "you", "your", "from", "this", "that", "what", "are", "via", "using"}
+
+
+def _title_pairs(items: list[Any]) -> list[tuple[int, int]]:
+    """标题字面相近的条目对：每个条目最多连 2 个最像的，阈值 0.2。"""
+    pool = [(it.id, _title_tokens(it.title or "")) for it in items[:TITLE_SIM_MAX_ITEMS]]
+    pool = [(i, t) for i, t in pool if len(t) >= 2]
+    out: set[tuple[int, int]] = set()
+    for idx, (a, ta) in enumerate(pool):
+        best: list[tuple[float, int]] = []
+        for b, tb in pool[idx + 1 :]:
+            inter = len(ta & tb)
+            if inter < 2:
+                continue
+            sim = inter / len(ta | tb)
+            if sim >= TITLE_SIM_MIN:
+                best.append((sim, b))
+        for _, b in sorted(best, reverse=True)[:2]:
+            out.add((a, b))
+    return sorted(out)

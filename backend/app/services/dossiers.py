@@ -27,6 +27,7 @@ from app.models.trend import TopicTrend
 from app.models.weekly_digest import WeeklyDigest
 from app.services.discovery import item_cards, items_by_ids
 from app.services.event_members import event_members_subquery
+from app.services.term_match import title_matches
 from app.services.topic_signals import CALC_VERSION, STATUS_LABEL
 
 AUTO_STREAK_DAYS = 3
@@ -64,6 +65,22 @@ async def _latest_rows(db: AsyncSession) -> list[TopicTrend]:
     )
 
 
+async def _ensure_signal_rows(db: AsyncSession) -> list[TopicTrend]:
+    """今天的话题信号；定时任务还没跑过（刚装好、或调度器没起）时当场算一次，不让页面空着等一小时。"""
+    rows = await _latest_rows(db)
+    if rows:
+        return rows
+    from app.services.topic_signals import compute_topic_signals
+
+    try:
+        await compute_topic_signals(db)
+        await db.commit()
+    except Exception:  # noqa: BLE001 — 计算失败时页面退回兜底内容，不报错
+        await db.rollback()
+        return []
+    return await _latest_rows(db)
+
+
 def _row_view(row: TopicTrend) -> dict[str, Any]:
     return {
         "id": row.id,
@@ -92,7 +109,8 @@ def _row_view(row: TopicTrend) -> dict[str, Any]:
 async def rising_board(
     db: AsyncSession, *, status: str | None = None, kind: str | None = None, limit: int = 50
 ) -> dict[str, Any]:
-    rows = await _latest_rows(db)
+    rows = await _ensure_signal_rows(db)
+    all_rows = list(rows)
     if status:
         rows = [r for r in rows if r.status == status]
     if kind:
@@ -104,11 +122,12 @@ async def rising_board(
     cards = {c["id"]: c for c in await item_cards(db, reps)}
     dossier_of = await _dossier_map(db, rows)
     counts: dict[str, int] = defaultdict(int)
-    for r in await _latest_rows(db):
+    for r in all_rows:
         counts[r.status or "quiet"] += 1
     return {
         "computed_at": rows[0].window_end if rows else None,
         "status_counts": dict(counts),
+        "hot_rising": await hot_list_rising(db) if not all_rows else [],
         "items": [
             {
                 **_row_view(r),
@@ -317,10 +336,29 @@ async def list_dossiers(db: AsyncSession, *, archived: bool = False, q: str | No
         .scalars()
         .all()
     )
-    trends = await _latest_rows(db)
+    trends = await _ensure_signal_rows(db) if ds else []
     by_event = {t.event_group_id: t for t in trends if t.event_group_id}
     by_watch = {t.watch_source_id: t for t in trends if t.watch_source_id}
-    return [_dossier_view(d, by_event.get(d.event_group_id) or by_watch.get(d.watch_source_id)) for d in ds]
+    out = []
+    for d in ds:
+        view = _dossier_view(d, by_event.get(d.event_group_id) or by_watch.get(d.watch_source_id))
+        if view["content_count"] is None:
+            # 还没有信号行（观测不足）：至少给出已收集多少条、最新一条是什么，卡片不再只有「观测不足」
+            ids = await _dossier_content_ids(db, d)
+            view["content_count"] = len(ids)
+            if ids:
+                latest = (
+                    await db.execute(
+                        select(ContentItem.title, ContentItem.platform)
+                        .where(ContentItem.id.in_(ids))
+                        .order_by(ContentItem.published_at.desc().nulls_last(), ContentItem.id.desc())
+                        .limit(1)
+                    )
+                ).first()
+                if latest:
+                    view["latest_title"] = latest[0]
+        out.append(view)
+    return out
 
 
 async def _dossier_content_ids(db: AsyncSession, d: TopicDossier) -> list[int]:
@@ -342,7 +380,7 @@ async def _dossier_content_ids(db: AsyncSession, d: TopicDossier) -> list[int]:
         conds.append(ContentItem.source_id == d.watch_source_id)
     term = term or d.query
     if term:
-        conds.append(ContentItem.title.ilike(f"%{term}%"))
+        conds.append(title_matches(ContentItem.title, term))
     if not conds:
         return []
     return list((await db.execute(select(ContentItem.id).where(or_(*conds)).limit(500))).scalars())
@@ -431,3 +469,63 @@ async def get_dossier(db: AsyncSession, dossier_id: int) -> dict[str, Any]:
         else None,
         "trend_computed_at": trend.window_end if trend else None,
     }
+
+
+async def hot_list_rising(db: AsyncSession, *, hours: int = 36, limit: int = 30) -> list[dict[str, Any]]:
+    """热榜升温（话题信号还没有时给「升温」页兜底）：每个热榜比较最近两批，
+    新上榜的算「新上榜」，排名上升 3 位以上的算「上升」；榜单自带 trend=up/new 的也算。"""
+    from app.models.trending import TrendingItem
+
+    since = datetime.now(UTC) - timedelta(hours=hours)
+    batches = (
+        await db.execute(
+            select(TrendingItem.source, TrendingItem.batch_id, func.max(TrendingItem.fetched_at))
+            .where(TrendingItem.fetched_at >= since)
+            .group_by(TrendingItem.source, TrendingItem.batch_id)
+        )
+    ).all()
+    per_source: dict[str, list[tuple[Any, str]]] = defaultdict(list)
+    for src, batch, at in batches:
+        per_source[src].append((at, batch))
+    out: list[dict[str, Any]] = []
+    for src, lst in per_source.items():
+        lst.sort(reverse=True)
+        cur_batch = lst[0][1]
+        prev_batch = lst[1][1] if len(lst) > 1 else None
+        wanted = [cur_batch] + ([prev_batch] if prev_batch else [])
+        items = (
+            (
+                await db.execute(
+                    select(TrendingItem).where(TrendingItem.source == src, TrendingItem.batch_id.in_(wanted))
+                )
+            )
+            .scalars()
+            .all()
+        )
+        prev_rank = {it.title: it.rank for it in items if it.batch_id == prev_batch}
+        for it in items:
+            if it.batch_id != cur_batch:
+                continue
+            before = prev_rank.get(it.title)
+            if prev_batch and before is None and it.rank <= 30:
+                kind, delta = "new", None
+            elif before is not None and before - it.rank >= 3:
+                kind, delta = "up", before - it.rank
+            elif it.trend in ("up", "new"):
+                kind, delta = it.trend, None
+            else:
+                continue
+            out.append(
+                {
+                    "source": src,
+                    "title": it.title,
+                    "url": it.url,
+                    "rank": it.rank,
+                    "trend": kind,
+                    "rank_delta": delta,
+                    "hot_value_raw": it.hot_value_raw,
+                    "fetched_at": it.fetched_at,
+                }
+            )
+    out.sort(key=lambda r: (-(r["rank_delta"] or 0), r["rank"]))
+    return out[:limit]

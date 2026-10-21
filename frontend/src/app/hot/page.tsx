@@ -23,6 +23,7 @@ import { INTERVAL_OPTIONS, intervalLabel, relativeTime } from '@/lib/collection'
 import { bucketSeries, topPlatforms } from '@/lib/discover';
 import type { CrossPlatformCluster, MotherTopic, TrendingItem, TrendingSource } from '@/types/trending';
 import { AddSourceModal } from '../sources/_parts';
+import { RemoveTermButton, WatchTermInput } from '@/design/watch-terms';
 
 type Tab = 'list' | 'resonance' | 'rising' | 'terms';
 const TABS: { id: Tab; label: string }[] = [
@@ -293,6 +294,24 @@ function Rising({ onOpen }: { onOpen: (id: number) => void }) {
       </div>
       {!board ? (
         <ScanSkeleton height={280} />
+      ) : board.items.length === 0 && !status && board.hot_rising?.length ? (
+        <Card title="热榜升温" extra={<small className="cw-muted">话题信号攒够两次观测前，先看各热榜最近两批的变化</small>}>
+          <ul className="cw-rows">
+            {board.hot_rising.map((r) => (
+              <li key={`${r.source}-${r.title}`} className="cw-hotrise">
+                <span className="cw-hotrise-tag" data-kind={r.trend}>
+                  {r.trend === 'new' ? '新上榜' : r.rank_delta ? `↑${r.rank_delta}` : '上升'}
+                </span>
+                <a href={r.url} target="_blank" rel="noreferrer" className="cw-hotrise-title">
+                  {r.title}
+                </a>
+                <span className="cw-muted">{HOT_SOURCE_LABEL[r.source] || r.source}</span>
+                <span className="cw-num cw-muted">第 {r.rank} 名</span>
+                <span className="cw-num cw-muted">{r.hot_value_raw}</span>
+              </li>
+            ))}
+          </ul>
+        </Card>
       ) : board.items.length === 0 ? (
         <EmptyInstrument
           kind="flat"
@@ -449,8 +468,14 @@ function WatchTerms() {
   return (
     <>
       <div className="cw-filters">
-        <Button variant="primary" icon={<Plus size={15} />} onClick={() => setAdding(true)}>
-          新建追踪词
+        <WatchTermInput
+          onAdded={(w) => {
+            message.success(`已添加追踪词「${w}」，下一轮采集出数`);
+            load();
+          }}
+        />
+        <Button icon={<Plus size={15} />} onClick={() => setAdding(true)} title="指定平台、频率等">
+          高级添加
         </Button>
         <span className="cw-muted">按平台拆开</span>
         <Switch size="small" checked={split} onChange={setSplit} />
@@ -523,7 +548,15 @@ function WatchTerms() {
                     label: intervalLabel(m),
                   }))}
                 />
-                <Switch size="small" checked={t.enabled} onChange={(v) => update(t.source_id, { enabled: v })} />
+                <Switch size="small" checked={t.enabled} onChange={(v) => update(t.source_id, { enabled: v })} aria-label={t.enabled ? '暂停追踪' : '恢复追踪'} />
+                <RemoveTermButton
+                  sourceId={t.source_id}
+                  term={t.term}
+                  onRemoved={() => {
+                    message.success(`已删除追踪词「${t.term}」`);
+                    load();
+                  }}
+                />
               </div>
             </li>
           ))}

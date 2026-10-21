@@ -2424,3 +2424,74 @@ a.cw-lamp:hover { color: var(--cw-text); }
 .cw-persona-stats dt { font-size: 11px; color: var(--cw-dim); }
 .cw-persona-stats dd { margin: 0; font-size: 22px; }
 @media (max-width: 1023px) { .cw-persona { grid-template-columns: 1fr; } .cw-persona-card { max-width: 270px; } }
+
+/* 信源三页共用壳：旧页面内容区去掉自己的内边距和居中，和「采集」左对齐 */
+.cw-main-scroll { height: 100%; overflow: auto; }
+.cw-sources-body { background: transparent; }
+.cw-sources-body .cw-admin-shell { height: auto; overflow: visible; padding: 0 !important; background: transparent; }
+.cw-sources-body .cw-admin-shell > div { max-width: none !important; margin: 0 !important; }
+
+/* 追踪词增删 */
+.cw-term-add { margin-top: 12px; }
+.cw-term-add form { display: flex; gap: 6px; }
+.cw-term-add .cw-input { flex: 1; min-width: 0; }
+.cw-filters .cw-term-add { margin-top: 0; width: 300px; }
+.cw-term-err { display: block; margin-top: 6px; color: var(--cw-rd); font-size: 12px; }
+.cw-term-del {
+  display: inline-grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 5px;
+  background: none; color: var(--cw-faint); cursor: pointer; flex: none;
+}
+.cw-term-del:hover, .cw-term-del:focus-visible { color: var(--cw-rd); background: var(--cw-panel-2, var(--cw-deep)); }
+.cw-watch-head { display: flex; align-items: center; gap: 8px; }
+.cw-watch-head .cw-watch-term { flex: 1; min-width: 0; margin: 0; }
+.cw-term-chip { display: inline-flex; align-items: center; gap: 2px; padding-right: 2px; }
+.cw-term-chip a { color: inherit; text-decoration: none; }
+
+/* 亮色：辉光（drop-shadow / 发光阴影 / 字的投影）在浅底上只会把线和字晕糊，全部去掉；
+   示波线与封面线改实线加粗一点保持可读。 */
+:root[data-theme='light'] .cw-spark path,
+:root[data-theme='light'] .cw-cover-gen path,
+:root[data-theme='light'] .cw-tl-flat circle,
+:root[data-theme='light'] .cw-phase-pt[data-hover='true'] { filter: none; }
+:root[data-theme='light'] .cw-cover-gen path { stroke-width: 1.6; }
+:root[data-theme='light'] .cw-item-kind,
+:root[data-theme='light'] .cw-taskclip[data-batch='true'] b { text-shadow: none; }
+:root[data-theme='light'] .cw-item-kind { font-weight: 600; }
+:root[data-theme='light'] .cw-app [style*='drop-shadow'] { filter: none !important; }
+
+/* 亮色：圆点 / 指示灯的外发光去掉（浅底上是一圈糊边） */
+:root[data-theme='light'] .cw-bars i:last-child,
+:root[data-theme='light'] .cw-cal-lamp,
+:root[data-theme='light'] .cw-clip[data-selected='hover'],
+:root[data-theme='light'] .cw-cover-kind,
+:root[data-theme='light'] .cw-dot[data-tone='bad'],
+:root[data-theme='light'] .cw-dot[data-tone='ok'],
+:root[data-theme='light'] .cw-dot[data-tone='warn'],
+:root[data-theme='light'] .cw-dots i[data-on='true'],
+:root[data-theme='light'] .cw-empty::after,
+:root[data-theme='light'] .cw-item-event i:first-child,
+:root[data-theme='light'] .cw-meter[data-tone='rd'] i,
+:root[data-theme='light'] .cw-meter[data-tone='yl'] i,
+:root[data-theme='light'] .cw-miniscope i[data-last='true'],
+:root[data-theme='light'] .cw-nav-badge,
+:root[data-theme='light'] .cw-path li[data-state='current'] i,
+:root[data-theme='light'] .cw-playhead::before,
+:root[data-theme='light'] .cw-scope-bars i[data-last='true'],
+:root[data-theme='light'] .cw-taskclip[data-status='failed'],
+:root[data-theme='light'] .cw-toggle[aria-pressed='true'] b,
+:root[data-theme='light'] .cw-verdict b { box-shadow: none; }
+
+/* 热榜升温（升温页兜底） */
+.cw-hotrise { display: grid; grid-template-columns: 64px minmax(0, 1fr) 110px 70px 80px; gap: 12px; align-items: center; padding: 9px 4px; border-bottom: 1px solid var(--cw-grat); font-size: 13px; }
+.cw-hotrise:last-child { border-bottom: 0; }
+.cw-hotrise-tag { font-size: 12px; color: var(--cw-rd); font-variant-numeric: tabular-nums; }
+.cw-hotrise-tag[data-kind='new'] { color: var(--cw-cy); }
+.cw-hotrise-title { color: var(--cw-text); text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cw-hotrise-title:hover { text-decoration: underline; }
+.cw-dossier-count { display: flex; flex-direction: column; gap: 4px; margin: -4px 0 10px; font-size: 12px; color: var(--cw-dim); }
+.cw-dossier-count span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--cw-faint); }
+
+/* 抖音 / B站预览的视频画面始终是暗底白字（模拟真实播放器），不随亮色主题变浅；画面外的信息区才跟主题 */
+.cw-pv-dy, .cw-pv-bili-player { background: #0d0f12; }
+.cw-pv-dy-stage { background-color: #0d0f12; }
+:root[data-theme='light'] .cw-pv-dy-hook { color: #ffd84d; }

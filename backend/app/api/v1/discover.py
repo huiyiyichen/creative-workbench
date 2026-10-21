@@ -51,9 +51,11 @@ async def get_today_feed(
     platform: str | None = Query(None, max_length=50),
     limit: int = Query(40, ge=1, le=200),
     offset: int = Query(0, ge=0),
+    sort: Literal["score", "latest"] = "score",
     db: AsyncSession = Depends(get_db),
 ):
-    return await today_feed(db, view=view, media=media, platform=platform, limit=limit, offset=offset)
+    """信号流：sort=score 按结论与初筛分（默认），sort=latest 按发布时间。"""
+    return await today_feed(db, view=view, media=media, platform=platform, limit=limit, offset=offset, sort=sort)
 
 
 @router.get("/today/signals")

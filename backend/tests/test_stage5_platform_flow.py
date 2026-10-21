@@ -96,6 +96,15 @@ def test_platform_rewrite_spec():
     assert spec.node("edit").parallel == "platforms" and spec.node("check").after == ["edit"]
 
 
+def test_platform_rewrite_accepts_every_platform_rule():
+    """流程输入的可选平台必须覆盖 PLATFORM_RULES：曾漏掉 douyin / bilibili，全流程里被静默丢掉。"""
+    from app.services.output_rules import PLATFORM_RULES
+
+    spec = load_spec("platform_rewrite")
+    options = spec.inputs["platforms"]["options"]
+    assert set(PLATFORM_RULES) <= set(options)
+
+
 @pytest.mark.asyncio
 async def test_platform_rewrite_parallel_check_and_write_outputs(env, fake_llm):
     async with env["factory"]() as db:

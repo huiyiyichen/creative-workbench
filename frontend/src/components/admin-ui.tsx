@@ -46,7 +46,7 @@ export function AdminPageShell({
   className?: string;
 }) {
   return (
-    <div className="h-full min-h-0 overflow-y-auto bg-page px-4 py-5 sm:px-6 lg:px-10">
+    <div className="cw-admin-shell h-full min-h-0 overflow-y-auto bg-page px-4 py-5 sm:px-6 lg:px-10">
       <div
         className={cx('mx-auto w-full space-y-5 pb-8', className)}
         style={{ maxWidth }}

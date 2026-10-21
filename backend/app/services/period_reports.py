@@ -30,6 +30,7 @@ from app.models.trend import TopicTrend
 from app.models.trending import TrendingSnapshot
 from app.models.weekly_digest import WeeklyDigest
 from app.services.event_members import event_members_subquery
+from app.services.term_match import title_matches
 from app.services.topic_signals import CALC_VERSION, STATUS_LABEL
 
 LOCAL_TZ = ZoneInfo("Asia/Shanghai")
@@ -262,7 +263,7 @@ async def _watch_terms(db: AsyncSession, start: date, end: date) -> list[dict[st
     out = []
     for src in terms:
         term = (src.query or src.keyword or src.name or "").strip()
-        cond = or_(ContentItem.source_id == src.id, ContentItem.title.ilike(f"%{term}%"))
+        cond = or_(ContentItem.source_id == src.id, title_matches(ContentItem.title, term))
 
         async def count(a: date, b: date, cond=cond) -> int:
             return (

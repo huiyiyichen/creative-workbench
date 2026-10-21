@@ -26,6 +26,7 @@ from app.models.content_event import ContentEventGroup
 from app.models.content_observation import ContentMetricObservation, MediaAsset
 from app.models.source import Source
 from app.services.event_members import event_members_subquery
+from app.services.term_match import title_matches
 from app.services.verdict_service import verdicts_for
 
 LOCAL_TZ = ZoneInfo("Asia/Shanghai")
@@ -221,6 +222,7 @@ async def today_feed(
     limit: int = 40,
     offset: int = 0,
     now: datetime | None = None,
+    sort: str = "score",
 ) -> dict[str, Any]:
     now = now or datetime.now(UTC)
     if view == "picks":
@@ -243,9 +245,11 @@ async def today_feed(
         (
             await db.execute(
                 stmt.order_by(
-                    verdict_rank,
-                    ContentItem.triage_score.desc().nulls_last(),
-                    _effective_time().desc(),
+                    *(
+                        (_effective_time().desc(),)
+                        if sort == "latest"
+                        else (verdict_rank, ContentItem.triage_score.desc().nulls_last(), _effective_time().desc())
+                    )
                 )
                 .limit(limit)
                 .offset(offset)
@@ -331,7 +335,7 @@ async def watch_term_panel(db: AsyncSession, *, now: datetime | None = None, hou
             await db.execute(
                 select(ContentItem.platform, _effective_time()).where(
                     _effective_time() >= since,
-                    or_(ContentItem.source_id == src.id, ContentItem.title.ilike(f"%{term}%")),
+                    or_(ContentItem.source_id == src.id, title_matches(ContentItem.title, term)),
                 )
             )
         ).all()
@@ -349,6 +353,8 @@ async def watch_term_panel(db: AsyncSession, *, now: datetime | None = None, hou
                 "term": term,
                 "enabled": src.enabled,
                 "platforms": src.platforms or [],
+                "last_sync_at": src.last_sync_at.isoformat() if src.last_sync_at else None,
+                "sync_error": (src.sync_error or "")[:200] or None,
                 "dots": dots,
                 "per_platform": dict(per_platform),
                 "total": len(rows),

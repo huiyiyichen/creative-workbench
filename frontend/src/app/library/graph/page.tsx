@@ -27,6 +27,7 @@ const RELATION_LABEL: Record<string, string> = {
   manual: '手动',
   same_event: '同一事件',
   same_tag: '同标签',
+  same_words: '标题相近',
   same_author: '同作者',
   similar: '相似',
   used_in_project: '用于项目',

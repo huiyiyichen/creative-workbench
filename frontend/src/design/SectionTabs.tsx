@@ -3,7 +3,8 @@ import type React from 'react';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { activeTab, sectionTabsFor, type SectionTab } from './sections';
+import { SOURCES_TABS, activeTab, sectionTabsFor, type SectionTab } from './sections';
+import { TopBar } from './components';
 
 export function SectionTabs({ tabs, label }: { tabs?: SectionTab[]; label?: string }) {
   const pathname = usePathname() || '/';
@@ -51,5 +52,27 @@ export function SettingsShell({ children, legacy }: { children: React.ReactNode;
         <div className={legacy ? 'cw-settings-body cw-legacy-area' : 'cw-settings-body'}>{children}</div>
       </div>
     </div>
+  );
+}
+
+/** 信源三页（信源列表 / 采集 / 内容）共用的顶栏：标题后紧跟分段导航，位置在三页完全一致；右侧放各页自己的操作。 */
+export function SourcesTopBar({ children }: { children?: React.ReactNode }) {
+  const pathname = usePathname() || '/';
+  const current = activeTab(pathname, SOURCES_TABS);
+  return (
+    <TopBar
+      title="信源"
+      nav={
+        <nav className="cw-seg" aria-label="信源分页">
+          {SOURCES_TABS.map((t) => (
+            <Link key={t.href} href={t.href} aria-current={current === t.href ? 'page' : undefined}>
+              {t.label}
+            </Link>
+          ))}
+        </nav>
+      }
+    >
+      {children}
+    </TopBar>
   );
 }

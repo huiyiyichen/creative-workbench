@@ -79,6 +79,8 @@ export interface WatchTermPanel {
   dots: number[];
   per_platform: Record<string, number>;
   total: number;
+  last_sync_at?: string | null;
+  sync_error?: string | null;
 }
 
 export interface ResonanceMatrix {
@@ -192,6 +194,8 @@ export interface RisingBoard {
   computed_at: string | null;
   status_counts: Partial<Record<TopicStatus, number>>;
   items: (TopicRow & { representative: ItemCard | null; dossier_id: number | null })[];
+  /** 话题信号还没有时的兜底：热榜最近两批对比的新上榜 / 排名上升 */
+  hot_rising?: { source: string; title: string; url: string; rank: number; trend: string; rank_delta: number | null; hot_value_raw: string; fetched_at: string }[];
 }
 
 export interface WatchTermCurve {
@@ -221,6 +225,8 @@ export interface DossierSummary {
   series: (number | null)[];
   platforms: Record<string, number>;
   content_count: number | null;
+  /** 还没有信号行时给的最新一条标题 */
+  latest_title?: string | null;
 }
 
 export interface DossierDetail extends DossierSummary {
@@ -332,7 +338,7 @@ export interface CommentList {
 }
 
 export const discoverApi = {
-  feed(params: { view?: 'all' | 'picks'; media?: string; platform?: string; limit?: number; offset?: number } = {}): Promise<TodayFeed> {
+  feed(params: { view?: 'all' | 'picks'; media?: string; platform?: string; limit?: number; offset?: number; sort?: 'score' | 'latest' } = {}): Promise<TodayFeed> {
     return request<TodayFeed>(`/today/feed${qs(params)}`).then(decodeTextDeep);
   },
   signals(range: 'today' | '48h' | '7d' = 'today'): Promise<TodaySignals> {

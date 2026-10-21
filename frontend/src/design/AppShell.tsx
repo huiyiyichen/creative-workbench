@@ -16,7 +16,7 @@ import { NotificationDrawer, NotifyButton, useUnreadCount } from './notification
 import { useStaticTheme } from './feedback';
 
 /** 已按调色台重做的路由；其余旧页面（管理页、日报 / 周刊 / 月刊）包在 .cw-legacy 里，调色板换成 --cw-* 变量跟随主题 */
-export const CW_ROUTES = ['/', '/sources', '/hot', '/reports', '/dossiers', '/items', '/settings', '/library', '/notes', '/runs', '/projects', '/tasks', '/works', '/search', '/costs'];
+export const CW_ROUTES = ['/', '/admin', '/sources', '/hot', '/reports', '/dossiers', '/items', '/settings', '/library', '/notes', '/runs', '/projects', '/tasks', '/works', '/search', '/costs'];
 
 export function isCwRoute(pathname: string): boolean {
   return CW_ROUTES.some((p) => pathname === p || (p !== '/' && pathname.startsWith(`${p}/`)));

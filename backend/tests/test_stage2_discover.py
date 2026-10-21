@@ -321,3 +321,32 @@ async def test_scoring_settings_roundtrip(db):
     assert (await load_rules(db, "status_rules"))["rising_ratio"] == 0.8
     with pytest.raises(ValueError):
         await save_scoring_settings(db, {"verdict_rules": {"nope": 1}})
+
+
+def test_title_matches_whole_word_on_postgres():
+    """英文追踪词整词匹配：「rea」不再命中 real / create；中文仍按子串。"""
+    from sqlalchemy.dialects import postgresql, sqlite
+
+    from app.models.content import ContentItem
+    from app.services.term_match import title_matches
+
+    pg = title_matches(ContentItem.title, "rea").compile(dialect=postgresql.dialect())
+    assert "~*" in str(pg) and r"\mrea\M" in pg.params.values()
+    lite = title_matches(ContentItem.title, "rea").compile(dialect=sqlite.dialect())
+    assert "LIKE" in str(lite).upper() and "%rea%" in lite.params.values()
+    zh = title_matches(ContentItem.title, "写作").compile(dialect=postgresql.dialect())
+    assert "ILIKE" in str(zh).upper() and "%写作%" in zh.params.values()
+
+
+def test_library_graph_title_pairs_fallback():
+    """没有向量和标签时，标题字面相近的条目也连边，图谱不再是一片散点。"""
+    from types import SimpleNamespace
+
+    from app.services.library_graph import _title_pairs
+
+    items = [
+        SimpleNamespace(id=1, title="用 Opus 5.5 拍完一支 MV"),
+        SimpleNamespace(id=2, title="Opus 5.5 做的动画讲解 MV"),
+        SimpleNamespace(id=3, title="今天天气不错"),
+    ]
+    assert _title_pairs(items) == [(1, 2)]

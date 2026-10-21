@@ -5,7 +5,8 @@ import Link from 'next/link';
 import { Select, Tooltip, message } from 'antd';
 import { Pause, Play, Plus, RefreshCw, Settings2, Undo2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Card, CwPage, MiniBars, Num, SectionHead, StatusDot, TopBar } from '@/design/components';
+import { SourcesTopBar } from '@/design/SectionTabs';
+import { Button, Card, CwPage, MiniBars, Num, SectionHead, StatusDot } from '@/design/components';
 import { mediaColor } from '@/design/tokens';
 import {
   collectionApi,
@@ -33,11 +34,6 @@ import {
   relativeTime,
 } from '@/lib/collection';
 
-const TABS = [
-  { href: '/admin/sources', label: '信源列表' },
-  { href: '/sources', label: '采集' },
-  { href: '/admin/contents', label: '内容' },
-];
 
 function errorText(err: unknown): string {
   return err instanceof Error ? err.message : '请求失败';
@@ -366,14 +362,7 @@ export default function SourcesCollectionPage() {
   return (
     <CwPage>
       {toastHolder}
-      <TopBar title="信源">
-        <nav className="cw-seg" aria-label="信源分页">
-          {TABS.map((tab) => (
-            <Link key={tab.href} href={tab.href} aria-current={tab.href === '/sources' ? 'page' : undefined}>
-              {tab.label}
-            </Link>
-          ))}
-        </nav>
+      <SourcesTopBar>
         <StatusLamp
           tone={overview?.paused ? 'warn' : problemCount ? 'bad' : 'ok'}
           label={overview?.paused ? '采集已暂停' : problemCount ? `${problemCount} 个信源需要处理` : '采集正常'}
@@ -384,7 +373,7 @@ export default function SourcesCollectionPage() {
         <Button variant="primary" icon={<Plus />} onClick={() => setAdding(true)}>
           添加信源
         </Button>
-      </TopBar>
+      </SourcesTopBar>
 
       {loadError ? <div className="cw-error">{loadError}</div> : null}
 

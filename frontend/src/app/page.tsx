@@ -20,6 +20,7 @@ import { Search } from 'lucide-react';
 import { fmtDay } from '@/lib/time-cn';
 import { EmptyInstrument, Readout, Readouts, ScanSkeleton, StatusLamp } from '@/design/instrument';
 import { useSourcesAlert } from '@/design/useSourcesAlert';
+import { RemoveTermButton, WatchTermInput } from '@/design/watch-terms';
 
 const LEGEND: { key: keyof typeof mediaColor; label: string }[] = [
   { key: 'article', label: '文章' },
@@ -43,6 +44,7 @@ function TodayPage() {
   const params = useSearchParams();
   const view = (params.get('view') === 'picks' ? 'picks' : 'all') as 'all' | 'picks';
   const [media, setMedia] = useState('');
+  const [sort, setSort] = useState<'score' | 'latest'>('score');
   const [feed, setFeed] = useState<TodayFeed | null>(null);
   const [signals, setSignals] = useState<TodaySignals | null>(null);
   const [range, setRange] = useState<SignalRange>('today');
@@ -56,23 +58,27 @@ function TodayPage() {
   const loadFeed = useCallback(async () => {
     try {
       setError(null);
-      setFeed(await discoverApi.feed({ view, media: media || undefined, limit: 40 }));
+      setFeed(await discoverApi.feed({ view, media: media || undefined, limit: 40, sort }));
     } catch (err) {
       setError(errText(err));
     }
-  }, [view, media]);
+  }, [view, media, sort]);
 
   useEffect(() => {
     void loadFeed();
   }, [loadFeed]);
 
-  useEffect(() => {
+  const loadSide = useCallback(() => {
     discoverApi.side().then(setSide).catch(() => setSide(null));
+  }, []);
+
+  useEffect(() => {
+    loadSide();
     discoverApi
       .seen()
       .then((s) => (s.away_days && s.gap_start && s.gap_end ? setAway({ days: s.away_days, start: s.gap_start, end: s.gap_end }) : null))
       .catch(() => undefined);
-  }, []);
+  }, [loadSide]);
 
   useEffect(() => {
     setSignals(null);
@@ -86,7 +92,7 @@ function TodayPage() {
     if (!feed) return;
     setMore(true);
     try {
-      const next = await discoverApi.feed({ view, media: media || undefined, limit: 40, offset: feed.items.length });
+      const next = await discoverApi.feed({ view, media: media || undefined, limit: 40, offset: feed.items.length, sort });
       setFeed({ ...feed, items: [...feed.items, ...next.items], days: next.days ? [...(feed.days || []), ...next.days] : feed.days });
     } catch (err) {
       setError(errText(err));
@@ -167,6 +173,15 @@ function TodayPage() {
               只看精选
             </button>
             <span className="cw-grow" />
+            <Segmented
+              label="排序"
+              value={sort}
+              onChange={(v) => setSort(v as 'score' | 'latest')}
+              options={[
+                { value: 'score', label: '值得做优先' },
+                { value: 'latest', label: '最新发布' },
+              ]}
+            />
             <span className="cw-muted cw-num">{feed ? `${feed.total} 条` : ''}</span>
           </div>
           {error ? <div className="cw-error">{error}</div> : null}
@@ -231,45 +246,53 @@ function TodayPage() {
               <ScanSkeleton height={80} />
             )}
           </Card>
-          <Card title="追踪词" extra={<small className="cw-muted">近 24 小时</small>}>
+          <Card title="追踪词" extra={<Link href="/hot?tab=terms" className="cw-muted">管理</Link>}>
             {!side ? (
               <ScanSkeleton height={120} />
             ) : side.watch_terms.length === 0 ? (
-              <EmptyInstrument
-                compact
-                kind="dark"
-                title="还没有追踪词"
-                reason="追一个关键词，24 小时里每小时在各平台出现几次会点亮在这里。"
-                actions={
-                  <Link className="cw-btn" href="/hot?tab=terms">
-                    添加追踪词
-                  </Link>
-                }
-              />
+              <>
+                <EmptyInstrument compact kind="dark" title="还没有追踪词" reason="追一个关键词，24 小时里每小时在各平台出现几次会点亮在这里。" />
+                <WatchTermInput onAdded={loadSide} />
+              </>
             ) : (
               <>
                 {term ? (
                   <div className="cw-watch-block">
-                    <h3 className="cw-watch-term">{term.term}</h3>
+                    <div className="cw-watch-head">
+                      <h3 className="cw-watch-term">{term.term}</h3>
+                      <small className="cw-muted">近 24 小时</small>
+                      <RemoveTermButton sourceId={term.source_id} term={term.term} onRemoved={loadSide} />
+                    </div>
                     <div className="cw-watch-sub">
-                      {Object.keys(term.per_platform).length} 个平台共 <b className="cw-num">{term.total}</b> 条
+                      {term.total ? (
+                        <>
+                          {Object.keys(term.per_platform).length} 个平台共 <b className="cw-num">{term.total}</b> 条
+                        </>
+                      ) : term.sync_error ? (
+                        <span className="cw-term-err">搜索失败：{term.sync_error}</span>
+                      ) : !term.last_sync_at ? (
+                        '正在各平台搜索，几分钟后出数'
+                      ) : (
+                        `近 24 小时没有标题含「${term.term}」的内容`
+                      )}
                     </div>
                     <DotMatrix dots={term.dots} label={`${term.term} 近 24 小时逐小时点阵`} />
-                    <PlatformBars dist={term.per_platform} />
+                    {term.total ? <PlatformBars dist={term.per_platform} /> : null}
                   </div>
                 ) : null}
                 {side.watch_terms.length > 1 ? (
                   <div className="cw-watch-block cw-chips">
                     {side.watch_terms.slice(1).map((t) => (
-                      <Link key={t.source_id} className="cw-chip" href={`/hot?tab=terms#term-${t.source_id}`}>
-                        {t.term} <span className="cw-num">{t.total}</span>
-                      </Link>
+                      <span key={t.source_id} className="cw-chip cw-term-chip">
+                        <Link href={`/hot?tab=terms#term-${t.source_id}`}>
+                          {t.term} <span className="cw-num">{t.total}</span>
+                        </Link>
+                        <RemoveTermButton sourceId={t.source_id} term={t.term} onRemoved={loadSide} />
+                      </span>
                     ))}
-                    <Link className="cw-chip" href="/hot?tab=terms">
-                      添加追踪词
-                    </Link>
                   </div>
                 ) : null}
+                <WatchTermInput onAdded={loadSide} compact />
               </>
             )}
           </Card>

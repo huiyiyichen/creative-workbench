@@ -104,6 +104,10 @@ export default function DossiersPage() {
                 <StatusTag status={d.status} />
               </div>
               <h3>{d.title}</h3>
+              <div className="cw-dossier-count">
+                已收集 <b className="cw-num">{d.content_count ?? 0}</b> 条
+                {d.latest_title ? <span title={d.latest_title}>最新：{d.latest_title}</span> : null}
+              </div>
               <GapSpark values={bucketSeries(d.series, 3)} width={260} label={`${d.title} 热度曲线`} accent={color.rd} />
               <div className="cw-rise-plats">
                 {topPlatforms(d.platforms, 4).map(([p, n]) => (

@@ -37,6 +37,7 @@ from app.models.source import Source
 from app.models.source_sync_run import SourceSyncRun
 from app.models.trend import TopicTrend
 from app.services.event_members import event_members_subquery
+from app.services.term_match import title_matches
 
 CALC_VERSION = "signal-v2"
 WINDOW_HOURS = 7 * 24  # 只扫描最近 7 天的观测窗口
@@ -289,7 +290,7 @@ async def _watch_term_topics(db: AsyncSession, since: datetime) -> list[dict[str
         )
         hit = select(ContentItem.id).where(
             func.coalesce(ContentItem.published_at, ContentItem.crawled_at) >= since,
-            ContentItem.title.ilike(f"%{term}%"),
+            title_matches(ContentItem.title, term),
         )
         ids = set((await db.execute(own)).scalars()) | set((await db.execute(hit)).scalars())
         first = (

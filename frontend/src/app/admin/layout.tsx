@@ -7,30 +7,29 @@
 
 import React from 'react';
 import { usePathname } from 'next/navigation';
-import { SectionTabs, SettingsShell } from '@/design/SectionTabs';
+import { SettingsShell, SourcesTopBar } from '@/design/SectionTabs';
+import { CwAntd, CwPage } from '@/design/components';
 import { SOURCES_TABS, sectionTabsFor } from '@/design/sections';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || '';
   const tabs = sectionTabsFor(pathname);
-  const title = tabs === SOURCES_TABS ? '信源' : '设置';
   if (tabs !== SOURCES_TABS) {
     return (
-      <div className="h-full overflow-auto">
-        <SettingsShell legacy>{children}</SettingsShell>
-      </div>
+      <CwAntd>
+        <div className="h-full overflow-auto">
+          <SettingsShell legacy>{children}</SettingsShell>
+        </div>
+      </CwAntd>
     );
   }
+  // 与 /sources（采集）同一个页面壳和顶栏：主题、内边距、分段导航位置三页一致
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <div className="cw-app cw-legacy-head">
-        <header className="cw-topbar">
-          <h1>{title}</h1>
-          <span className="cw-grow" />
-        </header>
-        <SectionTabs label={`${title}分页`} />
-      </div>
-      <div className="cw-legacy-area min-h-0 flex-1 overflow-auto bg-page">{children}</div>
+    <div className="cw-main-scroll">
+      <CwPage className="cw-sources-page">
+        <SourcesTopBar />
+        <div className="cw-legacy-area cw-sources-body">{children}</div>
+      </CwPage>
     </div>
   );
 }

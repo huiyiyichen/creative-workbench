@@ -24,10 +24,21 @@ export function CwPage({ children, className = '' }: { children: ReactNode; clas
   );
 }
 
-export function TopBar({ title, sub, children }: { title: string; sub?: ReactNode; children?: ReactNode }) {
+/** 只套主题（antd 跟随暗 / 亮），不加页面内边距。 */
+export function CwAntd({ children }: { children: ReactNode }) {
+  const [mode] = useCwTheme();
+  return (
+    <ConfigProvider theme={cwAntdThemeFor(mode)} locale={zhCN} button={{ autoInsertSpace: false }}>
+      <AntdApp component={false}>{children}</AntdApp>
+    </ConfigProvider>
+  );
+}
+
+export function TopBar({ title, sub, nav, children }: { title: string; sub?: ReactNode; nav?: ReactNode; children?: ReactNode }) {
   return (
     <header className="cw-topbar">
       <h1>{title}</h1>
+      {nav}
       {sub ? <span className="cw-sub">{sub}</span> : null}
       <span className="cw-grow" />
       {children}
