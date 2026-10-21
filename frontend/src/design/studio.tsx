@@ -19,6 +19,7 @@ import { platformName } from './discover';
 import { discoverApi, type ItemCard } from '@/lib/api/_discover';
 import { libraryApi, libraryFileUrl, type LibraryItem } from '@/lib/api/_library';
 import { mediaUrl } from '@/lib/api/_collection';
+import { rememberProject } from '@/lib/last-project';
 import { projectsApi, type PipelineView, type OutputKind, type ProjectAsset, type ProjectMode, type ProjectSource, type ProjectView } from '@/lib/api/_projects';
 import { runsApi, type RunDetail } from '@/lib/api/_runs';
 import { ACTIVE_RUN, flowStages, type FlowStage } from '@/lib/projects';
@@ -250,6 +251,11 @@ export function ProjectShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState('');
+  const pid = project?.id;
+  useEffect(() => {
+    // 记下当前步骤，侧栏「创作」切走再回来能回到这里
+    if (pid && pathname.startsWith(`/projects/${pid}`)) rememberProject(pid, pathname);
+  }, [pid, pathname]);
   if (error)
     return (
       <div className="cw-page">
@@ -315,6 +321,9 @@ export function ProjectShell({ children }: { children: ReactNode }) {
           <FeishuButton type="project" id={project.id} className="cw-pbar-link" />
           <Link className="cw-pbar-link" href={`/runs?project=${project.id}`}>
             过程
+          </Link>
+          <Link className="cw-pbar-link" href="/projects/new" title="新建一个空白项目">
+            新建
           </Link>
           {project.running_tasks ? <span className="cw-pbar-link cw-num">任务 {project.running_tasks}</span> : null}
         </div>

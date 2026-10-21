@@ -18,6 +18,7 @@ describe('主导航', () => {
     expect(activeNavId('/projects')).toBe('projects');
     expect(activeNavId('/projects/41/idea')).toBe('new');
     expect(activeNavId('/projects/new')).toBe('new');
+    expect(activeNavId('/create')).toBe('new');
     expect(activeNavId('/weekly')).toBe('reports');
     expect(activeNavId('/sources')).toBe('sources');
     expect(activeNavId('/admin/sources')).toBe('sources');
