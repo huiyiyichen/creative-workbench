@@ -402,3 +402,13 @@ async def test_recover_on_startup(flow_env):
         assert await engine.recover_on_startup() == 1
         await db.refresh(run)
         assert run.status == "paused" and "服务重启" in run.status_reason
+
+
+def test_planner_cards_tolerates_shape_drift():
+    from app.services.flows.roles import _planner_cards
+
+    assert _planner_cards({"cards": []}) == []
+    assert _planner_cards([{"标题": "怎么识别 AI 演示套路"}])[0]["title"] == "怎么识别 AI 演示套路"
+    got = _planner_cards({"directions": [{"headline": "A"}, {"x": 1}]})
+    assert [c["title"] for c in got] == ["A"]
+    assert _planner_cards({"data": [{"name": "B"}]})[0]["title"] == "B"

@@ -329,33 +329,35 @@ async def planner(ctx: RoleContext) -> list[ArtifactOut]:
     system = (
         f"你是资深内容策划。根据研究简报给出 {n} 个不同的选题方向，切入角度要明显不同（例如解读、实测、观点、盘点、教程）。\n"
         "<how_to_judge>每个方向先过三项检查：有趣（有悬念或反常识）、有信息量（读者能学到东西）、有共鸣（和读者自己的处境有关），"
-        "至少占两项才给出。写清这件事和谁有关、他看完能得到什么。只判断内容本身的条件，不预测播放量或阅读量。"
+        "至少占两项才给出；简报证据薄或原选题站不住时，不要返回空，改成证据撑得住的角度（例如方法论、怎么识别、通用套路），照样给满。写清这件事和谁有关、他看完能得到什么。只判断内容本身的条件，不预测播放量或阅读量。"
         "借鉴爆款只借结构（钩子类型、骨架、互动方式），不复用原句。</how_to_judge>\n"
         "每个方向说明：标题示例、角度、目标读者与「和他有什么关系」、为什么现在做、适合的形式（article 文章 / video 视频 / image 图文）、"
         "hkr（有趣 / 信息量 / 共鸣 三项各 0–2 分）、needs（作者还需要补的亲历或数据，最多 2 项，没有就空数组），并引用支撑它的简报条目编号。\n"
         '只输出 JSON：{"cards": [{"title": "…", "angle": "…", "audience": "…", "why_now": "…", "format": "video", '
         '"hkr": {"h": 2, "k": 1, "r": 2}, "needs": ["…"], "refs": ["f1"]}]}' + prompt_kit.UNTRUSTED + ctx.system_extra()
     )
-    reply = await _llm(
-        ctx,
-        [
-            {"role": "system", "content": system},
+    messages = [
+        {"role": "system", "content": system},
+        {
+            "role": "user",
+            "content": f"运行 #{ctx.run_id}\n选题：{topic}\n总体判断：{c.get('summary') or ''}\n\n简报条目：\n"
+            + ("\n".join(lines) or "（无）"),
+        },
+    ]
+    raw_cards = _planner_cards(await _llm(ctx, messages, scene="flow_planner", max_tokens=3500))
+    if not raw_cards:
+        # 模型常在证据薄时返回空数组或换了键名：明确要求再给一次
+        retry = messages + [
             {
                 "role": "user",
-                "content": f"运行 #{ctx.run_id}\n选题：{topic}\n总体判断：{c.get('summary') or ''}\n\n简报条目：\n"
-                + ("\n".join(lines) or "（无）"),
-            },
-        ],
-        scene="flow_planner",
-        max_tokens=3500,
-    )
-    if not isinstance(reply, dict):
-        raise RoleError("策划没有返回 JSON 对象")
+                "content": f"上一次没有给出可用的方向。请务必输出 {n} 个方向，键名用 cards，每个都要有 title；"
+                "原选题证据不足就换成简报撑得住的角度。只输出 JSON。",
+            }
+        ]
+        raw_cards = _planner_cards(await _llm(ctx, retry, scene="flow_planner", max_tokens=3500))
     cards = []
     links: list[dict[str, Any]] = [{"relation": "derived_from", "target_type": "artifact", "target_id": brief["id"]}]
-    for card in reply.get("cards") or []:
-        if not isinstance(card, dict) or not str(card.get("title") or "").strip():
-            continue
+    for card in raw_cards:
         did = f"d{len(cards) + 1}"
         used = [r for r in card.get("refs") or [] if r in fids]
         cards.append(
@@ -386,6 +388,29 @@ async def planner(ctx: RoleContext) -> list[ArtifactOut]:
     if not cards:
         raise RoleError("策划没有给出可用的方向")
     return [ArtifactOut("direction_cards", f"方向卡 · {topic}"[:300], {"topic": topic, "cards": cards}, links)]
+
+
+_CARD_LIST_KEYS = ("cards", "directions", "items", "topics", "方向", "选题")
+_CARD_TITLE_KEYS = ("title", "标题", "headline", "name", "标题示例")
+
+
+def _planner_cards(reply: Any) -> list[dict[str, Any]]:
+    """容忍模型的常见偏差：顶层直接是数组、换了列表键名、标题用了别的键。"""
+    items: Any = reply
+    if isinstance(reply, dict):
+        items = next((reply[k] for k in _CARD_LIST_KEYS if isinstance(reply.get(k), list)), None)
+        if items is None:
+            items = next((v for v in reply.values() if isinstance(v, list) and v and isinstance(v[0], dict)), [])
+    if not isinstance(items, list):
+        return []
+    out = []
+    for card in items:
+        if not isinstance(card, dict):
+            continue
+        title = next((str(card[k]).strip() for k in _CARD_TITLE_KEYS if str(card.get(k) or "").strip()), "")
+        if title:
+            out.append({**card, "title": title})
+    return out
 
 
 def _hkr(raw: Any) -> dict[str, int] | None:
