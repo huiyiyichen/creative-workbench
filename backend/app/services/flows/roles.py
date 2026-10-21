@@ -171,7 +171,7 @@ async def researcher(ctx: RoleContext) -> list[ArtifactOut]:
         '结束：{"action": "final", "summary": "一两句总体判断", "findings": [{"claim": "结论", '
         '"sources": [{"type": "content", "id": 123} 或 {"type": "library", "id": 45} 或 '
         '{"type": "url", "url": "https://…", "title": "…"}]}]}\n'
-        f"最多调用 {max_calls} 次工具。每条结论必须带出处（工具结果里出现过的 content_id / library_id / url），"
+        f"第一轮必须调用工具，不能直接输出 final；最多调用 {max_calls} 次工具。不要声称调用过你没调用的工具。每条结论必须带出处（工具结果里出现过的 content_id / library_id / url），"
         "没有出处的结论不要写。结论 3 到 6 条，写清楚事实、数据和时间；保留来源原本的确定程度和相对时间，不要强化。"
         + ctx.system_extra()
     )
@@ -183,8 +183,9 @@ async def researcher(ctx: RoleContext) -> list[ArtifactOut]:
     messages: list[dict[str, str]] = [{"role": "system", "content": system}, {"role": "user", "content": user}]
     tool_ctx = wt.ToolContext(run_id=ctx.run_id, step_id=ctx.step_id, allowed=frozenset(tools))
     calls = 0
+    nudged = False
     final: dict[str, Any] | None = None
-    for _ in range(max_calls + 2):
+    for _ in range(max_calls + 3):
         reply = await _llm(ctx, messages, scene="flow_researcher")
         if not isinstance(reply, dict):
             raise RoleError("研究员没有返回 JSON 对象")
@@ -209,6 +210,17 @@ async def researcher(ctx: RoleContext) -> list[ArtifactOut]:
             )
             continue
         if reply.get("action") == "final":
+            if calls == 0 and not nudged:
+                # 有的模型一上来就交 final，还编出「调用了 6 次都没结果」：退回去要它先真的调用
+                nudged = True
+                messages.append(
+                    {
+                        "role": "user",
+                        "content": "你还没有调用过任何工具，上面的结论不算数。现在先输出一个调用工具的 JSON"
+                        '（{"action": "tool", ...}），拿到结果再写 final。',
+                    }
+                )
+                continue
             final = reply
             break
         messages.append({"role": "user", "content": "工具次数已用完或格式不对，请直接输出 final JSON。"})
@@ -222,11 +234,14 @@ async def researcher(ctx: RoleContext) -> list[ArtifactOut]:
         if not sources:  # 每条结论必须带出处
             continue
         findings.append({"id": f"f{len(findings) + 1}", "claim": str(f["claim"]).strip(), "sources": sources})
+    summary = str(final.get("summary") or "").strip()
+    if calls == 0:
+        summary = "研究员没有调用任何工具就结束了，这一路没有可用资料（可能是模型不按 JSON 格式调用工具）。"
     content = {
         "branch": branch,
         "branch_label": label,
         "topic": topic,
-        "summary": str(final.get("summary") or "").strip(),
+        "summary": summary,
         "findings": findings,
         "tool_calls": calls,
         "dropped": len(final.get("findings") or []) - len(findings),
