@@ -2,7 +2,7 @@
 
 /** 爆款拆解：条目详情、灵感库条目、搜索框贴链接都能打开；拆完可「照这个结构写」直接开项目。 */
 
-import { Drawer } from 'antd';
+import { Drawer, Input } from 'antd';
 import { Copy, ScanSearch } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useState } from 'react';
@@ -27,6 +27,8 @@ export function BreakdownView({ target }: { target: BreakdownTarget }) {
   const [data, setData] = useState<Breakdown | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // 借结构写自己的题：先问主题，参考爆款只当「参考」来源
+  const [theme, setTheme] = useState('');
   const key = JSON.stringify(target);
   const load = useCallback(
     async (force = false) => {
@@ -57,7 +59,11 @@ export function BreakdownView({ target }: { target: BreakdownTarget }) {
   const write = async () => {
     setBusy(true);
     try {
-      const p = await projectsApi.create({ sources: [`library:${data.item_id}`], intent: breakdownIntent(data) });
+      const p = await projectsApi.create({
+        theme: theme.trim(),
+        references: [`library:${data.item_id}`],
+        intent: breakdownIntent(data),
+      });
       router.push(`/projects/${p.id}`);
     } catch (err) {
       toast.error(err, '没建成项目');
@@ -157,8 +163,19 @@ export function BreakdownView({ target }: { target: BreakdownTarget }) {
         </section>
       ) : null}
 
+      <section className="cw-bd-theme">
+        <span className="cw-bd-tag">你要用这个结构讲什么</span>
+        <Input
+          value={theme}
+          onChange={(e) => setTheme(e.target.value)}
+          maxLength={200}
+          placeholder="写下你自己的主题，例如：怎么一眼识别 AI 演示里的剪辑套路"
+          onPressEnter={() => theme.trim() && !busy && void write()}
+        />
+        <small className="cw-muted">这条爆款只借结构和钩子，不会被当成写作对象。</small>
+      </section>
       <footer className="cw-row">
-        <Button variant="primary" onClick={write} disabled={busy}>
+        <Button variant="primary" onClick={write} disabled={busy || !theme.trim()}>
           {busy ? '建项目中…' : '照这个结构写'}
         </Button>
         <Button onClick={() => void load(true)}>重新拆</Button>

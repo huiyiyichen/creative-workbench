@@ -32,6 +32,8 @@ class ProjectCreate(BoundedModel):
     sources: list[str] = Field(default_factory=list, max_length=10)
     # 创作思路（如「照这个结构写」带进来的爆款结构）
     intent: str = Field(default="", max_length=5000)
+    # 只借结构 / 写法的参考（如爆款拆解）：登记为「参考」来源，不当主来源，也不拿它的标题当主题
+    references: list[str] = Field(default_factory=list, max_length=10)
 
 
 class ProjectBatch(BoundedModel):

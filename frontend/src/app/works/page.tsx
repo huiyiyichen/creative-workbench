@@ -144,7 +144,7 @@ export default function WorksPage() {
             <EmptyInstrument
               kind="dark"
               title={q || kind ? '没有符合条件的作品' : '还没有作品'}
-              reason="产出物完成、导出或发布后会自动收进来；草稿可以在产出页点「加入作品库」。"
+              reason="平台版本生成后、其他产出物完成或导出后会自动收进来；草稿也可以在产出页点「加入作品库」。"
               actions={
                 <Link className="cw-btn" data-variant="primary" href="/projects">
                   去项目

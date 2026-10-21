@@ -5370,6 +5370,14 @@
       "title": "Mode",
       "type": "string"
      },
+     "references": {
+      "items": {
+       "type": "string"
+      },
+      "maxItems": 10,
+      "title": "References",
+      "type": "array"
+     },
      "sources": {
       "items": {
        "type": "string"

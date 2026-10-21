@@ -1,6 +1,6 @@
 """作品库（改造方案 9）：按项目归档产出物，可预览、下载、复制。
 
-收录规则：完成 / 已导出 / 已发布的产出物自动收录；草稿（如平台版本）可以手动「加入作品库」
+收录规则：完成 / 已导出 / 已发布的产出物、已生成正文的平台版本自动收录；其他草稿可以手动「加入作品库」
 （`settings.in_works = true`）；`in_works = false` 表示从作品库移出。旧工作台做的成片（没有挂在产出物上的
 完成制作物）作为「旧成片」一并列出。
 """
@@ -25,7 +25,10 @@ def included(output: ProjectOutput) -> bool:
     flag = (output.settings or {}).get("in_works")
     if flag is False:
         return False
-    return bool(flag) or output.status in AUTO_STATUSES
+    if flag or output.status in AUTO_STATUSES:
+        return True
+    # 平台版本生成出正文就算一件作品（之前停在「草稿」要手点加入，用户以为是 bug）
+    return output.kind in PLATFORM_KINDS and bool(str((output.content or {}).get("body") or "").strip())
 
 
 def _plain(text: str) -> str:

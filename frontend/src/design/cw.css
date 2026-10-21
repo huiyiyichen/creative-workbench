@@ -2360,6 +2360,7 @@ a.cw-lamp:hover { color: var(--cw-text); }
 .cw-bd-h { display: flex; align-items: center; gap: 10px; margin: 0 0 8px; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; color: var(--cw-dim); }
 .cw-bd-tag { display: inline-block; margin-bottom: 6px; font-size: 11px; color: var(--cw-yl); letter-spacing: 0.06em; }
 .cw-bd-hook { padding: 12px 14px; border: 1px solid var(--cw-line); border-left: 2px solid var(--cw-yl); border-radius: 8px; background: var(--cw-panel); }
+.cw-bd-theme { display: grid; gap: 6px; }
 .cw-bd-hook blockquote { margin: 0 0 6px; font-size: 16px; font-weight: 600; line-height: 1.5; }
 .cw-bd-hook p { margin: 0; font-size: 12px; }
 .cw-bd-beats { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 0; margin: 0; padding: 0; list-style: none; border: 1px solid var(--cw-line); border-radius: 8px; overflow: hidden; }

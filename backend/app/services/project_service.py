@@ -316,6 +316,19 @@ async def create_project(db: AsyncSession, owner_id: int, request: ProjectCreate
             ),
             commit=False,
         )
+    for kind, rid in (_parse_source_ref(r) for r in request.references):
+        if kind == "note":
+            continue
+        await add_source(
+            db,
+            project.id,
+            SourceAdd(
+                content_id=rid if kind == "content" else None,
+                library_item_id=rid if kind == "library" else None,
+                role="reference",
+            ),
+            commit=False,
+        )
     if not request.theme:
         main = (
             await db.execute(

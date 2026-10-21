@@ -43,7 +43,8 @@ async def test_works_rules_groups_and_toggle(test_session_factory):
         data = await works_service.list_works(db)
         by = {g["project"]["id"]: g["items"] for g in data["groups"]}
         keys_a = {i["key"] for i in by[a["id"]]}
-        assert keys_a == {f"output:{wechat.id}", f"output:{video.id}"}  # 草稿不自动收录
+        # 平台版本有正文就自动收录
+        assert keys_a == {f"output:{xhs.id}", f"output:{wechat.id}", f"output:{video.id}"}
         w = next(i for i in by[a["id"]] if i["kind"] == "wechat")
         assert w["copy_text"] == "长文\n\n第一段 第二段" and w["excerpt"] == "第一段 第二段"
         v = next(i for i in by[a["id"]] if i["kind"] == "video")

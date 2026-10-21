@@ -39,7 +39,7 @@ def sources_text(sources: list[dict[str, Any]]) -> str:
     lines = []
     for i, s in enumerate(sources, 1):
         snap = s.get("snapshot") or {}
-        role = "主来源" if s.get("role") == "main" else "参考"
+        role = "主来源" if s.get("role") == "main" else "参考：只借结构和写法，不是写作对象"
         meta = "，".join(x for x in [snap.get("platform"), snap.get("published_at")] if x)
         lines.append(f"[{i}] （{role}）{snap.get('title') or '未命名'}{f'（{meta}）' if meta else ''}")
         summary = (snap.get("summary") or "").strip()
@@ -141,6 +141,19 @@ def _draft_digest(draft: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
+PRIORITY_RULES = (
+    "<priority>作者的设定是硬要求，按这个顺序服从：\n"
+    "1. 主题：写作对象就是主题本身。\n"
+    "2. 创作思路：作者亲手写的要求。里面给了结构（编号步骤、段落安排）就按这个结构分段写，每一步都要落到；"
+    "给了钩子就用同类型的钩子开头。\n"
+    "3. 受众、语气、所选方向、内容模板。\n"
+    "创作思路里的「参考爆款」、来源里标「参考」的条目，只借它的结构、钩子类型和节奏，不要把它当写作对象："
+    "不复述、不评论那条参考内容本身，也不要写「那条视频说……」。\n"
+    "结构里需要作者亲测、复现的步骤而材料里没有时，不要每段都留空：改写成读者自己能照做的检查方法，"
+    "或用来源里已有的公开案例代替；【待作者补充】全文最多 2 处，只留给非作者本人不可的内容。</priority>"
+)
+
+
 # ── 写手 ──
 
 
@@ -158,6 +171,8 @@ async def writer(ctx: RoleContext) -> list[ArtifactOut]:
         '"citations": [{"paragraph": 1, "sources": [1]}], "summary": "一句话说明这一稿"}。'
         + MODE_DIRECTION.get(brief.get("mode") or "article", "")
         + "用到来源的段落在 citations 里写明段落序号（从 1 开始，按空行分段）和来源序号。"
+        + "\n"
+        + PRIORITY_RULES
         + "\n"
         + prompt_kit.WRITER_RULES
     )

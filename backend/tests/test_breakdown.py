@@ -50,3 +50,14 @@ async def test_breakdown_saves_to_library_and_caches(db, monkeypatch):
     )
     detail = await ps.get_project(db, p["id"])
     assert "照这个结构写" in detail.spec["brief"]["intent"]
+
+    # 借结构写自己的题：参考只登记为 reference，主题用作者给的
+    p2 = await ps.create_project(
+        db,
+        1,
+        ProjectCreate(theme="怎么识别 AI 演示套路", references=[f"library:{item.id}"], intent="参考爆款：x"),
+    )
+    detail2 = await ps.get_project(db, p2["id"])
+    assert detail2.spec["brief"]["theme"] == "怎么识别 AI 演示套路"
+    roles = [s["role"] for s in await ps.list_sources(db, p2["id"])]
+    assert roles == ["reference"]

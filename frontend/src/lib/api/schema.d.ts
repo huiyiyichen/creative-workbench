@@ -8274,6 +8274,8 @@ export interface components {
              * @enum {string}
              */
             mode: "article" | "video_prompt" | "animation_video" | "music_video";
+            /** References */
+            references?: string[];
             /** Sources */
             sources?: string[];
             /**
