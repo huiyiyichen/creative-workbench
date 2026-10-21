@@ -6,7 +6,7 @@ describe('主导航', () => {
     expect(CW_NAV.map((g) => g.items.map((i) => i.label))).toEqual([
       ['今日', '热点', '报告', '专题'],
       ['灵感库'],
-      ['项目'],
+      ['创作', '项目'],
       ['作品', '任务', '花费'],
     ]);
     expect(CW_NAV_BOTTOM.map((i) => i.label)).toEqual(['信源', '设置']);
