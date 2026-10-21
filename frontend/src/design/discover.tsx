@@ -120,14 +120,19 @@ export function FeedItem({
   hovered,
   onOpen,
   onHover,
+  showVerdict = true,
 }: {
   item: ItemCard;
   selected?: boolean;
   hovered?: boolean;
   onOpen: (id: number) => void;
   onHover?: (id: number | null) => void;
+  /** 列表里只有前 20% 的「值得做」才显示结论，其余行不标（结论少才有意义） */
+  showVerdict?: boolean;
 }) {
   const c = mediaKindColor(item.media_type);
+  const fresh = item.key_points.includes('新出现');
+  const points = item.key_points.filter((k) => k !== '新出现');
   const cover = item.cover_asset_id ? mediaUrl(item.cover_asset_id) : null;
   return (
     <li
@@ -152,6 +157,7 @@ export function FeedItem({
       </button>
       <div className="cw-item-main">
         <button type="button" className="cw-item-title" onClick={() => onOpen(item.id)}>
+          {fresh ? <i className="cw-fresh" title="新出现" aria-label="新出现" /> : null}
           {item.title}
         </button>
         <div className="cw-item-meta">
@@ -159,14 +165,14 @@ export function FeedItem({
           {item.author ? <span>{item.author}</span> : item.source_name ? <span>{item.source_name}</span> : null}
           <span>{relativeTime(item.published_at || item.crawled_at)}发布</span>
         </div>
-        {item.verdict && item.verdict !== 'watch' ? (
+        {item.verdict === 'skip' || (showVerdict && item.verdict === 'worth') ? (
           <div className="cw-item-verdict">
             <VerdictMark verdict={item.verdict} user={Boolean(item.user_verdict)} size="small" />
-            {item.key_points.length ? <span className="cw-num">{item.key_points.join(' · ')}</span> : null}
+            {points.length ? <span className="cw-num">{points.join(' · ')}</span> : null}
           </div>
-        ) : item.key_points.length ? (
+        ) : points.length ? (
           <div className="cw-item-verdict">
-            <span className="cw-num cw-muted">{item.key_points.join(' · ')}</span>
+            <span className="cw-num cw-muted">{points.join(' · ')}</span>
           </div>
         ) : null}
       </div>
@@ -458,6 +464,9 @@ export function PlatformBars({ dist, accent = color.mg }: { dist: Record<string,
   );
 }
 
+/** 共振矩阵列头缩写（列宽 40px） */
+const RES_SHORT: Record<string, string> = { github: 'GH', hackernews: 'HN', hacker_news: 'HN', hn: 'HN', rss: '网页', web: '网页', bilibili: 'B站', youtube: 'YT', reddit: 'Rd', douyin: '抖音', xiaohongshu: '小红书', weibo: '微博', zhihu: '知乎' };
+
 export function ResonanceTable({ data, onOpen }: { data: ResonanceMatrix; onOpen: (id: number) => void }) {
   if (!data.rows.length)
     return <EmptyInstrument compact kind="dark" title="近 48 小时没有跨平台的事件" reason="同一件事同时出现在两个以上平台（比如网页和 B站）时会在这里亮起。" />;
@@ -471,7 +480,7 @@ export function ResonanceTable({ data, onOpen }: { data: ResonanceMatrix; onOpen
         <tr>
           <th>主题</th>
           {platforms.map((p) => (
-            <th key={p} title={platformName(p)}>{platformName(p)}</th>
+            <th key={p} title={platformName(p)}>{RES_SHORT[p] ?? platformName(p).slice(0, 4)}</th>
           ))}
         </tr>
       </thead>

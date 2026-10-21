@@ -26,7 +26,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import { Button, Panel, Toolbar, cx } from '@/components/ui';
-import { EmptyState } from '@/components/StateView';
+import { Button as CwButton } from '@/design/components';
+import { EmptyInstrument } from '@/design/instrument';
 import { InfoCell, StatusPill, Surface } from './_components';
 import { modelsApi } from '@/lib/api';
 import type { LlmModelItem } from '@/lib/api';
@@ -67,6 +68,7 @@ export function ModelsTab({ models, onRefresh }: { models: LlmModelItem[]; onRef
 
   return (
     <div className="flex flex-col gap-3.5">
+      {models.length ? (
       <Surface title="模型配置" icon={Settings2} hint={`${models.length} 个模型 · ${enabledCount} 个启用 · ${keyedCount} 个可调用`}>
         <div className="flex flex-col justify-between gap-3 lg:flex-row lg:items-center">
           <div className="text-[13px] leading-7 text-gray-500">
@@ -78,6 +80,7 @@ export function ModelsTab({ models, onRefresh }: { models: LlmModelItem[]; onRef
           </Button>
         </div>
       </Surface>
+      ) : null}
 
       {showAdd && (
         <ModelEditForm
@@ -188,11 +191,18 @@ export function ModelsTab({ models, onRefresh }: { models: LlmModelItem[]; onRef
         ))}
       </div>
 
-      {models.length === 0 && (
-        <Surface title="空模型库" icon={Settings2}>
-          <EmptyState panel={false} minHeight="220px" title="还没有配置任何模型，点击“添加模型”开始" />
-        </Surface>
-      )}
+      {models.length === 0 && !showAdd ? (
+        <EmptyInstrument
+          kind="unplugged"
+          title="还没有模型"
+          reason="日报、选题分析、写稿和改写都要用到语言模型。填一个 API Key 就能开始，之后可以再加备用模型做路由。"
+          actions={
+            <CwButton variant="primary" icon={<Plus size={14} />} onClick={() => setShowAdd(true)}>
+              添加模型
+            </CwButton>
+          }
+        />
+      ) : null}
     </div>
   );
 }

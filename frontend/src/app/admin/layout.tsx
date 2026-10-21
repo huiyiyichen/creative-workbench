@@ -7,17 +7,27 @@
 
 import React from 'react';
 import { usePathname } from 'next/navigation';
-import { SectionTabs } from '@/design/SectionTabs';
+import { SectionTabs, SettingsShell } from '@/design/SectionTabs';
 import { SOURCES_TABS, sectionTabsFor } from '@/design/sections';
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname() || '';
   const tabs = sectionTabsFor(pathname);
   const title = tabs === SOURCES_TABS ? '信源' : '设置';
+  if (tabs !== SOURCES_TABS) {
+    return (
+      <div className="h-full overflow-auto">
+        <SettingsShell legacy>{children}</SettingsShell>
+      </div>
+    );
+  }
   return (
     <div className="flex h-full flex-col overflow-hidden">
       <div className="cw-app cw-legacy-head">
-        <h1>{title}</h1>
+        <header className="cw-topbar">
+          <h1>{title}</h1>
+          <span className="cw-grow" />
+        </header>
         <SectionTabs label={`${title}分页`} />
       </div>
       <div className="cw-legacy-area min-h-0 flex-1 overflow-auto bg-page">{children}</div>

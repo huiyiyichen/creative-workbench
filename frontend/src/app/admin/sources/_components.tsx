@@ -1,5 +1,7 @@
 'use client';
 
+import { DistBars } from '@/design/instrument';
+
 /**
  * Sources page 子组件（从 page.tsx 抽出的 2 个展示组件）。
  *
@@ -80,18 +82,16 @@ export function SourceMapView({
             <Network size={18} className="text-primary" strokeWidth={2} />
             <h2 className="m-0 text-[15px] font-black text-gray-800">等级分布</h2>
           </div>
-          <div className="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
-            {tierKeys.map((key) => {
-              const meta = sourceTierMeta[key];
-              return (
-                <div key={key} className={cx('rounded-sm border p-3', meta.bg, meta.border)}>
-                  <div className={cx('mb-1.5 text-[11px] font-black', meta.text)}>{meta.label}</div>
-                  <div className="font-mono text-2xl font-black leading-none text-gray-900">{sourceMap.tiers[key].length}</div>
-                  <div className="mt-1.5 text-[11px] leading-5 text-gray-500">{meta.desc}</div>
-                </div>
-              );
-            })}
-          </div>
+          {/* 四张彩色卡换成一条分布条：颜色只表达状态，待处理才用红（评审 #3 2.5） */}
+          <DistBars
+            rows={tierKeys.map((key) => ({
+              key,
+              label: sourceTierMeta[key].label,
+              value: sourceMap.tiers[key].length,
+              color: key === 'attention' ? 'var(--cw-rd)' : key === 'watch' ? 'var(--cw-faint)' : 'var(--cw-dim)',
+              note: sourceTierMeta[key].desc,
+            }))}
+          />
         </Panel>
 
         <Panel className="p-4.5">
@@ -252,7 +252,7 @@ export function SourceMapCard({
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
       className={cx(
-        'cursor-grab rounded-sm border bg-white p-3 transition',
+        'cw-srccard cursor-grab rounded-sm border bg-white p-3 transition',
         source.sync_error ? 'border-red-light' : 'border-gray-200',
         draggedId === source.id && 'opacity-50 shadow-lg',
         dropTarget?.tier === tierKey && dropTarget.beforeId === source.id && `border-t-4 ${meta.border}`,
@@ -265,7 +265,7 @@ export function SourceMapCard({
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">{sourceTypeLabel(source.source_type)}</span>
             <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">{source.category || '未分类'}</span>
-            <span className="rounded bg-primary-light px-1.5 py-0.5 text-[10px] text-primary">权重 {source.weight ?? 3}</span>
+            <span className="rounded bg-gray-100 px-1.5 py-0.5 text-[10px] text-gray-500">权重 {source.weight ?? 3}</span>
           </div>
         </div>
         <div className="flex shrink-0 items-center gap-1">
@@ -290,10 +290,10 @@ export function SourceMapCard({
       <div className={cx('mt-2 text-[11px] leading-5', source.sync_error ? 'text-red' : 'text-gray-400')}>
         {sourceSyncing ? '同步中' : source.sync_error ? source.sync_error : `最近同步 ${timeAgo(source.last_sync_at)}`}
       </div>
-      <div className="mt-2.5 flex gap-1.5">
+      <div className="cw-srccard-acts mt-2.5 flex gap-1.5">
         <Button
           type="button"
-          variant="success"
+          variant="secondary"
           onClick={() => onSync(source.id)}
           disabled={syncDisabled}
           className="min-h-7 flex-1 px-2 py-1 text-[11px]"

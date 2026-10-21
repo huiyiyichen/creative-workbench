@@ -100,6 +100,12 @@ function TodayPage() {
   const sourcesAlert = useSourcesAlert();
   const term = side?.watch_terms[0];
 
+  // 「值得做」只给前 20%（按列表顺序 = 分数顺序），其余行不标
+  const shownDo = useMemo(() => {
+    const all = feed ? (feed.days ? feed.days.flatMap((d) => d.items) : feed.items) : [];
+    const n = Math.max(1, Math.ceil(all.length * 0.2));
+    return new Set(all.filter((x) => x.verdict === 'worth').slice(0, n).map((x) => x.id));
+  }, [feed]);
   const legend = useMemo(
     () => (
       <div className="cw-legend">
@@ -186,7 +192,7 @@ function TodayPage() {
                 <div className="cw-feed-day cw-num">{d.date}</div>
                 <ul className="cw-feed cw-stagger">
                   {d.items.map((item) => (
-                    <FeedItem key={item.id} item={item} selected={item.id === openId} hovered={item.id === hoverId} onHover={setHoverId} onOpen={setOpenId} />
+                    <FeedItem key={item.id} item={item} selected={item.id === openId} hovered={item.id === hoverId} onHover={setHoverId} onOpen={setOpenId} showVerdict={shownDo.has(item.id)} />
                   ))}
                 </ul>
               </div>
@@ -194,7 +200,7 @@ function TodayPage() {
           ) : (
             <ul className="cw-feed cw-stagger">
               {feed.items.map((item) => (
-                <FeedItem key={item.id} item={item} selected={item.id === openId} hovered={item.id === hoverId} onHover={setHoverId} onOpen={setOpenId} />
+                <FeedItem key={item.id} item={item} selected={item.id === openId} hovered={item.id === hoverId} onHover={setHoverId} onOpen={setOpenId} showVerdict={shownDo.has(item.id)} />
               ))}
             </ul>
           )}

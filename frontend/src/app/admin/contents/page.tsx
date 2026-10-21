@@ -1,24 +1,20 @@
 'use client';
 
+import { StatusLamp } from '@/design/instrument';
+import { cnParts } from '@/lib/time-cn';
+
 import React, { useState } from 'react';
 import { Download, Newspaper } from 'lucide-react';
-import { CATEGORIES, SOURCE_TYPE_COLOR_MAP } from '@/lib/design-tokens';
+import { CATEGORIES } from '@/lib/design-tokens';
 import { contentsApi } from '@/lib/api';
-import { Badge, Button, Panel, Toolbar, cx } from '@/components/ui';
+import { Button, Panel, Toolbar, cx } from '@/components/ui';
 import { Pagination } from '@/components/Pagination';
 import { ErrorState, LoadingState, EmptyState } from '@/components/StateView';
 import { useFetch } from '@/hooks/useFetch';
 import { AdminPageShell, AdminPageHeader } from '@/components/admin-ui';
 import type { ContentItem } from '@/types';
-import { timeAgo } from '@/lib/datetime';
 
 // ─── Helpers ──
-
-const CONTENT_STATUS_TONE: Record<string, 'neutral' | 'teal' | 'red'> = {
-  pending: 'neutral',
-  analyzed: 'teal',
-  error: 'red',
-};
 
 const PAGE_SIZE = 50;
 
@@ -194,8 +190,6 @@ export default function ContentsPage() {
 
 function ContentRow({ item }: { item: ContentItem }) {
   const statusKey = item.status || 'pending';
-  const statusTone = CONTENT_STATUS_TONE[statusKey] || CONTENT_STATUS_TONE.pending;
-  const sourceTypeColor = SOURCE_TYPE_COLOR_MAP[item.source_type] || { bg: '#F3F4F6', color: '#6B7280' };
   const statusLabel: Record<string, string> = {
     pending: '待处理',
     analyzed: '已分析',
@@ -220,52 +214,32 @@ function ContentRow({ item }: { item: ContentItem }) {
         )}
       </div>
 
-      {/* 来源 */}
-      <div className="flex items-center gap-1.5 overflow-hidden">
-        <span className="truncate text-gray-700">
-          {item.source_name}
-        </span>
-        <span
-          className="shrink-0 whitespace-nowrap rounded px-1.5 py-0.5 text-[10px] font-semibold"
-          style={{ background: sourceTypeColor.bg, color: sourceTypeColor.color }}
-        >
-          {item.source_type}
-        </span>
+      {/* 来源：只写文字（不再给信源类型上色） */}
+      <div className="truncate text-[12px] text-gray-500" title={item.source_type}>
+        {item.source_name}
       </div>
 
-      {/* 分类 */}
+      {/* 分类：纯文字 dim */}
+      <div className="truncate text-[12px] text-gray-500">{item.category || ''}</div>
+
+      {/* 标签：最多 2 个，faint */}
+      <div className="truncate text-[11px] text-gray-400">{item.tags?.length ? item.tags.slice(0, 2).join(' · ') : ''}</div>
+
+      {/* 发布时间：档案表用绝对日期 */}
+      <div className="cw-num text-xs text-gray-500" title={item.published_at || ''}>
+        {item.published_at ? fmtDate(item.published_at) : ''}
+      </div>
+
+      {/* 状态：已分析是常态不标，只给待处理 / 错误一个灯 */}
       <div>
-        <span className="whitespace-nowrap rounded bg-primary-light px-2 py-1 text-[11px] font-semibold text-primary">
-          {item.category}
-        </span>
-      </div>
-
-      {/* 标签 */}
-      <div className="flex flex-wrap gap-1 overflow-hidden">
-        {item.tags && item.tags.length > 0
-          ? item.tags.slice(0, 3).map((tag) => (
-              <span key={tag} className="whitespace-nowrap rounded bg-purple-light px-2 py-0.5 text-[10px] font-medium text-purple">
-                {tag}
-              </span>
-            ))
-          : <span className="text-gray-300">-</span>
-        }
-        {item.tags && item.tags.length > 3 && (
-          <span className="text-[10px] text-gray-400">+{item.tags.length - 3}</span>
-        )}
-      </div>
-
-      {/* 发布时间 */}
-      <div className="font-mono text-xs text-gray-500">
-        {timeAgo(item.published_at)}
-      </div>
-
-      {/* 状态 */}
-      <div>
-        <Badge tone={statusTone} className="rounded px-2.5 py-1 text-[11px] font-semibold">
-          {statusLabel[statusKey] || statusKey}
-        </Badge>
+        {statusKey === 'analyzed' ? null : <StatusLamp tone={statusKey === 'error' ? 'bad' : 'warn'} label={statusLabel[statusKey] || statusKey} />}
       </div>
     </div>
   );
+}
+
+/** 「2026-03-14」（北京时间） */
+function fmtDate(at: string): string {
+  const p = cnParts(at);
+  return `${p.y}-${String(p.mo).padStart(2, '0')}-${String(p.d).padStart(2, '0')}`;
 }

@@ -71,6 +71,7 @@ function ProjectCard({
         <footer>
           <span className="cw-num cw-muted">{relativeTime(p.updated_at)}更新</span>
           <span className="cw-grow" />
+          <span className="cw-pcard-acts">
           <button type="button" className="cw-icon-btn" title="复制为新项目（带设定、文稿、来源、素材）" aria-label="复制" onClick={onDuplicate}>
             <Copy size={13} />
           </button>
@@ -78,6 +79,7 @@ function ProjectCard({
             {p.archived ? '恢复' : '归档'}
           </button>
           <input type="checkbox" className="cw-check" checked={picked} onChange={onPick} aria-label={`选择 ${p.title}`} />
+          </span>
         </footer>
       </div>
     </article>
@@ -266,7 +268,7 @@ export default function ProjectsPage() {
           />
         )
       ) : view === 'board' && !archived ? (
-        <div className="cw-board">
+        <div className="cw-board" data-picking={picked.size ? "true" : undefined}>
           {STAGES.map((s) => (
             <section key={s} className="cw-board-col" aria-label={COLUMN_LABEL[s]}>
               <header>

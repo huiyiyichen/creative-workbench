@@ -89,18 +89,15 @@ export function AdminPageHeader({
   description?: React.ReactNode;
   actions?: React.ReactNode;
 }) {
+  // 页面标题已由外层 TopBar（信源 / 设置）给出：这里只留读数和操作，标题仅供读屏（评审 #3 2.5）
   return (
-    <div className="flex flex-wrap items-start justify-between gap-3">
-      <div className="min-w-0">
-        <h1 className="flex items-center gap-2 text-[26px] font-black leading-tight text-gray-900">
-          {Icon && <Icon size={22} className="text-primary" strokeWidth={2.2} />}
-          {title}
-        </h1>
-        {description && (
-          <p className="mt-1.5 text-sm leading-6 text-gray-500">{description}</p>
-        )}
-      </div>
-      {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
+    <div className="cw-admin-head">
+      <h2 className="cw-sr-only">
+        {Icon ? <Icon aria-hidden /> : null}
+        {title}
+      </h2>
+      {description ? <p className="cw-admin-readout">{description}</p> : <span />}
+      {actions ? <div className="flex shrink-0 items-center gap-2">{actions}</div> : null}
     </div>
   );
 }
